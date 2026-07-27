@@ -111,6 +111,9 @@ export default function App() {
         detour={detour}
         onPickLink={onPickLink}
         showCorridor={options.direction !== 'forward'}
+        snapshotId={meta?.snapshotId ?? null}
+        tileSchemaVersion={meta?.tileSchemaVersion ?? 2}
+        attribution={meta?.attribution ?? ''}
       />
 
       <div className="panel">

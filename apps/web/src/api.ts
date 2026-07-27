@@ -122,6 +122,7 @@ export interface NetworkMetadata {
   licence: string;
   snapshotStatus: string;
   clippedExtract: boolean;
+  tileSchemaVersion?: number;
   graph: {
     links: number;
     arcs: number;
@@ -140,13 +141,20 @@ export interface NetworkMetadata {
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
+    let message = `HTTP ${res.status}`;
     try {
-      detail = (await res.json()).error ?? detail;
+      const body = await res.json();
+      // FastAPI raises HTTPException as { detail }. The TypeScript reference
+      // service uses { error }. Reading only one meant real explanations were
+      // replaced by a bare status code.
+      const d = body?.detail ?? body?.error;
+      if (typeof d === 'string') message = d;
+      else if (Array.isArray(d)) message = d.map((e) => e?.msg ?? String(e)).join('; ');
+      else if (d) message = JSON.stringify(d);
     } catch {
-      /* non-JSON error body */
+      /* non-JSON error body: keep the status line */
     }
-    throw new Error(detail);
+    throw new Error(message);
   }
   return res.json() as Promise<T>;
 }

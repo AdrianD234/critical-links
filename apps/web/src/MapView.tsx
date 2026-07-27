@@ -17,11 +17,23 @@ const LINZ_KEY = import.meta.env.VITE_LINZ_API_KEY as string | undefined;
  * LINZ Basemaps needs a free API key. Without one the map still works, on a
  * plain background, and says so rather than silently showing an empty canvas.
  */
-function baseStyle(): maplibregl.StyleSpecification {
+/**
+ * Tile URL carries the schema version and snapshot id.
+ *
+ * A bare /tiles/{z}/{x}/{y} cached for an hour gets reinterpreted after a
+ * snapshot or schema change - stale geometry, or property names the client no
+ * longer reads, with no way for the browser to tell. Addressing both makes a
+ * stale tile unreachable rather than wrong.
+ */
+function tileUrl(schemaVersion: number, snapshotId: string): string {
+  return `${api.base}/tiles/v${schemaVersion}/${encodeURIComponent(snapshotId)}/{z}/{x}/{y}.pbf`;
+}
+
+function baseStyle(tiles: string): maplibregl.StyleSpecification {
   const sources: Record<string, any> = {
     network: {
       type: 'vector',
-      tiles: [`${api.base}/tiles/{z}/{x}/{y}.pbf`],
+      tiles: [tiles],
       minzoom: 0,
       maxzoom: 15,
     },
@@ -117,12 +129,25 @@ export interface MapViewProps {
   detour: DetourResponse | null;
   onPickLink: (linkId: number) => void;
   showCorridor: boolean;
+  /** Active snapshot. The map waits for it: tile URLs are snapshot-addressed. */
+  snapshotId: string | null;
+  tileSchemaVersion: number;
+  attribution: string;
 }
 
-export default function MapView({ detour, onPickLink, showCorridor }: MapViewProps) {
+export default function MapView({
+  detour,
+  onPickLink,
+  showCorridor,
+  snapshotId,
+  tileSchemaVersion,
+  attribution,
+}: MapViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const readyRef = useRef(false);
+  const attributionRef = useRef(attribution);
+  attributionRef.current = attribution;
   // The click handler is held in a ref so that a new closure identity from the
   // parent cannot re-run the mount effect. Tearing the map down and rebuilding
   // it on every render meant it never finished loading.
@@ -130,12 +155,17 @@ export default function MapView({ detour, onPickLink, showCorridor }: MapViewPro
   pickRef.current = onPickLink;
 
   useEffect(() => {
-    if (!ref.current || mapRef.current) return;
+    // Wait for the snapshot: a tile URL without one cannot be cached safely,
+    // and building the map before it is known would request the wrong tiles.
+    if (!ref.current || mapRef.current || !snapshotId) return;
     const map = new maplibregl.Map({
       container: ref.current,
-      style: baseStyle(),
+      style: baseStyle(tileUrl(tileSchemaVersion, snapshotId)),
       center: [174.7772, -41.2889],
       zoom: 11,
+      // Attribution is a licensing obligation for LINZ Basemaps (CC BY 4.0) and
+      // for the AMDS source, not decoration. It is added as a compact control
+      // below rather than disabled.
       attributionControl: false,
     });
     mapRef.current = map;
@@ -145,6 +175,13 @@ export default function MapView({ detour, onPickLink, showCorridor }: MapViewPro
     map.on('error', (e) => console.error('maplibre error:', e && (e as any).error));
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    map.addControl(
+      new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: attributionRef.current,
+      }),
+      'bottom-right',
+    );
 
     map.on('load', () => {
       for (const l of NETWORK_LAYERS) map.addLayer(l);
@@ -215,9 +252,10 @@ export default function MapView({ detour, onPickLink, showCorridor }: MapViewPro
       mapRef.current = null;
       readyRef.current = false;
     };
-    // Mount once. See pickRef above.
+    // Re-created only when the snapshot or tile schema changes; the click
+    // handler is held in a ref so parent re-renders cannot tear the map down.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [snapshotId, tileSchemaVersion]);
 
   // Push the current result onto the map.
   useEffect(() => {

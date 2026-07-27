@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -16,7 +18,9 @@ export default defineConfig(({ mode }) => {
   // The repo keeps a single .env at its root. Vite defaults envDir to the
   // config's own directory, so without envDir the VITE_* variables are never
   // loaded and the client falls back to its defaults.
-  const env = loadEnv(mode, new URL('../..', import.meta.url).pathname, '');
+  // fileURLToPath, not URL.pathname: on Windows a file URL yields "/C:/...",
+  // which is not a usable filesystem path.
+  const env = loadEnv(mode, fileURLToPath(new URL("../..", import.meta.url)), "");
   const target = env.API_ORIGIN || `http://127.0.0.1:${env.API_PORT || 8000}`;
 
   return {

@@ -495,10 +495,14 @@ async function build() {
     }
   });
 
-  app.setErrorHandler((err, _req, reply) => {
-    const status = (err as any).statusCode ?? 500;
+  app.setErrorHandler((err: unknown, _req, reply) => {
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    const message = err instanceof Error ? err.message : String(err);
     reply.status(status).send({
-      error: err.message,
+      error: message,
+      // FastAPI raises HTTPException as { detail }; mirror it so a client can
+      // read either service without branching.
+      detail: message,
       // A transport or application failure is never a network finding.
       status: status === 400 ? 'BAD_REQUEST' : 'API_ERROR',
     });

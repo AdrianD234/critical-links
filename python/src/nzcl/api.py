@@ -16,7 +16,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
@@ -242,6 +242,7 @@ def metadata() -> dict[str, Any]:
         "where": m["where_clause"],
         "sourceFeatureCount": m["source_feature_count"],
         "downloadedFeatureCount": m["downloaded_feature_count"],
+        "tileSchemaVersion": TILE_SCHEMA_VERSION,
         "graph": {
             "links": counts["links"],
             "arcs": counts["arcs"],
@@ -544,8 +545,47 @@ def qa_summary() -> dict[str, Any]:
 
 
 # ------------------------------------------------------------- vector tiles
+@app.get("/tiles/v{schema}/{snapshot}/{z}/{x}/{y}.pbf")
+def tile_versioned(
+    schema: int, snapshot: str, z: int, x: int, y: int, request: Request
+) -> Response:
+    """Snapshot- and schema-addressed tile.
+
+    The schema version and snapshot are in the PATH, not just advertised in
+    /health. A tile cached for an hour under a bare `/tiles/{z}/{x}/{y}` would
+    otherwise be reinterpreted after a snapshot or schema change - serving stale
+    geometry, or property names the client no longer reads, with no way for a
+    browser to know. Encoding both makes a stale tile unreachable rather than
+    wrong, which is what lets the response be cached aggressively.
+    """
+    if schema != TILE_SCHEMA_VERSION:
+        raise HTTPException(
+            404,
+            f"tile schema v{schema} is not served; current is v{TILE_SCHEMA_VERSION}",
+        )
+    known = db.query_one(
+        "SELECT 1 AS ok FROM network_snapshots WHERE snapshot_id=%s", (snapshot,)
+    )
+    if not known:
+        raise HTTPException(404, f"unknown snapshot {snapshot!r}")
+    return _render_tile(z, x, y, snapshot, request)
+
+
 @app.get("/tiles/{z}/{x}/{y}.pbf")
-def tile(z: int, x: int, y: int) -> Response:
+def tile(z: int, x: int, y: int, request: Request) -> Response:
+    """Unversioned tile against the active snapshot.
+
+    Retained for convenience and ad-hoc inspection. It is deliberately NOT
+    cacheable: without a snapshot or schema in the URL there is no safe way to
+    let a cache keep it.
+    """
+    return _render_tile(z, x, y, snapshot_id(), request, cacheable=False)
+
+
+def _render_tile(
+    z: int, x: int, y: int, snapshot: str, request: Request,
+    cacheable: bool = True,
+) -> Response:
     """Mapbox Vector Tile of the routable network, straight from PostGIS.
 
     ST_AsMVT keeps the whole tile pipeline in the database: no separate tiling
@@ -595,24 +635,49 @@ def tile(z: int, x: int, y: int) -> Response:
             WHERE l.snapshot_id = %(snap)s
               AND l.geom_2193 && bounds.nztm
         )
-        SELECT ST_AsMVT(src, 'network', 4096, 'geom', 'mvtId') AS mvt
+        -- Aggregate ORDER BY is load-bearing, not tidiness. ST_AsMVT encodes
+        -- features in the order rows arrive, so without it an identical request
+        -- can return different bytes (PostgreSQL is free to reorder, especially
+        -- under parallel scan). That was observed: two identical requests
+        -- produced different ETags, which makes caching and revalidation
+        -- useless. Ordering makes a tile byte-reproducible for a given
+        -- (schema, snapshot, z, x, y).
+        SELECT ST_AsMVT(src, 'network', 4096, 'geom', 'mvtId'
+                        ORDER BY src."linkId") AS mvt
         FROM src WHERE geom IS NOT NULL
         """,
-        {"z": z, "x": x, "y": y, "snap": snapshot_id()},
+        {"z": z, "x": x, "y": y, "snap": snapshot},
     )
     data = bytes(row["mvt"]) if row and row["mvt"] else b""
     if not data:
         return Response(status_code=204)
-    return Response(
-        content=data,
-        media_type="application/x-protobuf",
-        headers={"Cache-Control": "public, max-age=3600"},
-    )
+
+    # The tile is fully determined by (schema, snapshot, z, x, y), so a hash of
+    # the bytes is a sound validator and lets a browser revalidate cheaply.
+    import hashlib
+    etag = '"' + hashlib.sha256(data).hexdigest()[:32] + '"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+
+    headers = {"ETag": etag}
+    if cacheable:
+        # Safe to cache hard: schema and snapshot are in the path, so this URL
+        # can never come to mean something else.
+        headers["Cache-Control"] = "public, max-age=86400, immutable"
+    else:
+        headers["Cache-Control"] = "no-cache"
+    return Response(content=data, media_type="application/x-protobuf", headers=headers)
 
 
 @app.get("/tiles/tilejson.json")
-def tilejson() -> dict[str, Any]:
+def tilejson(request: Request) -> dict[str, Any]:
+    """TileJSON built from the REQUEST origin.
+
+    Hard-coding localhost breaks the moment the API is reached through a proxy,
+    a different port, or any host that is not the developer machine.
+    """
     m = _ACTIVE["meta"]
+    base = str(request.base_url).rstrip("/")
     return {
         "tilejson": "2.2.0",
         "name": f"AMDS routable network - {m['snapshot_id']}",
@@ -620,5 +685,10 @@ def tilejson() -> dict[str, Any]:
         "scheme": "xyz",
         "minzoom": 0,
         "maxzoom": 16,
-        "tiles": [f"http://localhost:{settings.api_port}/tiles/{{z}}/{{x}}/{{y}}.pbf"],
+        "tileSchemaVersion": TILE_SCHEMA_VERSION,
+        "snapshotId": m["snapshot_id"],
+        "tiles": [
+            f"{base}/tiles/v{TILE_SCHEMA_VERSION}/{m['snapshot_id']}"
+            + "/{z}/{x}/{y}.pbf"
+        ],
     }

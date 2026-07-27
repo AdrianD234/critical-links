@@ -16,7 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "httpx>=0.27"]
+# mapbox-vector-tile is REQUIRED, not optional: the tile-contract test is the
+# regression guard for a shipped P0 defect, and a skipped guard protects nothing.
+dev = ["pytest>=8.3", "httpx>=0.27", "mapbox-vector-tile>=2.0"]
 
 [project.scripts]
 nzcl-discover = "nzcl.cli:discover_main"

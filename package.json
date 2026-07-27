@@ -13,7 +13,7 @@
     "apps/web"
   ],
   "scripts": {
-    "build": "tsc -b packages/core apps/api",
+    "build": "tsc -b packages/core apps/api && npm run build --workspace apps/web",
     "typecheck": "tsc -b packages/core apps/api --pretty",
     "test": "vitest run",
     "test:watch": "vitest",
