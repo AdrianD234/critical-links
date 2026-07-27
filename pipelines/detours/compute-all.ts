@@ -238,7 +238,18 @@ async function main() {
       if (d) statusCounts.set(d.status, (statusCounts.get(d.status) ?? 0) + 1);
     }
     // Route geometry is re-derivable from arc ids; omit it from the bulk file.
-    out.write(JSON.stringify(r) + '\n');
+    const ok = out.write(JSON.stringify(r) + '\n');
+
+    // The compute loop is entirely synchronous, so without an explicit yield
+    // the event loop never runs: the write stream's file descriptor is never
+    // opened, every record accumulates in memory, and a killed run loses the
+    // lot. Yielding on backpressure (and periodically regardless) is what makes
+    // the run genuinely restartable.
+    if (!ok) {
+      await new Promise<void>((res) => out.once('drain', () => res()));
+    } else if (n % 200 === 0) {
+      await new Promise<void>((res) => setImmediate(res));
+    }
 
     if (++n % 500 === 0 || n === work.length) {
       const el = (Date.now() - started) / 1000;

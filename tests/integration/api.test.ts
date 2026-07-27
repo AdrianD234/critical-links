@@ -88,10 +88,14 @@ maybe(`pilot snapshot ${snapshotId}`, () => {
         const c = snap.graph.component[l.sourceNode];
         counts.set(c, (counts.get(c) ?? 0) + 1);
       }
-      const largest = Math.max(...counts.values());
-      // Before junction splitting this was 21%. A road network must not be
-      // shattered; anything below 80% means the splitting rule has regressed.
-      expect(largest / snap.links.length).toBeGreaterThan(0.8);
+      const sorted = [...counts.values()].sort((a, b) => b - a);
+      // New Zealand is two islands with no road link between them, so the
+      // network is legitimately dominated by TWO components. Judging it on the
+      // largest alone reports Cook Strait as a defect: nationally the largest
+      // holds 63.8% (North Island) and the second 31.4% (South Island).
+      // Before junction splitting the top two held ~31% combined.
+      const topTwo = (sorted[0] + (sorted[1] ?? 0)) / snap.links.length;
+      expect(topTwo).toBeGreaterThan(0.9);
     });
 
     it('keeps the closure group together after splitting', () => {

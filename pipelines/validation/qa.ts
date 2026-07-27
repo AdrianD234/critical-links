@@ -133,16 +133,23 @@ async function main() {
   }
   const compSizes = [...compLinks.values()].sort((a, b) => b - a);
   const largestShare = compSizes.length ? compSizes[0] / links.length : 0;
+  // New Zealand is two main islands with no road connection between them, so a
+  // national graph is legitimately dominated by TWO components, not one. Judging
+  // it on the largest alone reports Cook Strait as a defect. The pilot extract
+  // also spans the strait, so the same rule applies there.
+  const topTwoShare =
+    compSizes.length > 1 ? (compSizes[0] + compSizes[1]) / links.length : largestShare;
 
-  if (largestShare < 0.8) {
+  if (topTwoShare < 0.9) {
     add({
       severity: 'error',
       issueType: 'FRAGMENTED_GRAPH',
       entityType: 'graph',
       count: g.componentCount,
       detail:
-        `Largest connected component holds only ${(largestShare * 100).toFixed(1)}% of links. ` +
-        'A routable road network should be dominated by one component. Investigate junction splitting.',
+        `The two largest connected components hold only ${(topTwoShare * 100).toFixed(1)}% of links ` +
+        `(largest ${(largestShare * 100).toFixed(1)}%). A road network should be dominated by ` +
+        'one component per landmass. Investigate junction splitting.',
     });
   } else {
     add({
@@ -151,9 +158,11 @@ async function main() {
       entityType: 'graph',
       count: g.componentCount,
       detail:
-        `Largest component holds ${(largestShare * 100).toFixed(1)}% of links. ` +
-        'Remaining components are expected where the extract spans a water gap ' +
-        '(for example Cook Strait) or genuinely isolated roads.',
+        `Largest component ${(largestShare * 100).toFixed(1)}% of links; two largest ` +
+        `${(topTwoShare * 100).toFixed(1)}%. Two dominant components is the expected shape ` +
+        'for New Zealand: the North and South Islands have no road connection. Smaller ' +
+        'components are ferry-only islands (Waiheke, Great Barrier), isolated peninsulas, ' +
+        'and off-network parking or access areas.',
     });
   }
 
@@ -235,6 +244,7 @@ async function main() {
       components: g.componentCount,
       largestComponentLinks: compSizes[0] ?? 0,
       largestComponentSharePct: Number((largestShare * 100).toFixed(2)),
+      twoLargestComponentsSharePct: Number((topTwoShare * 100).toFixed(2)),
       totalNetworkLengthKm: Number((totalLengthM / 1000).toFixed(1)),
       danglingNodes: dangling,
       danglingNodeSharePct: Number(((dangling / g.nodeCount) * 100).toFixed(2)),
