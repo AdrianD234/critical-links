@@ -36,7 +36,7 @@ starts the API and the map.
 A free [LINZ Basemaps](https://basemaps.linz.govt.nz/) key in
 `VITE_LINZ_API_KEY` adds the background map. The app runs without one.
 
-**Requires Node 20.11+.** No database, no Docker, no Python — see
+**Requires Node 20.11+ only** — no database or container runtime needed to run it. That is a design choice, not a limitation of the machine; see
 [ADR-001](docs/ARCHITECTURE.md#adr-001-node--typescript-instead-of-python-postgis-and-pgrouting).
 
 ---
