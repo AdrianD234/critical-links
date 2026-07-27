@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  closureLabelPoints,
   mergeRouteToLineString,
   revealGradient,
 } from '../../apps/web/src/map/route.js';
@@ -154,6 +155,100 @@ describe('mergeRouteToLineString', () => {
       [0, 0],
       [1, 1],
     ]);
+  });
+});
+
+describe('closureLabelPoints', () => {
+  function closed(
+    name: string,
+    coords: [number, number][],
+  ): GeoJSON.Feature<GeoJSON.LineString> {
+    return {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: coords },
+      properties: { role: 'closed', roadName: name },
+    };
+  }
+
+  it('returns nothing for an absent or empty closure', () => {
+    expect(closureLabelPoints(null).features).toEqual([]);
+    expect(closureLabelPoints(fc()).features).toEqual([]);
+  });
+
+  it('emits exactly one anchor for a two-way link', () => {
+    /* The closure carries one feature per directed arc, so a two-way link
+     * arrives as two identical geometries. Without deduping, the road name
+     * renders twice, stacked, and reads as a rendering fault. */
+    const line: [number, number][] = [
+      [174.9, -41.1],
+      [174.91, -41.11],
+      [174.92, -41.12],
+    ];
+    const out = closureLabelPoints(
+      fc(closed('Moonshine Road', line), closed('Moonshine Road', line)),
+    );
+
+    expect(out.features).toHaveLength(1);
+    expect(out.features[0]!.properties!.roadName).toBe('Moonshine Road');
+    expect(out.features[0]!.geometry.type).toBe('Point');
+  });
+
+  it('emits one anchor per road, not per link', () => {
+    const out = closureLabelPoints(
+      fc(
+        closed('Moonshine Road', [
+          [0, 0],
+          [1, 1],
+        ]),
+        closed('Moonshine Road', [
+          [1, 1],
+          [2, 2],
+        ]),
+        closed('Haywards Hill Road', [
+          [5, 5],
+          [6, 6],
+        ]),
+      ),
+    );
+
+    expect(out.features.map((f) => f.properties!.roadName).sort()).toEqual([
+      'Haywards Hill Road',
+      'Moonshine Road',
+    ]);
+  });
+
+  it('anchors on a vertex of the road, not at a centroid', () => {
+    /* A centroid can fall off a horseshoe entirely, putting the road's name in
+     * a field beside it. Every anchor must be a point the road passes through. */
+    const coords: [number, number][] = [
+      [0, 0],
+      [0, 10],
+      [10, 10],
+      [10, 0],
+    ];
+    const out = closureLabelPoints(fc(closed('Horseshoe Road', coords)));
+    const anchor = (out.features[0]!.geometry as GeoJSON.Point).coordinates;
+
+    expect(coords.some((c) => c[0] === anchor[0] && c[1] === anchor[1])).toBe(
+      true,
+    );
+  });
+
+  it('skips features with no road name rather than labelling them blank', () => {
+    const out = closureLabelPoints(
+      fc({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [1, 1],
+          ],
+        },
+        properties: { role: 'closed', roadName: '' },
+      }),
+    );
+    expect(out.features).toEqual([]);
   });
 });
 

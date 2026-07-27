@@ -30,6 +30,7 @@ import NetworkMap, {
   type MapResult,
   type ScaleReading,
 } from './map/NetworkMap.js';
+import { hasLinzKey } from './map/style.js';
 import InspectorActions from './inspector/InspectorActions.js';
 import ResultView from './inspector/ResultView.js';
 import type { DirectionView } from './inspector/DirectionTabs.js';
@@ -334,7 +335,10 @@ export default function ExploreScreen() {
           scale={scale}
           attribution={
             meta?.attribution ??
-            'Basemap © LINZ, CC BY 4.0 · Contains data sourced from the NZTA Waka Kotahi AMDS Network Model'
+            'Contains data sourced from the NZTA Waka Kotahi AMDS Network Model'
+          }
+          basemapAttribution={
+            hasLinzKey() ? 'Basemap © LINZ, CC BY 4.0' : ''
           }
         >
           <NetworkMap

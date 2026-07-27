@@ -123,6 +123,63 @@ export function mergeRouteToLineString(
 }
 
 /**
+ * One label anchor per closed road, as Points.
+ *
+ * WHY NOT LABEL THE LINE DIRECTLY
+ *
+ * A symbol layer with line or point placement over the closure LineStrings
+ * looked correct at zoom 11 and rendered nothing at zoom 14. MapLibre re-tiles
+ * a GeoJSON source per zoom level, and the anchor it derives from a clipped
+ * LineString can land in a tile's buffer and be dropped from every tile that
+ * could have drawn it. The failure is silent — no error, no warning, just no
+ * label, and only at some zooms.
+ *
+ * A Point feature has one unambiguous tile home at every zoom, so this cannot
+ * happen. Deriving the points here also dedupes: the closure carries one
+ * feature per directed arc, so a two-way link would otherwise draw its name
+ * twice, stacked.
+ *
+ * Anchors are grouped by road name rather than by link, so closing an AMDS
+ * feature made of several links produces one label, not one per link.
+ */
+export function closureLabelPoints(
+  closure: GeoJSON.FeatureCollection | null | undefined,
+): GeoJSON.FeatureCollection {
+  const empty: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: [],
+  };
+  if (!closure?.features?.length) return empty;
+
+  /* Collect every vertex per road name, then anchor at the middle one. The
+   * middle *vertex* rather than the centroid, so the label sits on the road
+   * even when it curves — a centroid can fall off a horseshoe entirely. */
+  const byName = new Map<string, GeoJSON.Position[]>();
+
+  for (const f of closure.features) {
+    const name = String(f.properties?.roadName ?? '').trim();
+    if (!name) continue;
+    const c = coordsOf(f.geometry as GeoJSON.Geometry);
+    if (!c) continue;
+    const existing = byName.get(name);
+    if (existing) existing.push(...c);
+    else byName.set(name, [...c]);
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: [...byName.entries()].map(([name, coords]) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: coords[Math.floor(coords.length / 2)]!,
+      },
+      properties: { roadName: name },
+    })),
+  };
+}
+
+/**
  * The `line-gradient` expression for a reveal that has progressed to `t`.
  *
  * The stops must be strictly increasing or MapLibre rejects the expression

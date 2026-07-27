@@ -16,15 +16,21 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type Map as MLMap, type MapGeoJSONFeature } from 'maplibre-gl';
 
 import {
+  LABEL_LAYERS,
   LYR,
   NETWORK_LAYERS,
   OVERLAY_LAYERS,
   SRC,
   baseStyle,
   emptyCollection,
+  hasLinzKey,
   tileUrl,
 } from './style.js';
-import { mergeRouteToLineString, revealGradient } from './route.js';
+import {
+  closureLabelPoints,
+  mergeRouteToLineString,
+  revealGradient,
+} from './route.js';
 import { palette } from '../styles/palette.js';
 import { api } from '../api/client.js';
 
@@ -172,6 +178,10 @@ export default function NetworkMap({
       for (const l of NETWORK_LAYERS) map.addLayer(l);
 
       map.addSource(SRC.closure, { type: 'geojson', data: emptyCollection() });
+      map.addSource(SRC.closureLabel, {
+        type: 'geojson',
+        data: emptyCollection(),
+      });
       map.addSource(SRC.routeCompare, { type: 'geojson', data: emptyCollection() });
       map.addSource(SRC.routeHit, { type: 'geojson', data: emptyCollection() });
       map.addSource(SRC.corridor, { type: 'geojson', data: emptyCollection() });
@@ -186,6 +196,14 @@ export default function NetworkMap({
       });
 
       for (const l of OVERLAY_LAYERS) map.addLayer(l);
+
+      /* Text last: MapLibre draws in layer order, and a label under a route
+       * line is unreadable. Skipped entirely without a LINZ key, because LINZ
+       * is the glyph source and a symbol layer with no glyphs errors on every
+       * tile rather than degrading quietly. */
+      if (hasLinzKey()) {
+        for (const l of LABEL_LAYERS) map.addLayer(l);
+      }
 
       ready.current = true;
       map.getCanvas().style.cursor = 'crosshair';
@@ -255,6 +273,7 @@ export default function NetworkMap({
     if (!result) {
       for (const id of [
         SRC.closure,
+        SRC.closureLabel,
         SRC.routeFocus,
         SRC.routeCompare,
         SRC.routeHit,
@@ -267,6 +286,7 @@ export default function NetworkMap({
     }
 
     src(SRC.closure)?.setData(result.closure ?? emptyCollection());
+    src(SRC.closureLabel)?.setData(closureLabelPoints(result.closure));
     src(SRC.routeCompare)?.setData(result.compare ?? emptyCollection());
     src(SRC.corridor)?.setData(result.corridor ?? emptyCollection());
     src(SRC.stranded)?.setData(result.stranded ?? emptyCollection());
@@ -373,7 +393,14 @@ export default function NetworkMap({
       }
     };
     vis(LYR.networkLine, layersVisible.network);
-    vis(LYR.linz, layersVisible.basemap);
+    for (const id of [LYR.linzWater, LYR.linzLandcover, LYR.linzBuilding]) {
+      vis(id, layersVisible.basemap);
+    }
+    /* The closure label is exempt: it names the thing under analysis, and
+     * turning off basemap labels should not hide what the user selected. */
+    for (const id of [LYR.linzPlaceLabel, LYR.networkLabel]) {
+      vis(id, layersVisible.labels);
+    }
   }, [layersVisible]);
 
   /* Preview highlight for a search candidate, before it is selected. */

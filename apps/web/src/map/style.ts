@@ -19,6 +19,36 @@ export function hasLinzKey(): boolean {
   return Boolean(LINZ_KEY && LINZ_KEY !== 'replace_me');
 }
 
+/**
+ * LINZ serves the topographic basemap as **vector** tiles, and that is what
+ * this app uses rather than the aerial raster.
+ *
+ * Aerial imagery is the wrong basemap for this product. Direction C is a dark,
+ * quiet, low-chroma canvas whose entire purpose is to make the road network the
+ * brightest thing on screen; full-colour photography is the opposite, and
+ * desaturating it to fit just produces grey mud that still competes with the
+ * routes for attention. Vector tiles can be styled to the design instead of
+ * fought with.
+ *
+ * It also brings a glyph endpoint, which is what makes map labels possible at
+ * all — MapLibre cannot render a single character of text without one.
+ *
+ * Only a handful of LINZ's 273 layers are drawn: water, land cover and
+ * buildings for context. Their `transportation` layer is deliberately NOT
+ * drawn — the AMDS network is the subject of the analysis, and a second road
+ * network underneath it would be both visual noise and a lie about what is
+ * being measured.
+ */
+const LINZ_TILES =
+  'https://basemaps.linz.govt.nz/v1/tiles/topographic/WebMercatorQuad/{z}/{x}/{y}.pbf';
+
+/** LINZ serves only Open Sans Regular and Noto Sans Regular. */
+export const LABEL_FONT = ['Open Sans Regular'];
+
+function linzUrl(template: string): string {
+  return `${template}?api=${LINZ_KEY}`;
+}
+
 /** Source and layer ids, so nothing is addressed by a bare string twice. */
 export const SRC = {
   network: 'network',
@@ -28,13 +58,19 @@ export const SRC = {
   routeHit: 'route-hit',
   corridor: 'corridor',
   stranded: 'stranded',
+  closureLabel: 'closure-label-anchor',
   linz: 'linz',
 } as const;
 
 export const LYR = {
   background: 'background',
-  linz: 'linz-base',
+  linzWater: 'linz-water',
+  linzLandcover: 'linz-landcover',
+  linzBuilding: 'linz-building',
+  linzPlaceLabel: 'linz-place-label',
   networkLine: 'network-line',
+  networkLabel: 'network-label',
+  closureLabel: 'closure-label',
   networkHit: 'network-hit',
   networkHover: 'network-hover',
   stranded: 'stranded-line',
@@ -89,12 +125,13 @@ export function emptyCollection(): GeoJSON.FeatureCollection {
 }
 
 /**
- * The base style: graphite ground, optional LINZ topographic raster held well
- * back, and the routable network as vector tiles.
+ * The base style: graphite ground, the LINZ topographic vector basemap styled
+ * down to context, and the routable network as vector tiles.
  *
- * `glyphs` must be omitted entirely, not set to undefined: the style
- * specification requires a string, and `glyphs: undefined` fails validation.
- * A failed style load leaves every source unregistered, which surfaces later as
+ * `glyphs` is only set when a LINZ key is configured, because LINZ is the glyph
+ * source. It must be omitted entirely rather than set to undefined: the style
+ * specification requires a string, and `glyphs: undefined` fails validation. A
+ * failed style load leaves every source unregistered, which surfaces later as
  * `source "network" not found` when the layers are added.
  */
 export function baseStyle(tiles: string): StyleSpecification {
@@ -115,32 +152,155 @@ export function baseStyle(tiles: string): StyleSpecification {
     },
   ];
 
+  const style: Record<string, unknown> = { version: 8, sources, layers };
+
   if (hasLinzKey()) {
     sources[SRC.linz] = {
-      type: 'raster',
-      tiles: [
-        `https://basemaps.linz.govt.nz/v1/tiles/topographic/WebMercatorQuad/{z}/{x}/{y}.webp?api=${LINZ_KEY}`,
-      ],
-      tileSize: 256,
+      type: 'vector',
+      tiles: [linzUrl(LINZ_TILES)],
+      minzoom: 0,
+      maxzoom: 15,
       attribution:
         '<a href="https://www.linz.govt.nz/">LINZ</a> Basemaps — CC BY 4.0',
     };
-    /* Desaturated and dimmed hard. The basemap is context; the network is the
-     * subject and must stay the brightest thing on the canvas. */
-    layers.push({
-      id: LYR.linz,
-      type: 'raster',
-      source: SRC.linz,
-      paint: {
-        'raster-opacity': 0.42,
-        'raster-saturation': -0.72,
-        'raster-contrast': -0.12,
+
+    style.glyphs = linzUrl(
+      'https://basemaps.linz.govt.nz/v1/fonts/{fontstack}/{range}.pbf',
+    );
+
+    /*
+     * Context, in three quiet layers. Every colour here is darker than the
+     * network draws with, so nothing on the basemap can be mistaken for a
+     * road, a route or a closure.
+     */
+    layers.push(
+      {
+        id: LYR.linzLandcover,
+        type: 'fill',
+        source: SRC.linz,
+        'source-layer': 'landcover',
+        paint: { 'fill-color': '#1b232a', 'fill-opacity': 0.6 },
       },
-    });
+      {
+        /* Water is the one basemap feature that genuinely explains a detour —
+         * a harbour is why the alternative is 55 km. It gets the strongest
+         * contrast of the three. */
+        id: LYR.linzWater,
+        type: 'fill',
+        source: SRC.linz,
+        'source-layer': 'water',
+        paint: { 'fill-color': palette.mapWater, 'fill-opacity': 1 },
+      },
+      {
+        id: LYR.linzBuilding,
+        type: 'fill',
+        source: SRC.linz,
+        'source-layer': 'building',
+        minzoom: 14,
+        paint: { 'fill-color': '#252e36', 'fill-opacity': 0.85 },
+      },
+    );
   }
 
-  return { version: 8, sources, layers } as StyleSpecification;
+  return style as unknown as StyleSpecification;
 }
+
+/**
+ * Text.
+ *
+ * Kept separate from the geometry layers because these must be added last —
+ * MapLibre draws in layer order and a label under a route line is unreadable.
+ *
+ * Road names come from OUR OWN tiles, not the basemap's `transportation`
+ * layer. That is the point: the label then names the link the analysis
+ * actually evaluated, with the name AMDS records for it, rather than whatever
+ * a different dataset happens to call the road at that location.
+ */
+export const LABEL_LAYERS: LayerSpecification[] = [
+  {
+    /*
+     * The closed road, named on the map.
+     *
+     * FIRST in this array on purpose. MapLibre resolves label collisions in
+     * layer order, first placed wins, so the closure gets priority over place
+     * and road names — the user selected this link and it must not be the
+     * label that loses.
+     *
+     * The source is a derived Point collection, not the closure LineStrings —
+     * see `closureLabelPoints` for why. A symbol layer over the lines rendered
+     * at zoom 11 and vanished at zoom 14, because the anchor MapLibre derives
+     * from a tile-clipped LineString can be dropped from every tile that could
+     * have drawn it.
+     *
+     * Overlap is allowed. This is the one label that must never lose: the user
+     * selected this link, and a map that hides the name of the thing under
+     * analysis to satisfy a collision rule is answering a different question.
+     * The duplicate-label risk that would normally argue against this is
+     * already handled upstream, by deriving one anchor per road name.
+     */
+    id: LYR.closureLabel,
+    type: 'symbol',
+    source: SRC.closureLabel,
+    layout: {
+      'text-field': ['get', 'roadName'],
+      'text-font': LABEL_FONT,
+      'text-size': 12,
+      'text-offset': [0, -1.5],
+      'text-anchor': 'bottom',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+    },
+    paint: {
+      'text-color': palette.closure,
+      'text-halo-color': '#0b0f12',
+      'text-halo-width': 1.8,
+    },
+  },
+  {
+    id: LYR.linzPlaceLabel,
+    type: 'symbol',
+    source: SRC.linz,
+    'source-layer': 'place',
+    minzoom: 8,
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': LABEL_FONT,
+      'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 14, 13],
+      'text-transform': 'uppercase',
+      'text-letter-spacing': 0.12,
+      'text-max-width': 8,
+    },
+    paint: {
+      'text-color': palette.shellFgFaint,
+      'text-halo-color': palette.mapLand,
+      'text-halo-width': 1.2,
+    },
+  },
+  {
+    /* Road names along the line. Late zoom only: at z13 the network is dense
+     * enough that labelling it would bury the routes under text. */
+    id: LYR.networkLabel,
+    type: 'symbol',
+    source: SRC.network,
+    'source-layer': 'network',
+    minzoom: 13.5,
+    filter: ['!=', ['get', 'roadName'], ''],
+    layout: {
+      'symbol-placement': 'line',
+      'text-field': ['get', 'roadName'],
+      'text-font': LABEL_FONT,
+      'text-size': ['interpolate', ['linear'], ['zoom'], 13.5, 9.5, 17, 12],
+      'text-max-angle': 35,
+      'symbol-spacing': 260,
+    },
+    paint: {
+      'text-color': palette.shellFgMuted,
+      'text-halo-color': palette.mapLand,
+      'text-halo-width': 1.4,
+      'text-opacity': 0.85,
+    },
+  },
+];
 
 /** The network itself, plus its fat invisible hit line and hover highlight. */
 export const NETWORK_LAYERS: LayerSpecification[] = [

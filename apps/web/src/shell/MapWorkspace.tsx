@@ -24,12 +24,16 @@ export default function MapWorkspace({
   legend,
   scale,
   attribution,
+  basemapAttribution,
 }: {
   children: ReactNode;
   closureBadge: ReactNode;
   legend: { colour: string; label: string; dashed?: boolean }[];
   scale: ScaleReading | null;
+  /** The data source credit, from the API. */
   attribution: string;
+  /** The basemap credit. Empty when no basemap is configured. */
+  basemapAttribution: string;
 }) {
   return (
     <main className="workspace" id="map-workspace">
@@ -61,8 +65,14 @@ export default function MapWorkspace({
         </div>
       )}
 
+      {/*
+        Both credits, always. The API's attribution string covers the AMDS
+        source only; the LINZ basemap licence (CC BY 4.0) requires its own
+        visible credit, and it is not optional or collapsible.
+      */}
       <div className="map-attrib">
-        {attribution || 'Basemap © LINZ, CC BY 4.0'}
+        {basemapAttribution && <span>{basemapAttribution} · </span>}
+        {attribution}
       </div>
     </main>
   );

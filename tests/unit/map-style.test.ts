@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 
 import {
+  LABEL_LAYERS,
   LYR,
   NETWORK_LAYERS,
   OVERLAY_LAYERS,
@@ -34,32 +35,58 @@ const TILES = 'https://example.test/tiles/v2/snap/{z}/{x}/{y}.pbf';
 /**
  * The complete style the component builds: base plus every layer it adds on
  * load. `baseStyle` only covers what is present before `map.on('load')`.
+ *
+ * The test environment has no LINZ key, so `baseStyle` omits the basemap and
+ * its glyphs. The with-basemap case reconstructs both here — including the
+ * `glyphs` URL, without which every symbol layer is invalid.
  */
 function fullStyle(withLinz: boolean): any {
   const style: any = JSON.parse(JSON.stringify(baseStyle(TILES)));
 
+  /*
+   * Whether `baseStyle` already included the basemap depends on whether a LINZ
+   * key is present in the environment — a developer with a populated .env and
+   * CI without one must both get the same test result. So the basemap is added
+   * only if it is not already there, and removed if it is not wanted.
+   */
+  const has = (id: string) => style.layers.some((l: any) => l.id === id);
+
   if (withLinz) {
-    /* baseStyle only adds the raster source when a key is configured, and the
-     * test environment has none. Add it here so the with-basemap case is still
-     * validated. */
-    style.sources[SRC.linz] = {
-      type: 'raster',
+    style.glyphs ??=
+      'https://basemaps.linz.govt.nz/v1/fonts/{fontstack}/{range}.pbf?api=KEY';
+    style.sources[SRC.linz] ??= {
+      type: 'vector',
       tiles: [
-        'https://basemaps.linz.govt.nz/v1/tiles/topographic/WebMercatorQuad/{z}/{x}/{y}.webp?api=KEY',
+        'https://basemaps.linz.govt.nz/v1/tiles/topographic/WebMercatorQuad/{z}/{x}/{y}.pbf?api=KEY',
       ],
-      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 15,
       attribution: 'LINZ Basemaps — CC BY 4.0',
     };
-    style.layers.push({
-      id: LYR.linz,
-      type: 'raster',
-      source: SRC.linz,
-      paint: { 'raster-opacity': 0.42, 'raster-saturation': -0.72 },
-    });
+    for (const [id, sourceLayer, colour] of [
+      [LYR.linzLandcover, 'landcover', '#1a2127'],
+      [LYR.linzWater, 'water', '#0f1418'],
+      [LYR.linzBuilding, 'building', '#20282f'],
+    ] as const) {
+      if (!has(id)) {
+        style.layers.push({
+          id,
+          type: 'fill',
+          source: SRC.linz,
+          'source-layer': sourceLayer,
+          paint: { 'fill-color': colour },
+        });
+      }
+    }
+  } else {
+    delete style.glyphs;
+    delete style.sources[SRC.linz];
+    style.layers = style.layers.filter((l: any) => l.source !== SRC.linz);
   }
 
   for (const id of [
     SRC.closure,
+    SRC.closureLabel,
     SRC.routeCompare,
     SRC.routeHit,
     SRC.corridor,
@@ -77,6 +104,7 @@ function fullStyle(withLinz: boolean): any {
   };
 
   style.layers.push(...NETWORK_LAYERS, ...OVERLAY_LAYERS);
+  if (withLinz) style.layers.push(...LABEL_LAYERS);
   return style;
 }
 
@@ -145,6 +173,38 @@ describe('MapLibre style specification', () => {
         `${l.id} sets both line-gradient and line-dasharray`,
       ).toBe(true);
     }
+  });
+
+  it('gives the closure label first claim on placement', () => {
+    /* MapLibre resolves label collisions in layer order, first placed wins.
+     * The closure names the link under analysis and must not be the label that
+     * loses to a suburb name. */
+    const ids = LABEL_LAYERS.map((l) => l.id);
+    expect(ids[0]).toBe(LYR.closureLabel);
+  });
+
+  it('labels the closure from a point source, never the lines', () => {
+    /*
+     * A symbol layer over the closure LineStrings rendered at zoom 11 and
+     * vanished at zoom 14: MapLibre re-tiles GeoJSON per zoom, and the anchor
+     * derived from a clipped line can be dropped from every tile that could
+     * have drawn it. Silent failure, only at some zooms. Points have one
+     * unambiguous tile home.
+     */
+    const label: any = LABEL_LAYERS.find((l) => l.id === LYR.closureLabel);
+    expect(label.source).toBe(SRC.closureLabel);
+    expect(label.source).not.toBe(SRC.closure);
+    expect(label.layout['symbol-placement']).toBeUndefined();
+  });
+
+  it('never draws the basemap road network under the analysed one', () => {
+    /* Two road networks stacked would be visual noise and a misrepresentation
+     * of what was measured. Only the AMDS network is drawn. */
+    const style = fullStyle(true);
+    const fromBasemap = style.layers.filter((l: any) => l.source === SRC.linz);
+    expect(
+      fromBasemap.map((l: any) => l['source-layer']),
+    ).not.toContain('transportation');
   });
 
   it('animates only a layer whose source has lineMetrics', () => {
