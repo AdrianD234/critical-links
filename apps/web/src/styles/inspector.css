@@ -1,0 +1,668 @@
+/*
+ * The cool-paper inspector.
+ *
+ * Reading order is the design. The panel answers "what happens if this road
+ * closes" before it says anything about which snapshot, which algorithm or
+ * which AMDS identifier produced the answer. Technical lineage is available,
+ * but it is four levels down and behind disclosure.
+ *
+ * Hairline rules rather than boxes: a ruled list scans vertically, and cards
+ * would chop four related measures into four unrelated ones.
+ */
+
+/* ---------------------------------------------------------------- head */
+
+.insp-head {
+  padding: 20px var(--pad-x) 0;
+  position: relative;
+}
+
+.eyebrow {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+}
+
+.insp-head h2 {
+  margin-top: 6px;
+  font-size: var(--text-road);
+  font-weight: var(--weight-road);
+  letter-spacing: var(--track-road);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+.insp-close {
+  position: absolute;
+  top: 18px;
+  right: var(--pad-x);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: var(--rule);
+  border-radius: var(--radius);
+  color: var(--panel-muted);
+  background: var(--panel-bg);
+}
+
+.insp-close:hover {
+  background: var(--panel-chip);
+  color: var(--panel-fg);
+}
+
+/* -------------------------------------------------------------- status */
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 11px var(--pad-x) 0;
+}
+
+.dir-tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  background: var(--panel-chip);
+  color: var(--panel-muted);
+}
+
+.status-pill {
+  font-size: var(--text-meta);
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-chip);
+}
+
+/* A replacement path was found. Route teal, because that is what it is. */
+.status-pill[data-kind='ok'] {
+  color: var(--route-ink);
+  background: rgba(10, 119, 103, 0.12);
+}
+
+/* A finding, not a failure: DISCONNECTED and isolation. Amber, never red. */
+.status-pill[data-kind='finding'] {
+  color: var(--compare-ink);
+  background: rgba(157, 97, 0, 0.13);
+}
+
+/*
+ * A fault is the analysis failing, not the network being cut. It is neutral
+ * charcoal on an inset chip with the status code in monospace — conspicuous
+ * through weight and the code, not through colour, because red is the closure.
+ */
+.status-pill[data-kind='fault'] {
+  color: var(--fault-ink);
+  background: var(--fault-bg);
+  border: 1px solid var(--panel-line);
+}
+
+.status-pill .code {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  opacity: 0.75;
+}
+
+/* ---------------------------------------------------------------- hero */
+
+.headline {
+  padding: 15px var(--pad-x) 0;
+}
+
+.headline .lab {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+}
+
+.headline .val {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+  /*
+   * Neutral charcoal, NOT closure red. The measurement is not the alarm, and
+   * 53.5 km is severe for a commuter and unremarkable for a freight operator
+   * with a schedule allowance — colouring it red would pre-judge a severity
+   * the analysis does not compute.
+   */
+  color: var(--hero-ink);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-hero);
+  font-weight: var(--weight-hero);
+  letter-spacing: var(--track-hero);
+  line-height: 1;
+}
+
+.headline .unit {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 560;
+  letter-spacing: 0;
+  color: var(--panel-muted);
+}
+
+.headline .sub {
+  margin-top: 9px;
+  font-size: var(--text-body);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* ------------------------------------------------------------ measures */
+
+.measures {
+  margin: 18px var(--pad-x) 0;
+  border-top: 2px solid var(--panel-line);
+}
+
+.measure {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: var(--gap-measure) 0;
+  border-bottom: var(--rule);
+}
+
+.measure dt {
+  font-size: var(--text-meta);
+  letter-spacing: var(--track-measure-label);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--panel-muted);
+}
+
+.measure dd {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-measure);
+  font-weight: var(--weight-measure);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.measure dd .u {
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--panel-muted);
+  margin-left: 3px;
+}
+
+/*
+ * "ESTIMATED", beside the value rather than in a footnote. Added time is the
+ * one figure on the panel not derived from measured geometry — AMDS publishes
+ * no speed attribute — and a caveat that is not next to the number it
+ * qualifies is a caveat nobody reads.
+ */
+.est-tag {
+  margin-left: 7px;
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  background: var(--panel-chip);
+  border-radius: 2px;
+  padding: 2px 5px;
+  vertical-align: 1px;
+}
+
+/* ---------------------------------------------------- direction tabs */
+
+.dirtabs {
+  display: flex;
+  gap: 18px;
+  margin: 18px var(--pad-x) 0;
+  border-bottom: var(--rule);
+}
+
+.dirtabs button {
+  padding: 7px 0 8px;
+  font-size: var(--text-body);
+  font-weight: 560;
+  color: var(--panel-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--dur-hover) var(--ease-out),
+    border-color var(--dur-hover) var(--ease-out);
+}
+
+.dirtabs button:hover {
+  color: var(--panel-fg);
+}
+
+.dirtabs button[aria-selected='true'] {
+  color: var(--panel-fg);
+  font-weight: 620;
+  border-bottom-color: var(--route-ink);
+}
+
+.dirtabs button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* -------------------------------------------------------- comparison */
+
+.compare {
+  margin: 14px var(--pad-x) 0;
+}
+
+.compare .ch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  margin-bottom: 6px;
+}
+
+.compare .ch .sw {
+  width: 16px;
+  border-top: 2.5px dashed var(--compare-ink);
+  flex: none;
+}
+
+.compare table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.compare th,
+.compare td {
+  padding: 5px 0;
+  font-size: var(--text-compare);
+  text-align: right;
+  color: var(--panel-fg);
+}
+
+.compare th:first-child,
+.compare td:first-child {
+  text-align: left;
+  font-weight: 400;
+  color: var(--panel-fg);
+}
+
+.compare thead th {
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-compare-head);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+  border-bottom: var(--rule);
+}
+
+/* Monospace here is deliberate and narrow: these are figures being compared
+ * digit against digit across two columns, which is exactly what a monospace
+ * face is for. The hero and the measure list are not. */
+.compare tbody td:not(:first-child) {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare tbody tr td[data-focus='true'] {
+  color: var(--panel-fg);
+}
+
+.compare tbody tr td[data-focus='false'] {
+  color: var(--panel-muted);
+}
+
+/* --------------------------------------------------- scenario summary */
+
+.scenario-summary {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--panel-bg);
+  padding: 12px var(--pad-x) 0;
+}
+
+.scenario-summary-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 10px;
+  border: var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel-inset);
+  text-align: left;
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.scenario-summary-btn:hover {
+  background: var(--panel-chip);
+}
+
+.scenario-summary-btn .k {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+  flex: none;
+}
+
+.scenario-summary-btn .v {
+  font-size: var(--text-control);
+  font-weight: 560;
+  color: var(--panel-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scenario-summary-btn .recalc {
+  margin-left: auto;
+  font-size: var(--text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--compare-ink);
+  font-weight: 600;
+  flex: none;
+}
+
+.scenario-summary-btn .chev {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  color: var(--panel-muted);
+  transform: rotate(90deg);
+  transition: transform var(--dur-hover) var(--ease-out);
+  flex: none;
+}
+
+.scenario-summary-btn .recalc + .chev {
+  margin-left: 6px;
+}
+
+.scenario-summary-btn .chev.open {
+  transform: rotate(-90deg);
+}
+
+/* ------------------------------------------------- scenario controls */
+
+.ctls {
+  margin: 12px var(--pad-x) 0;
+  display: grid;
+  gap: 9px;
+}
+
+.ctl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ctl .k {
+  width: 74px;
+  flex: none;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+}
+
+/* Bordered form cells, per the approved specification — not filled segments. */
+.ctl .seg {
+  display: flex;
+  flex: 1 1 auto;
+  border: var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.ctl .seg button {
+  flex: 1 1 0;
+  height: var(--control-h-sm);
+  border-left: var(--rule);
+  font-size: var(--text-control);
+  font-weight: var(--weight-control);
+  color: var(--panel-muted);
+  background: var(--panel-bg);
+  white-space: nowrap;
+  transition: background var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out);
+}
+
+.ctl .seg button:first-child {
+  border-left: 0;
+}
+
+.ctl .seg button:hover:not(:disabled) {
+  background: var(--panel-inset);
+  color: var(--panel-fg);
+}
+
+.ctl .seg button[aria-pressed='true'] {
+  background: var(--panel-chip);
+  color: var(--panel-fg);
+  font-weight: 620;
+}
+
+.ctl .seg button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------- scope + confidence */
+
+.scope {
+  margin: 16px var(--pad-x) 0;
+  padding: 9px 11px;
+  font-size: var(--text-control);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+  background: var(--panel-inset);
+  border-radius: var(--radius);
+}
+
+.scope b {
+  color: var(--panel-fg);
+  font-weight: 620;
+}
+
+.confidence {
+  margin: 12px var(--pad-x) 0;
+  padding: 9px 11px;
+  border-left: 3px solid var(--compare-ink);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--panel-inset);
+  font-size: var(--text-control);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+}
+
+.confidence b {
+  font-weight: var(--weight-label);
+  color: var(--panel-fg);
+}
+
+/* ------------------------------------------------------- disclosure */
+
+.disclosures {
+  margin: 18px 0 22px;
+}
+
+.disclose {
+  border-top: var(--rule);
+}
+
+.disclose > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px var(--pad-x);
+  font-size: var(--text-body);
+  font-weight: var(--weight-control);
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclose > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclose > summary::after {
+  content: '+';
+  margin-left: auto;
+  color: var(--panel-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.disclose[open] > summary::after {
+  content: '\2212';
+}
+
+.disclose .body {
+  padding: 0 var(--pad-x) 14px;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  font-size: var(--text-control);
+}
+
+.kv dt {
+  color: var(--panel-muted);
+}
+
+.kv dd {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  word-break: break-all;
+}
+
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.flag {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--panel-chip);
+  color: var(--panel-muted);
+}
+
+.breakdown {
+  display: grid;
+  gap: 7px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+}
+
+.breakdown .b-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.breakdown .b-row .n {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--panel-fg);
+}
+
+/* ---------------------------------------------------------- footer */
+
+.inspector-foot .caveat {
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: 1.45;
+}
+
+.inspector-foot .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 13px;
+  border: var(--rule);
+  border-radius: var(--radius);
+  background: var(--panel-inset);
+  font-size: var(--text-control);
+  font-weight: 560;
+  color: var(--panel-fg);
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.pbtn:hover:not(:disabled) {
+  background: var(--panel-chip);
+}
+
+.pbtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --------------------------------------------------------- isolation */
+
+.stranded {
+  margin: 15px var(--pad-x) 0;
+  padding: 11px 12px;
+  background: var(--panel-inset);
+  border-radius: var(--radius);
+}
+
+.stranded .lab {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+}
+
+.stranded .figs {
+  display: flex;
+  gap: 22px;
+  margin-top: 7px;
+}
+
+.stranded .fig .n {
+  font-size: 20px;
+  font-weight: var(--weight-measure);
+  font-variant-numeric: tabular-nums;
+  color: var(--compare-ink);
+}
+
+.stranded .fig .t {
+  font-size: var(--text-label);
+  color: var(--panel-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stranded .note {
+  margin-top: 9px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}

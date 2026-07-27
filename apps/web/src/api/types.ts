@@ -1,15 +1,10 @@
-/** Typed client for the detour API. */
-
 /**
- * Same-origin by default: Vite proxies /api, /tiles and /health to the backend
- * in development, and production serves both from one origin. An absolute base
- * is only for pointing a build at a remote deployment.
+ * Wire types for the detour API.
  *
- * This used to default to an absolute localhost URL, which made it possible to
- * run the app against the wrong one of the repository's two API implementations
- * without noticing.
+ * Pure types only — the runtime client lives in ./client.ts. Keeping them apart
+ * means a component can import a shape without pulling `fetch` into its module
+ * graph, and it makes the client the single place request behaviour is defined.
  */
-const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export interface LinkSummary {
   linkId: number;
@@ -123,6 +118,20 @@ export interface NetworkMetadata {
   snapshotStatus: string;
   clippedExtract: boolean;
   tileSchemaVersion?: number;
+  /**
+   * What this build of the backend can actually do. Optional because the
+   * frontend must keep working against a backend that predates it; when it is
+   * absent the scenario adapter falls back to a static description. See
+   * ./scenario.ts for why the frontend does not read the raw enum.
+   */
+  capabilities?: {
+    closureScopes: string[];
+    metrics: string[];
+    vehicles: string[];
+    /** Bumped when a change invalidates previously computed figures. */
+    algorithmVersion: string;
+    processingVersion: string;
+  };
   graph: {
     links: number;
     arcs: number;
@@ -138,56 +147,7 @@ export interface NetworkMetadata {
   limitations: string[];
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      // FastAPI raises HTTPException as { detail }. The TypeScript reference
-      // service uses { error }. Reading only one meant real explanations were
-      // replaced by a bare status code.
-      const d = body?.detail ?? body?.error;
-      if (typeof d === 'string') message = d;
-      else if (Array.isArray(d)) message = d.map((e) => e?.msg ?? String(e)).join('; ');
-      else if (d) message = JSON.stringify(d);
-    } catch {
-      /* non-JSON error body: keep the status line */
-    }
-    throw new Error(message);
-  }
-  return res.json() as Promise<T>;
+export interface SearchResponse {
+  count: number;
+  results: LinkSummary[];
 }
-
-export const api = {
-  base: BASE,
-  metadata: () => get<NetworkMetadata>('/api/v1/network/metadata'),
-  search: (params: { name?: string; amdsId?: string; limit?: number }) => {
-    const q = new URLSearchParams();
-    if (params.name) q.set('name', params.name);
-    if (params.amdsId) q.set('amdsId', params.amdsId);
-    q.set('limit', String(params.limit ?? 25));
-    return get<{ count: number; results: LinkSummary[] }>(
-      `/api/v1/links/search?${q}`,
-    );
-  },
-  detour: (
-    id: string | number,
-    opts: {
-      metric: string;
-      vehicle: string;
-      closureScope: string;
-      direction: string;
-    },
-  ) => {
-    const q = new URLSearchParams({
-      metric: opts.metric,
-      vehicle: opts.vehicle,
-      closure_scope: opts.closureScope,
-      direction: opts.direction,
-    });
-    return get<DetourResponse>(
-      `/api/v1/links/${encodeURIComponent(String(id))}/detour?${q}`,
-    );
-  },
-};

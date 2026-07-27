@@ -1,0 +1,500 @@
+/*
+ * Application shell — top bar, mode navigation, layer rail, map workspace and
+ * the contextual inspector frame.
+ *
+ * The layout is a fixed-height grid rather than a flow, because the map must
+ * fill exactly the space left over and MapLibre needs a definitively sized
+ * container. Every grid row and column that contains a scrollable child sets
+ * `min-height: 0` / `min-width: 0` — without it the child's content stretches
+ * the track and pushes the map's own furniture (legend, scale, attribution)
+ * outside the viewport. That was a real defect caught in the concept renders.
+ */
+
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100%;
+  background: var(--shell-bg);
+}
+
+/* ------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  background: var(--shell-bg);
+  border-bottom: var(--rule-shell);
+  min-width: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: block;
+}
+
+.brand-name {
+  font-size: 13px;
+  font-weight: 640;
+  white-space: nowrap;
+  letter-spacing: -0.005em;
+}
+
+/* -------------------------------------------------------- mode nav */
+
+.modenav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.modenav a {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-weight: 520;
+  color: var(--shell-fg-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-hover) var(--ease-out),
+    background var(--dur-hover) var(--ease-out);
+}
+
+.modenav a:hover {
+  color: var(--shell-fg);
+  background: var(--shell-line-soft);
+}
+
+/* Active mode is a filled chip, per the approved specification. */
+.modenav a[aria-current='page'] {
+  background: var(--shell-chip);
+  color: var(--shell-fg);
+  font-weight: 580;
+}
+
+/* A mode whose backend semantics are not yet stable is reachable but marked,
+ * rather than hidden — hiding it would misrepresent the product's scope. */
+.modenav a[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.modenav a[aria-disabled='true']:hover {
+  background: none;
+  color: var(--shell-fg-muted);
+}
+
+/* ---------------------------------------------------------- search */
+
+.omnibox {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 430px;
+  min-width: 120px;
+  margin: 0 auto;
+}
+
+.omnibox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-h);
+  padding: 0 10px;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-hover) var(--ease-out);
+}
+
+.omnibox-field:focus-within {
+  border-color: var(--shell-fg-faint);
+}
+
+.omnibox-field svg {
+  flex: none;
+  color: var(--shell-fg-faint);
+}
+
+.omnibox input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: 0;
+  font-size: 12.5px;
+  color: var(--shell-fg);
+}
+
+.omnibox input::placeholder {
+  color: var(--shell-fg-faint);
+}
+
+.omnibox .kbd {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--shell-fg-faint);
+  border: var(--rule-shell);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+.omnibox-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-popover);
+  padding: 4px;
+}
+
+/* Real buttons, not clickable divs — keyboard and screen-reader support then
+ * comes for free rather than being reimplemented badly. */
+.omnibox-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 3px;
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.omnibox-results button:hover,
+.omnibox-results button[data-active='true'] {
+  background: var(--shell-chip);
+}
+
+.omnibox-results .r-name {
+  font-size: 12.5px;
+  font-weight: 560;
+}
+
+.omnibox-results .r-meta {
+  font-size: 10.5px;
+  color: var(--shell-fg-muted);
+}
+
+.omnibox-empty {
+  padding: 10px 10px 12px;
+  font-size: 11.5px;
+  color: var(--shell-fg-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* ------------------------------------------------- snapshot + actions */
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-left: auto;
+}
+
+.snapshot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--control-h);
+  padding: 0 11px;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  font-size: 10.5px;
+  color: var(--shell-fg-muted);
+  white-space: nowrap;
+}
+
+.snapshot .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--route);
+  flex: none;
+}
+
+.snapshot .dot[data-state='unknown'] {
+  background: var(--shell-fg-faint);
+}
+
+.snapshot .dot[data-state='degraded'] {
+  background: var(--compare);
+}
+
+.snapshot .sid {
+  font-family: var(--font-mono);
+  color: var(--shell-fg);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 12px;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 520;
+  white-space: nowrap;
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--shell-chip);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------- body grid */
+
+.shell-body {
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr auto;
+  min-height: 0; /* see the note at the top of this file */
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------- rail */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  background: var(--shell-bg);
+  border-right: var(--rule-shell);
+}
+
+.rail button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--shell-fg-faint);
+  transition: color var(--dur-hover) var(--ease-out),
+    background var(--dur-hover) var(--ease-out);
+}
+
+.rail button:hover {
+  color: var(--shell-fg);
+  background: var(--shell-line-soft);
+}
+
+.rail button[aria-pressed='true'],
+.rail button[aria-expanded='true'] {
+  color: var(--shell-fg);
+  background: var(--shell-chip);
+}
+
+.rail .rail-spacer {
+  margin-top: auto;
+}
+
+/* -------------------------------------------------------- workspace */
+
+.workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--map-water);
+}
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Map furniture. Positioned absolutely inside the workspace so it never
+ * participates in the grid and therefore cannot be pushed out of frame. */
+.map-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  background: rgba(27, 33, 39, 0.9);
+  border: var(--rule-shell);
+  border-radius: var(--radius-chip);
+  font-size: 11.5px;
+  backdrop-filter: blur(4px);
+}
+
+.map-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--closure);
+  flex: none;
+}
+
+.map-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  padding: 10px 12px;
+  background: rgba(27, 33, 39, 0.86);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  font-size: 11px;
+  line-height: 1.9;
+  backdrop-filter: blur(3px);
+}
+
+.map-legend .row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.map-legend .swatch {
+  width: 22px;
+  height: 0;
+  border-top-width: 3px;
+  border-top-style: solid;
+  flex: none;
+}
+
+.map-scale {
+  position: absolute;
+  left: 14px;
+  bottom: 96px;
+  z-index: 5;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--shell-fg-faint);
+}
+
+.map-scale .bar {
+  height: 5px;
+  border: 1px solid var(--shell-fg-faint);
+  border-top: 0;
+}
+
+.map-attrib {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  max-width: 400px;
+  padding: 5px 9px;
+  background: rgba(15, 20, 24, 0.8);
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--shell-fg-faint);
+  text-align: right;
+}
+
+.map-attrib a {
+  color: inherit;
+}
+
+/* ------------------------------------------------------- inspector */
+
+.inspector {
+  position: relative;
+  width: var(--inspector-w);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  background: var(--panel-bg);
+  color: var(--panel-fg);
+  border-left: 1px solid #000;
+}
+
+.inspector-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+
+.inspector-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px var(--pad-x) 13px;
+  border-top: var(--rule);
+  background: var(--panel-bg);
+}
+
+/* The drag handle for desktop resizing. A real focusable separator so the
+ * inspector width is adjustable from the keyboard too. */
+.inspector-grip {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  z-index: 10;
+  cursor: col-resize;
+  background: none;
+}
+
+.inspector-grip:hover::after,
+.inspector-grip:focus-visible::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--route);
+  opacity: 0.7;
+}
+
+/* Empty state, shown before any road is selected. */
+.inspector-empty {
+  padding: 26px var(--pad-x);
+}
+
+.inspector-empty h2 {
+  font-size: 16px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+
+.inspector-empty p {
+  font-size: var(--text-body);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+  margin-bottom: 10px;
+}
+
+.inspector-empty .hint {
+  margin-top: 18px;
+  padding: 10px 12px;
+  background: var(--panel-inset);
+  border-radius: var(--radius);
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}

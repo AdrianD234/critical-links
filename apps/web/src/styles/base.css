@@ -1,0 +1,174 @@
+/*
+ * Reset, base typography and shared primitives.
+ *
+ * Font faces are imported in main.tsx from the local @fontsource packages so
+ * Vite fingerprints and bundles the woff2 files; this sheet only consumes the
+ * families declared there.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--shell-fg);
+  background: var(--shell-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+
+  /* The map owns panning. The page itself must never scroll or rubber-band. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * Focus is deliberate and always visible on keyboard. `:focus-visible` rather
+ * than `:focus` so a pointer user clicking a tab does not get a ring, but a
+ * keyboard user always does. Two ring colours because a single one cannot be
+ * legible on both #1B2127 and #ECEEF1.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-ring) solid var(--focus-shell);
+  outline-offset: var(--focus-offset);
+  border-radius: 2px;
+}
+
+.on-paper :focus-visible,
+.paper :focus-visible {
+  outline-color: var(--focus-panel);
+}
+
+/* Screen-reader-only, but still focusable — used for skip links and for the
+ * accessible names of icon-only controls. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sr-only-focusable:focus-visible {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  clip: auto;
+  clip-path: none;
+  padding: 8px 14px;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+}
+
+/* Numeric columns must not jitter between values, and must align across rows.
+ * Applied wherever a figure can change in place. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+/*
+ * The result reveal, per the interaction storyboard: 140ms opacity with a 4px
+ * upward translate. Keyed on a changing `key` in React so it replays whenever
+ * the underlying value changes. Under reduced motion the duration tokens
+ * collapse to 0ms and this is a no-op.
+ */
+@keyframes nzcl-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  animation: nzcl-reveal var(--dur-reveal) var(--ease-out) both;
+}
+
+@keyframes nzcl-shimmer {
+  from {
+    background-position: -120% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+/* Skeleton for a measure that is being recomputed. Deliberately shaped like
+ * the figure it replaces so the panel does not reflow when the value lands. */
+.skeleton {
+  display: inline-block;
+  min-width: 3.5em;
+  height: 0.9em;
+  vertical-align: -0.05em;
+  border-radius: 2px;
+  background: linear-gradient(
+      90deg,
+      var(--panel-chip) 0%,
+      var(--panel-inset) 40%,
+      var(--panel-chip) 80%
+    )
+    0 0 / 220% 100%;
+  animation: nzcl-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

@@ -1,0 +1,226 @@
+/*
+ * Responsive behaviour.
+ *
+ * Three sizes, each with a different job:
+ *
+ *   desktop   the inspector is a resizable column beside the map
+ *   laptop    same shape, tighter; the scenario summary earns its keep because
+ *             the full controls no longer fit above the fold with a readable
+ *             result. Nothing in the result hierarchy is dropped or shrunk.
+ *   mobile    the map stays the main surface and the inspector becomes a
+ *             draggable bottom sheet
+ *
+ * The breakpoint literals here must match BP_MOBILE and BP_LAPTOP in
+ * lib/useMediaQuery.ts, which is where the structural decisions are made.
+ */
+
+/* ------------------------------------------------------------- laptop */
+
+@media (max-width: 1099px) {
+  /* The search field gives up width before anything else, so the snapshot
+   * indicator and the top-bar actions are never clipped. */
+  .omnibox {
+    max-width: 300px;
+  }
+
+  .topbar {
+    gap: 12px;
+    padding: 0 10px;
+  }
+
+  .modenav a {
+    padding: 6px 9px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Mode labels go before the modes themselves do. Explore keeps its label
+   * because it is the one the user is in. */
+  .modenav a:not([aria-current='page']) {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------- mobile */
+
+@media (max-width: 639px) {
+  .app-shell {
+    grid-template-rows: var(--topbar-h) 1fr;
+  }
+
+  .topbar {
+    gap: 10px;
+  }
+
+  .brand-name,
+  .modenav,
+  .snapshot span:not(.sid) {
+    display: none;
+  }
+
+  .snapshot {
+    padding: 0 8px;
+  }
+
+  /* Share and Export collapse to their icons; the accessible name stays on
+   * the button, so nothing is lost to a screen reader. */
+  .topbar-right .btn {
+    padding: 0 9px;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .topbar-right .btn svg {
+    font-size: 13px;
+  }
+
+  /* One column: the map fills the shell and the sheet floats over it. The
+   * rail becomes a floating cluster rather than a full-height column, which
+   * would otherwise cost 48px of a 390px-wide screen permanently. */
+  .shell-body {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    position: absolute;
+    top: calc(var(--topbar-h) + 10px);
+    right: 10px;
+    z-index: 6;
+    flex-direction: column;
+    padding: 4px;
+    gap: 2px;
+    background: rgba(27, 33, 39, 0.92);
+    border: var(--rule-shell);
+    border-radius: var(--radius);
+    backdrop-filter: blur(4px);
+  }
+
+  .rail button {
+    width: var(--control-h-touch);
+    height: var(--control-h-touch);
+  }
+
+  .map-legend,
+  .map-scale {
+    display: none;
+  }
+
+  .map-badge {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 76px);
+    font-size: 11px;
+  }
+
+  /* Lifted clear of the sheet. Attribution for the LINZ basemap (CC BY 4.0)
+   * and the AMDS source is a licence condition, so it may not be covered — and
+   * at every sheet stop but collapsed it otherwise would be. */
+  .map-attrib {
+    right: 8px;
+    bottom: calc(var(--sheet-h, 0px) + 8px);
+    max-width: 62%;
+    font-size: 9px;
+    transition: bottom var(--dur-panel) var(--ease-out);
+  }
+
+  .map-badge {
+    z-index: 21;
+  }
+
+  /* ------------------------------------------------------- the sheet */
+
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 0;
+    background: var(--panel-bg);
+    color: var(--panel-fg);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    box-shadow: var(--elev-sheet);
+    transition: height var(--dur-panel) var(--ease-out);
+  }
+
+  .sheet-handle {
+    display: grid;
+    place-items: center;
+    height: 26px;
+    width: 100%;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .sheet-handle .grip {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--panel-line);
+  }
+
+  .sheet-handle:active {
+    cursor: grabbing;
+  }
+
+  .sheet-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch targets. 44px is the floor, and the segmented controls need real
+   * room on a 390px screen or they become a row of slivers. */
+  .ctl {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+  }
+
+  .ctl .k {
+    width: auto;
+  }
+
+  .ctl .seg button,
+  .pbtn,
+  .scenario-summary-btn {
+    height: var(--control-h-touch);
+  }
+
+  .dirtabs button {
+    padding: 11px 0 12px;
+  }
+
+  .disclose > summary {
+    padding: 14px var(--pad-x);
+  }
+
+  /* The hero holds its size. It is the answer, and shrinking it on the device
+   * most likely to be used in the field would be the wrong economy. */
+  .headline .val {
+    font-size: 50px;
+  }
+
+  .insp-head h2 {
+    font-size: 22px;
+  }
+
+  .hover-tip {
+    display: none; /* no hover on touch; the sheet carries the detail */
+  }
+}
+
+/* A short viewport is a laptop problem too, not only a phone one. */
+@media (max-height: 700px) and (min-width: 640px) {
+  .headline .val {
+    font-size: 46px;
+  }
+
+  .insp-head {
+    padding-top: 14px;
+  }
+}

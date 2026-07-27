@@ -1,0 +1,42 @@
+/*
+ * Map-adjacent DOM: the hover readout, and the few MapLibre controls that are
+ * kept, restyled to the design rather than left in the library's default blue.
+ */
+
+.hover-tip {
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+  max-width: 260px;
+  padding: 7px 10px;
+  background: rgba(27, 33, 39, 0.96);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-tooltip);
+  font-size: 11.5px;
+  /* Fades in behind the pointer rather than snapping, so it reads as a
+   * readout rather than a flicker. */
+  animation: nzcl-reveal var(--dur-hover) var(--ease-out) both;
+}
+
+.hover-tip b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.hover-tip span {
+  color: var(--shell-fg-muted);
+  font-size: 10.5px;
+}
+
+/* MapLibre's own canvas must not paint a focus ring over the map; the app
+ * provides its own affordances. Keyboard panning still works. */
+.maplibregl-canvas:focus {
+  outline: none;
+}
+
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-scale {
+  display: none;
+}

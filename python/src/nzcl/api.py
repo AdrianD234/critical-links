@@ -14,17 +14,33 @@ from PostGIS `ST_AsMVT` rather than a separate tiling library.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
-from .config import ALGORITHM, ALGORITHM_VERSION, LIMITATIONS, get_settings
+from .config import (
+    ALGORITHM,
+    ALGORITHM_VERSION,
+    LIMITATIONS,
+    PROCESSING_VERSION,
+    get_settings,
+)
 from .detour import compute
 from .routing import Metric, Profile
 
 settings = get_settings()
+
+# Closure scopes this build can honour, in the product's vocabulary rather than
+# the wire enum.
+#
+# `segment` is deliberately absent. The engine removes every link derived from
+# one AMDS source feature; it has no notion of a road segment independent of
+# how AMDS happens to split it. Advertising the scope and silently falling back
+# to whole-feature closure would report more of the network closed than the
+# caller asked for, and label the answer as if it were what they requested.
+SUPPORTED_CLOSURE_SCOPES = ["amds-feature", "direction"]
 
 _ACTIVE: dict[str, Any] = {}
 
@@ -243,6 +259,23 @@ def metadata() -> dict[str, Any]:
         "sourceFeatureCount": m["source_feature_count"],
         "downloadedFeatureCount": m["downloaded_feature_count"],
         "tileSchemaVersion": TILE_SCHEMA_VERSION,
+        # What this build can actually do, so the client does not have to
+        # hard-code the parameter enums.
+        #
+        # Two things depend on this. First, the closure-scope control is built
+        # from `closureScopes` rather than a literal list, so adding segment
+        # scope is a backend change that the existing frontend picks up without
+        # another visual rewrite. Second, the version pair participates in the
+        # client's cache key: when restriction semantics or segment scope land,
+        # `algorithmVersion` changes and every figure computed under the old one
+        # becomes unreachable rather than being redisplayed under new settings.
+        "capabilities": {
+            "closureScopes": SUPPORTED_CLOSURE_SCOPES,
+            "metrics": list(get_args(Metric)),
+            "vehicles": list(get_args(Profile)),
+            "algorithmVersion": ALGORITHM_VERSION,
+            "processingVersion": PROCESSING_VERSION,
+        },
         "graph": {
             "links": counts["links"],
             "arcs": counts["arcs"],

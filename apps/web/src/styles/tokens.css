@@ -1,0 +1,214 @@
+/*
+ * Production design tokens — Direction C, "Graphite Atlas".
+ *
+ * Derived from the approved concept in docs/design/explore-v2/. Values that
+ * appear in the committed screenshots are reproduced here exactly; anything
+ * the concept did not need (elevation, focus, motion, breakpoints, control
+ * heights) is defined here for the first time.
+ *
+ * The product idea these tokens encode:
+ *
+ *   - The map is the analytical workspace, so the shell is dark, quiet and
+ *     low-chroma and the network is the brightest thing on screen.
+ *   - The numbers are the decision record, so the inspector is cool paper.
+ *   - Red is the closure. Not errors, not criticality, not "big number".
+ *   - Teal is the focused replacement route.
+ *   - Amber is comparison, represented-network disconnection and isolation.
+ *
+ * Two colour vocabularies exist because the product has two surfaces. Tokens
+ * prefixed `--shell-` are for the graphite side; `--panel-` for the paper side;
+ * `--map-` for the canvas. Semantic route colours exist in both a saturated
+ * map form (`--closure`) and a paper-legible ink (`--closure-ink`), because a
+ * stroke that reads correctly on #161C21 is illegible on #ECEEF1.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- type */
+
+  /*
+   * Both faces are SIL OFL 1.1 and bundled locally from their @fontsource
+   * packages. No font CDN: the app must render identically offline and must
+   * not leak a request to a third party on every page load.
+   */
+  --font-ui: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Mono',
+    'Roboto Mono', Menlo, Consolas, monospace;
+
+  /*
+   * Monospace is for identifiers, versions, map labels and selected comparison
+   * figures. It is NOT for the hero, the secondary measures or body copy —
+   * +53.5 at 58px in monospace reads as a terminal.
+   */
+
+  --text-hero: 58px;
+  --text-road: 25px;
+  --text-section: 15px;
+  --text-measure: 14.5px;
+  --text-measure-em: 17px;
+  --text-body: 12.5px;
+  --text-compare: 12px;
+  --text-control: 11.5px;
+  --text-meta: 11px;
+  --text-label: 10px;
+  --text-micro: 9.5px;
+
+  --weight-hero: 680;
+  --weight-road: 640;
+  --weight-measure: 640;
+  --weight-label: 640;
+  --weight-control: 540;
+  --weight-body: 400;
+
+  --track-hero: -0.032em;
+  --track-road: -0.024em;
+  --track-label: 0.15em;
+  --track-compare-head: 0.11em;
+  --track-measure-label: 0.07em;
+
+  --leading-tight: 1.15;
+  --leading-body: 1.55;
+  --leading-relaxed: 1.6;
+
+  /* ------------------------------------------------------------ map ink */
+
+  --map-water: #0f1418;
+  --map-land: #161c21;
+  --map-contour: #1e262c;
+  --map-highway: #4a7fb5;
+  --map-local: #39434d;
+  --map-label: #5d6874;
+
+  /* --------------------------------------------------------- dark shell */
+
+  --shell-bg: #1b2127;
+  --shell-raised: #222a31;
+  --shell-line: #2c353d;
+  --shell-line-soft: #232b32;
+  --shell-fg: #e8edf1;
+  --shell-fg-muted: #8794a1;
+  --shell-fg-faint: #5d6874;
+  --shell-chip: #2c353d;
+
+  /* -------------------------------------------------------- paper panel */
+
+  --panel-bg: #eceef1;
+  --panel-fg: #151a20;
+  --panel-muted: #59646f;
+  --panel-line: #d2d7dd;
+  --panel-inset: #e3e7ea;
+  --panel-chip: #dee3e8;
+
+  /* -------------------------------------------------- semantic: on map */
+
+  /*
+   * Saturated, for strokes over graphite. `--stranded` is deliberately the
+   * same amber as `--compare`: both mean "this is context around the focused
+   * answer", and they never appear in the same result — a disconnected
+   * direction has no replacement route to compare against.
+   */
+  --closure: #ff4d4d;
+  --route: #2de1c2;
+  --compare: #ffb020;
+  --stranded: #ffb020;
+  --corridor: #7fb2e0;
+
+  /* ------------------------------------------------ semantic: on paper */
+
+  /*
+   * Darkened for contrast on #ECEEF1. `--hero-ink` is deliberately NOT
+   * `--closure-ink`: the measurement is not the alarm, and 53.5 km is severe
+   * for a commuter and unremarkable for a freight operator with a schedule
+   * allowance. Rendering it red pre-judges a severity the analysis does not
+   * compute.
+   */
+  --hero-ink: #12171d;
+  --closure-ink: #c1302b;
+  --route-ink: #0a7767;
+  --compare-ink: #9d6100;
+  --stranded-ink: #9d6100;
+
+  /*
+   * A fault is not a finding. DISCONNECTED is a result and gets amber;
+   * API_ERROR / UNRESOLVED_TIMEOUT / INVALID_GRAPH / SOURCE_DATA_ERROR are
+   * failures of the analysis and get neutral charcoal on an inset chip with
+   * the status code shown in monospace. They are conspicuous through weight
+   * and the code, not through colour, because red is the closure.
+   */
+  --fault-ink: #2a3138;
+  --fault-bg: #dfe3e7;
+
+  /* ---------------------------------------------------------- structure */
+
+  --radius: 3px;
+  --radius-chip: 999px;
+  --radius-control: 3px;
+
+  --pad-x: 24px;
+  --gap-measure: 13px;
+
+  --rule: 1px solid var(--panel-line);
+  --rule-shell: 1px solid var(--shell-line);
+
+  --control-h: 30px;
+  --control-h-sm: 26px;
+  --control-h-touch: 44px;
+  --topbar-h: 52px;
+  --rail-w: 48px;
+  --inspector-w: 400px;
+  --inspector-w-min: 340px;
+  --inspector-w-max: 560px;
+
+  /* ---------------------------------------------------------- elevation */
+
+  /* The shell is flat by design. Elevation is for things that genuinely float
+   * over the map — tooltips, popovers, the mobile sheet. Not for panels. */
+  --elev-tooltip: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --elev-popover: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --elev-sheet: 0 -8px 28px rgba(0, 0, 0, 0.35);
+
+  /* ------------------------------------------------------------- motion */
+
+  /*
+   * Timings from docs/design/explore-v2/INTERACTION.md. The result reveal is
+   * 140ms — long enough to register that a value is new, too short to read the
+   * intermediate state. There is no count-up: a number that spins through
+   * wrong values on the way to the right one is a stale number with a motion
+   * curve attached.
+   */
+  --dur-instant: 100ms;
+  --dur-reveal: 140ms;
+  --dur-hover: 120ms;
+  --dur-panel: 180ms;
+  --dur-swap: 200ms;
+  --dur-route: 520ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* -------------------------------------------------------------- focus */
+
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+  --focus-shell: #7fc6ff;
+  --focus-panel: #1c5fa8;
+}
+
+/*
+ * Breakpoints, recorded as custom properties for documentation. Media queries
+ * cannot read var(), so the literals below must be kept in step with these.
+ *
+ *   --bp-mobile:  640px   below this, the inspector is a bottom sheet
+ *   --bp-laptop: 1100px   below this, the inspector loses its resize handle
+ *                          and the scenario summary becomes sticky
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-reveal: 0ms;
+    --dur-hover: 0ms;
+    --dur-panel: 0ms;
+    --dur-swap: 0ms;
+    --dur-route: 0ms;
+  }
+}
