@@ -103,8 +103,11 @@ export interface LinkRecord {
 
 export type SpeedSource =
   | 'none'
+  /** Fallback from modelAssetType / surfaceType / owning authority only. */
   | 'estimated_asset_type'
-  | 'estimated_surface_type'
+  /** Derived from the AMDS UrbanRural table - better grounded, still an estimate. */
+  | 'estimated_urban_rural'
+  /** Actual posted limit from the National Speed Limit Register. Not yet wired. */
   | 'nslr';
 
 /** One directed traversal of a link. */

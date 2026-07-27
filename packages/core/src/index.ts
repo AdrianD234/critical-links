@@ -4,4 +4,6 @@ export * from './graph.js';
 export * from './routing.js';
 export * from './detour.js';
 export * from './snapshot.js';
+export * from './topology.js';
+export * from './cache.js';
 export * from './speed.js';

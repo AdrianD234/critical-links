@@ -31,6 +31,8 @@ export interface SpeedInputs {
   modelAssetType: number | null;
   surfaceType: number | null;
   assetOwnerOrganisation: number | null;
+  /** AMDS UrbanRural classification where the link is covered by that table. */
+  urbanRural?: 'urban' | 'rural' | null;
 }
 
 /**
@@ -38,21 +40,33 @@ export interface SpeedInputs {
  * precision the source does not support.
  */
 export function assignSpeed(i: SpeedInputs): SpeedAssignment {
-  const src: SpeedSource = 'estimated_asset_type';
-
   // Connectors are short stitching geometries at intersections and car parks.
-  if (i.modelAssetType === 6) return { speedKph: 20, speedSource: src };
+  // Their classification dominates whatever the urban/rural table says.
+  if (i.modelAssetType === 6) {
+    return { speedKph: 20, speedSource: 'estimated_asset_type' };
+  }
 
   // Unsurfaced / metalled carriageway.
   if (i.surfaceType === 2 || i.surfaceType === 3) {
-    return { speedKph: 40, speedSource: src };
+    return { speedKph: 40, speedSource: 'estimated_asset_type' };
   }
 
-  // State highways are NZTA-owned and predominantly open road.
+  // Best available grounding: the AMDS UrbanRural table. Still an estimate -
+  // it is a land-use classification, not a posted limit - but it is derived
+  // from the source rather than guessed from ownership.
+  if (i.urbanRural === 'urban') {
+    return { speedKph: 50, speedSource: 'estimated_urban_rural' };
+  }
+  if (i.urbanRural === 'rural') {
+    return {
+      speedKph: i.assetOwnerOrganisation === OWNER_NZTA ? 100 : 80,
+      speedSource: 'estimated_urban_rural',
+    };
+  }
+
+  // No urban/rural coverage. Fall back to ownership.
   if (i.assetOwnerOrganisation === OWNER_NZTA) {
-    return { speedKph: 90, speedSource: src };
+    return { speedKph: 90, speedSource: 'estimated_asset_type' };
   }
-
-  // Everything else sealed: territorial-authority road, urban default.
-  return { speedKph: 50, speedSource: src };
+  return { speedKph: 50, speedSource: 'estimated_asset_type' };
 }

@@ -1,0 +1,4686 @@
+{
+  "discoveredAtUtc": "2026-07-27T03:36:16.977Z",
+  "entryPoints": {
+    "nztaPage": "https://www.nzta.govt.nz/roads-and-rail/asset-management-data-standard/amds-network-model",
+    "experienceApp": "https://experience.arcgis.com/experience/c720e30739154520bc7d7c0fbfb2b6e5"
+  },
+  "itemGraph": [
+    {
+      "id": "c720e30739154520bc7d7c0fbfb2b6e5",
+      "title": "AMDS Network Model Application",
+      "type": "Web Experience",
+      "owner": "Publisher_NZTA",
+      "url": "https://experience.arcgis.com/experience/c720e30739154520bc7d7c0fbfb2b6e5",
+      "licenceInfo": "Terms for public access to Network Model Disclaimer New Zealand Transport Agency Waka Kotahi ( NZTA ) does not accept any responsibility or liability (including any direct, special, indirect, incidental, consequential or other losses, costs, expenses, or damages) whatsoever, whether under statute or in contract, tort (including negligence), equity or otherwise, for the network model, nor for any use of, inability to use, or any reliance on, the network model. References to \"network model\" include this network model and all data, information and other content included in the network model. NZTA offers the network model as-is and as-available and makes no representations or warranties of any kind concerning the network model, whether express, implied, statutory, or otherwise. This includes, without limitation, warranties of title, merchantability, fitness for a particular purpose, non-infringement, absence of latent or other defects, accuracy, completeness, or the presence or absence of errors, whether or not known or discoverable. Users of the network model should apply, and rely upon, their own skill and judgement. NZTA has sole discretion over how it operates and provides the network model and, without notice, may close or replace the network model (in whole or in part), change the network model in any way (including by adding, changing and/or removing data, information, content, features or functionality in the network model) or suspend, limit and/or prevent access to and use of the network model (in whole or in part). Copyright information Copyright ©. This copyright work is licensed under the Creative Commons CC BY 4.0 International license. In essence, you are free to copy, distribute and adapt the work, as long as you attribute the work to NZTA and abide by the other license terms. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/ . Other terms Our website disclaimer and terms of use apply to your use of our websites, including this website. Contact information Organisation: New Zealand Transport Agency Waka Kotahi Contact: amdsnetworkmodel@nzta.govt.nz",
+      "accessInformation": "New Zealand Transport Agency Waka Kotahi, KiwiRail, Land Information New Zealand and Controlling Authorities.",
+      "modified": "2025-11-07T00:43:59.000Z",
+      "numViews": 3677,
+      "referencedItemIds": [
+        "c8344c3898064bcda655b572187bf86b",
+        "e6daee49bcff49f9901f45a8ff25fcf6",
+        "a1a59e23713d4807bb03de4ea808c5f6"
+      ]
+    },
+    {
+      "id": "c8344c3898064bcda655b572187bf86b",
+      "referencedItemIds": [],
+      "error": "ArcGIS error 403: You do not have permissions to access this resource or perform this operation."
+    },
+    {
+      "id": "e6daee49bcff49f9901f45a8ff25fcf6",
+      "title": "AMDS Network Model Webmap",
+      "type": "Web Map",
+      "owner": "Publisher_NZTA",
+      "url": "",
+      "licenceInfo": "Terms for public access to Network Model Data reuse caveats As per license. We’ve taken reasonable care in compiling this information, and provide it on an ‘as is, where is’ basis. We are not liable for any action taken on the basis of the information. For further information see the NZTA website, as well as the terms of the CC-BY 4.0 International license under which we publish this data. CC-BY 4.0 International licence details Variables in the dataset are formatted for analytical use. This can result in attribute charts that may not appear meaningful and are not suitable for broader analysis or use. In addition, some variables are not mutually exclusive and should not be considered in isolation. As such, these charts should not be taken and used directly as analysis of the overall data. Copyright information Copyright ©. This copyright work is licensed under the Creative Commons CC BY 4.0 International license. In essence, you are free to copy, distribute and adapt the work, as long as you attribute the work to NZTA and abide by the other license terms. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/ . Other terms Our website disclaimer and terms of use apply to your use of our websites, including this website. Contact information Organisation: New Zealand Transport Agency Waka Kotahi Contact: amdsnetworkmodel@nzta.govt.nz",
+      "accessInformation": "New Zealand Transport Agency Waka Kotahi, KiwiRail, Land Information New Zealand and Controlling Authorities.",
+      "modified": "2025-11-07T00:44:17.000Z",
+      "numViews": 4069,
+      "referencedItemIds": [
+        "dfa1e050f3cd42828f87d67fcff5a4fb",
+        "98a6ed20c3b0416aacef36f77bdcd0ff",
+        "d284729222d04a3cb548cfe27716ea43"
+      ]
+    },
+    {
+      "id": "a1a59e23713d4807bb03de4ea808c5f6",
+      "title": "Shared Theme Logo - TA",
+      "type": "Image",
+      "owner": "Open.Data_NZTA",
+      "url": null,
+      "accessInformation": null,
+      "modified": "2021-04-30T01:38:40.000Z",
+      "numViews": 42888,
+      "referencedItemIds": []
+    },
+    {
+      "id": "dfa1e050f3cd42828f87d67fcff5a4fb",
+      "title": "AMDS Network Model Secured PROD",
+      "type": "Feature Service",
+      "owner": "Publisher_NZTA",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/dfa1e050f3cd42828f87d67fcff5a4fb/rest/services/AMDS_NetworkModel_PROD/FeatureServer",
+      "licenceInfo": "Terms for public access to Network Model Disclaimer New Zealand Transport Agency Waka Kotahi ( NZTA ) does not accept any responsibility or liability (including any direct, special, indirect, incidental, consequential or other losses, costs, expenses, or damages) whatsoever, whether under statute or in contract, tort (including negligence), equity or otherwise, for the network model, nor for any use of, inability to use, or any reliance on, the network model. References to \"network model\" include this network model and all data, information and other content included in the network model. NZTA offers the network model as-is and as-available and makes no representations or warranties of any kind concerning the network model, whether express, implied, statutory, or otherwise. This includes, without limitation, warranties of title, merchantability, fitness for a particular purpose, non-infringement, absence of latent or other defects, accuracy, completeness, or the presence or absence of errors, whether or not known or discoverable. Users of the network model should apply, and rely upon, their own skill and judgement. NZTA has sole discretion over how it operates and provides the network model and, without notice, may close or replace the network model (in whole or in part), change the network model in any way (including by adding, changing and/or removing data, information, content, features or functionality in the network model) or suspend, limit and/or prevent access to and use of the network model (in whole or in part). Copyright information Copyright ©. This copyright work is licensed under the Creative Commons CC BY 4.0 International license. In essence, you are free to copy, distribute and adapt the work, as long as you attribute the work to NZTA and abide by the other license terms. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/ . Other terms Our website disclaimer and terms of use apply to your use of our websites, including this website. Contact information Organisation: New Zealand Transport Agency Waka Kotahi Contact: amdsnetworkmodel@nzta.govt.nz",
+      "accessInformation": "New Zealand Transport Agency Waka Kotahi, KiwiRail, Land Information New Zealand and Controlling Authorities.",
+      "modified": "2025-11-07T02:26:18.000Z",
+      "numViews": 0,
+      "referencedItemIds": []
+    },
+    {
+      "id": "98a6ed20c3b0416aacef36f77bdcd0ff",
+      "title": "AMDS Network Model Public Transport",
+      "type": "Feature Service",
+      "owner": "Publisher_NZTA",
+      "url": "https://services.arcgis.com/CXBb7LAjgIIdcsPt/arcgis/rest/services/AMDS_Network_Model_Public_Transport/FeatureServer",
+      "accessInformation": "Controlling Authorities across New Zealand.",
+      "modified": "2025-11-05T00:22:44.000Z",
+      "numViews": 4208,
+      "referencedItemIds": []
+    },
+    {
+      "id": "d284729222d04a3cb548cfe27716ea43",
+      "title": "NZ Imagery",
+      "type": "Map Service",
+      "owner": "eaglegis",
+      "url": "https://services1.arcgisonline.co.nz/arcgis/rest/services/Imagery/newzealand/MapServer",
+      "licenceInfo": "By using this layer you conform to the Eagle Technology web services terms of use. Fair Use Use in combination with ArcGIS software The data is sourced from third parties. Eagle Technology gives no warranties in relation to the web services. Data Contains data sourced from the LINZ Data Service and licensed for reuse by the respective licensor under CC BY . For a full overview of the licensors of the imagery click here . Contains data provided by Porirua City and Aerials Surveys",
+      "accessInformation": "Eagle Technology, LINZ",
+      "modified": "2026-06-26T02:42:32.000Z",
+      "numViews": 17984851,
+      "referencedItemIds": []
+    }
+  ],
+  "featureService": {
+    "url": "https://services.arcgis.com/CXBb7LAjgIIdcsPt/arcgis/rest/services/AMDS_NetworkModel_PROD/FeatureServer",
+    "itemId": "f955c118272b462e9ce757405890b87f",
+    "itemTitle": "AMDS Network Model PROD",
+    "owner": "Publisher_NZTA",
+    "licenceInfo": "Terms for public access to Network Model Disclaimer New Zealand Transport Agency Waka Kotahi ( NZTA ) does not accept any responsibility or liability (including any direct, special, indirect, incidental, consequential or other losses, costs, expenses, or damages) whatsoever, whether under statute or in contract, tort (including negligence), equity or otherwise, for the network model, nor for any use of, inability to use, or any reliance on, the network model. References to \"network model\" include this network model and all data, information and other content included in the network model. NZTA offers the network model as-is and as-available and makes no representations or warranties of any kind concerning the network model, whether express, implied, statutory, or otherwise. This includes, without limitation, warranties of title, merchantability, fitness for a particular purpose, non-infringement, absence of latent or other defects, accuracy, completeness, or the presence or absence of errors, whether or not known or discoverable. Users of the network model should apply, and rely upon, their own skill and judgement. NZTA has sole discretion over how it operates and provides the network model and, without notice, may close or replace the network model (in whole or in part), change the network model in any way (including by adding, changing and/or removing data, information, content, features or functionality in the network model) or suspend, limit and/or prevent access to and use of the network model (in whole or in part). Copyright information Copyright ©. This copyright work is licensed under the Creative Commons CC BY 4.0 International license. In essence, you are free to copy, distribute and adapt the work, as long as you attribute the work to NZTA and abide by the other license terms. To view a copy of this license, visit https://creativecommons.org/licenses/by/4.0/ . Other terms Our website disclaimer and terms of use apply to your use of our websites, including this website. Contact information Organisation: New Zealand Transport Agency Waka Kotahi Contact: amdsnetworkmodel@nzta.govt.nz",
+    "accessInformation": "New Zealand Transport Agency Waka Kotahi, KiwiRail, Land Information New Zealand and Controlling Authorities.",
+    "currentVersion": 12,
+    "capabilities": "Query,Extract",
+    "maxRecordCount": 2000,
+    "copyrightText": null,
+    "spatialReference": {
+      "wkid": 102100,
+      "latestWkid": 3857
+    }
+  },
+  "layers": [
+    {
+      "id": 0,
+      "name": "AssetManagementDataStandard_LinearRefSysCalibration",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPoint",
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 300504,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      },
+      "fieldCount": 16,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDLinearRefSysCalibration",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Calibration"
+        },
+        {
+          "name": "amdsIDLinearRefSysRoute",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Route"
+        },
+        {
+          "name": "measure",
+          "type": "Double",
+          "alias": "Measure (m)"
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "calibrationGenerationMethod",
+          "type": "SmallInteger",
+          "alias": "Calibration Generation Method",
+          "codedValues": {
+            "1": "Historical",
+            "2": "Network Derived",
+            "3": "Surveyed",
+            "4": "Vehicle",
+            "5": "Wheel"
+          }
+        },
+        {
+          "name": "calibrationDate",
+          "type": "Date",
+          "alias": "Calibration Date"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDLinearRefSysCalibration",
+          "amdsIDLinearRefSysRoute"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "amdsIDLinearRefSysRoute",
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "name": "AssetManagementDataStandard_NetworkModel",
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline",
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 677024,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      },
+      "fieldCount": 32,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Model"
+        },
+        {
+          "name": "t50FID",
+          "type": "Integer",
+          "alias": "Topo 1:50k LINZ Feature ID"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        },
+        {
+          "name": "modelAssetType",
+          "type": "SmallInteger",
+          "alias": "Model Asset Type",
+          "codedValues": {
+            "1": "Roadway",
+            "2": "Pathway - Unformed",
+            "3": "Pathway - Formed",
+            "4": "Railway",
+            "5": "Waterway",
+            "6": "Connector",
+            "7": "Railway - Yard Track",
+            "8": "Railway - Crossover"
+          }
+        },
+        {
+          "name": "sharedInfrastructure",
+          "type": "SmallInteger",
+          "alias": "Shared Infrastructure",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "detour",
+          "type": "SmallInteger",
+          "alias": "Detour Available",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "oneway",
+          "type": "SmallInteger",
+          "alias": "Oneway",
+          "codedValues": {
+            "1": "Oneway",
+            "2": "Both Directions"
+          }
+        },
+        {
+          "name": "surfaceType",
+          "type": "SmallInteger",
+          "alias": "Surface Type",
+          "codedValues": {
+            "1": "Sealed",
+            "2": "Metalled",
+            "3": "Unsurfaced",
+            "4": "Rail",
+            "5": "Water"
+          }
+        },
+        {
+          "name": "assetOwnerOrganisation",
+          "type": "SmallInteger",
+          "alias": "Asset Owner Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatū District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Base Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "lifeLineRoute",
+          "type": "SmallInteger",
+          "alias": "Life Line Route",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeVehicle",
+          "type": "SmallInteger",
+          "alias": "All Vehicles",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modePedestrian",
+          "type": "SmallInteger",
+          "alias": "Pedestrian",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeCycling",
+          "type": "SmallInteger",
+          "alias": "Cycling",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeMicroMode",
+          "type": "SmallInteger",
+          "alias": "Micro Mode",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modePublicTransport",
+          "type": "SmallInteger",
+          "alias": "Public Transport",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeRail",
+          "type": "SmallInteger",
+          "alias": "Train",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeFerry",
+          "type": "SmallInteger",
+          "alias": "Ferry",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeEmergencyManagement",
+          "type": "SmallInteger",
+          "alias": "Emergency Management Services Allowed",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes",
+            "2": "Undefined"
+          }
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "amdsIDAuthority",
+          "type": "String",
+          "alias": "AMDS ID Authority"
+        },
+        {
+          "name": "modeBus",
+          "type": "SmallInteger",
+          "alias": "Bus",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "isLengthCounted",
+          "type": "SmallInteger",
+          "alias": "Is this length counted?",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeVehicleHeavy",
+          "type": "SmallInteger",
+          "alias": "Vehicles that are HCVI or HCVII classified",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "Shape__Length",
+          "type": "Double",
+          "alias": "Shape__Length"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDNetworkModel",
+          "amdsIDAuthority"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [
+          "oneway"
+        ],
+        "modeAccess": [
+          "modelAssetType",
+          "modeVehicle",
+          "modePedestrian",
+          "modeCycling",
+          "modeMicroMode",
+          "modePublicTransport",
+          "modeRail",
+          "modeFerry",
+          "modeEmergencyManagement",
+          "modeBus",
+          "modeVehicleHeavy"
+        ],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "lifeLineRoute",
+          "externalSystemName"
+        ],
+        "authority": [
+          "assetOwnerOrganisation",
+          "dataManagingOrganisation",
+          "amdsIDAuthority"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "name": "AssetManagementDataStandard_Authority",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 72,
+      "spatialReference": null,
+      "fieldCount": 23,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDAuthority",
+          "type": "String",
+          "alias": "AMDS ID Authority"
+        },
+        {
+          "name": "controllingName",
+          "type": "SmallInteger",
+          "alias": "Authority Name",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatū District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Base Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "controllingNameASCII",
+          "type": "String",
+          "alias": "Authority Name ASCII"
+        },
+        {
+          "name": "ownerMaintainerData",
+          "type": "SmallInteger",
+          "alias": "Owner Manager or Data Maintainer Organisation",
+          "codedValues": {
+            "1": "Asset Owner Organisation",
+            "2": "Data Maintaining Organisation"
+          }
+        },
+        {
+          "name": "controllingDataConfidence",
+          "type": "SmallInteger",
+          "alias": "Authority Data Confidence",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "modeVehicleConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Vehicle Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modePedestrianConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Pedestrian Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeCyclingConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Cycling Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeMicroModeConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Micro Mode Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modePublicTransConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Public Transport Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeRailConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Rail Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeFerryConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Ferry Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeEmergencyMgtConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Emergency Management Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeBusConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Bus Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        },
+        {
+          "name": "modeVehicleHeavyConfidRating",
+          "type": "SmallInteger",
+          "alias": "Mode Vehicle Heavy Confidence Rating",
+          "codedValues": {
+            "1": "A - Highly Reliable",
+            "2": "B - Reliable",
+            "3": "C - Somewhat Reliable",
+            "4": "D - Uncertain",
+            "5": "E - Undefined",
+            "6": "F - Not Applicable"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDAuthority"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [
+          "modeVehicleConfidRating",
+          "modePedestrianConfidRating",
+          "modeCyclingConfidRating",
+          "modeMicroModeConfidRating",
+          "modePublicTransConfidRating",
+          "modeRailConfidRating",
+          "modeFerryConfidRating",
+          "modeEmergencyMgtConfidRating",
+          "modeBusConfidRating",
+          "modeVehicleHeavyConfidRating"
+        ],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "controllingName",
+          "controllingNameASCII"
+        ],
+        "authority": [
+          "amdsIDAuthority",
+          "ownerMaintainerData"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "AssetManagementDataStandard_Cycleway",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 4748,
+      "spatialReference": null,
+      "fieldCount": 20,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "amdsIDCycleway",
+          "type": "String",
+          "alias": "AMDS ID Cycleway"
+        },
+        {
+          "name": "startMeasure",
+          "type": "Double",
+          "alias": "Start Measure"
+        },
+        {
+          "name": "endMeasure",
+          "type": "Double",
+          "alias": "End Measure"
+        },
+        {
+          "name": "isFullLength",
+          "type": "SmallInteger",
+          "alias": "Is Full Length",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "protectedOrLive",
+          "type": "SmallInteger",
+          "alias": "Protected Or Live",
+          "codedValues": {
+            "1": "Protected",
+            "2": "Live Lane"
+          }
+        },
+        {
+          "name": "isPainted",
+          "type": "SmallInteger",
+          "alias": "Is Painted",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "cyclewayLane",
+          "type": "SmallInteger",
+          "alias": "Cycleway Lane",
+          "codedValues": {
+            "1": "None",
+            "2": "Left",
+            "3": "Right",
+            "4": "Both",
+            "5": "Centre"
+          }
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDCycleway",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "AssetManagementDataStandard_Geometry",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 666484,
+      "spatialReference": null,
+      "fieldCount": 26,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDGeometry",
+          "type": "String",
+          "alias": "AMDS ID Geometry"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "measuredLength",
+          "type": "Double",
+          "alias": "Measured Length"
+        },
+        {
+          "name": "length3D",
+          "type": "Double",
+          "alias": "Length 3D"
+        },
+        {
+          "name": "xStart",
+          "type": "Double",
+          "alias": "X Start"
+        },
+        {
+          "name": "xEnd",
+          "type": "Double",
+          "alias": "X End"
+        },
+        {
+          "name": "yStart",
+          "type": "Double",
+          "alias": "Y Start"
+        },
+        {
+          "name": "yEnd",
+          "type": "Double",
+          "alias": "Y End"
+        },
+        {
+          "name": "zStart",
+          "type": "Double",
+          "alias": "Z Start"
+        },
+        {
+          "name": "zEnd",
+          "type": "Double",
+          "alias": "Z End"
+        },
+        {
+          "name": "dateCaptureMethodXY",
+          "type": "Date",
+          "alias": "XY Date Captured"
+        },
+        {
+          "name": "xYAccuracy",
+          "type": "String",
+          "alias": "XY Accuracy",
+          "codedValues": {
+            "Undefined": "Undefined",
+            "A": "<0.05 m",
+            "B": "<0.10 m",
+            "C": "<0.15 m",
+            "D": "<0.20 m",
+            "E": "<0.25 m",
+            "F": "<0.35 m",
+            "G": "<0.50 m",
+            "H": "<1 m",
+            "J": "<2 m",
+            "K": "<5 m",
+            "M": "<10 m",
+            "N": "<20 m",
+            "P": "<50 m",
+            "R": "<100 m"
+          }
+        },
+        {
+          "name": "xYAccuracyMethodUsed",
+          "type": "SmallInteger",
+          "alias": "XY Capture Method Used",
+          "codedValues": {
+            "1": "Derived",
+            "2": "LiDAR",
+            "3": "Surveyed"
+          }
+        },
+        {
+          "name": "xYCoordinateSystem",
+          "type": "SmallInteger",
+          "alias": "XY Coordinate System",
+          "codedValues": {
+            "2193": "NZTM 2000"
+          }
+        },
+        {
+          "name": "dateCaptureMethodZ",
+          "type": "Date",
+          "alias": "Z Date Captured"
+        },
+        {
+          "name": "zAccuracy",
+          "type": "String",
+          "alias": "Z Accuracy",
+          "codedValues": {
+            "Undefined": "Undefined",
+            "A": "<0.05 m",
+            "B": "<0.10 m",
+            "C": "<0.15 m",
+            "D": "<0.20 m",
+            "E": "<0.25 m",
+            "F": "<0.35 m",
+            "G": "<0.50 m",
+            "H": "<1 m",
+            "J": "<2 m",
+            "K": "<5 m",
+            "M": "<10 m",
+            "N": "<20 m",
+            "P": "<50 m",
+            "R": "<100 m"
+          }
+        },
+        {
+          "name": "zAccuracyMethodUsed",
+          "type": "SmallInteger",
+          "alias": "Z Capture Method Used",
+          "codedValues": {
+            "1": "Derived",
+            "2": "LiDAR",
+            "3": "Surveyed"
+          }
+        },
+        {
+          "name": "zCoordinateSystem",
+          "type": "SmallInteger",
+          "alias": "Z Coordinate System",
+          "codedValues": {
+            "1169": "NZVD2016"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDGeometry",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [],
+        "authority": []
+      }
+    },
+    {
+      "id": 5,
+      "name": "AssetManagementDataStandard_Lane",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 227591,
+      "spatialReference": null,
+      "fieldCount": 26,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDLane",
+          "type": "String",
+          "alias": "AMDS ID Lane"
+        },
+        {
+          "name": "numberLanes",
+          "type": "SmallInteger",
+          "alias": "Number of Lanes"
+        },
+        {
+          "name": "startMeasure",
+          "type": "Double",
+          "alias": "Start Measure"
+        },
+        {
+          "name": "endMeasure",
+          "type": "Double",
+          "alias": "End Measure"
+        },
+        {
+          "name": "laneLengthM",
+          "type": "Double",
+          "alias": "Lane Length (m)"
+        },
+        {
+          "name": "numberLanesLHS",
+          "type": "SmallInteger",
+          "alias": "Number of Lanes (Left Hand Side)"
+        },
+        {
+          "name": "numberLanesRHS",
+          "type": "SmallInteger",
+          "alias": "Number of Lanes (Right Hand Side)"
+        },
+        {
+          "name": "multipleOccupancyVehicleLane",
+          "type": "SmallInteger",
+          "alias": "Multiple Occupancy Vehicle (MOV) Lane",
+          "codedValues": {
+            "1": "None",
+            "2": "Left",
+            "3": "Right",
+            "4": "Both",
+            "5": "Centre"
+          }
+        },
+        {
+          "name": "publicTransportLane",
+          "type": "SmallInteger",
+          "alias": "Public Transport (PT) Lane",
+          "codedValues": {
+            "1": "None",
+            "2": "Left",
+            "3": "Right",
+            "4": "Both",
+            "5": "Centre"
+          }
+        },
+        {
+          "name": "averageLaneWidthM",
+          "type": "Double",
+          "alias": "Average Lane Width (m)"
+        },
+        {
+          "name": "shouldersPresent",
+          "type": "SmallInteger",
+          "alias": "Shoulders Present",
+          "codedValues": {
+            "1": "None",
+            "2": "Left",
+            "3": "Right",
+            "4": "Both",
+            "5": "Centre"
+          }
+        },
+        {
+          "name": "averageShoulderWidthM",
+          "type": "Double",
+          "alias": "Average Shoulder Width (m)"
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "isFullLength",
+          "type": "SmallInteger",
+          "alias": "Is Full Length",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDLane",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "name": "AssetManagementDataStandard_LinearRefSysNetwork",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 70,
+      "spatialReference": null,
+      "fieldCount": 13,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDLinearRefSysNetwork",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Network"
+        },
+        {
+          "name": "linearRefSysNetwork",
+          "type": "SmallInteger",
+          "alias": "Linear Reference System Network",
+          "codedValues": {
+            "1": "State Highway (RAMM)",
+            "2": "Local Road",
+            "3": "Spatial"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDLinearRefSysNetwork"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "name": "AssetManagementDataStandard_LinearRefSysRoute",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 91588,
+      "spatialReference": null,
+      "fieldCount": 23,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDLinearRefSysRoute",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Route"
+        },
+        {
+          "name": "amdsIDLinearRefSysNetwork",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Network"
+        },
+        {
+          "name": "linearRefSysRouteName",
+          "type": "String",
+          "alias": "Linear Reference System Route Name"
+        },
+        {
+          "name": "minimumStartMeasure",
+          "type": "Double",
+          "alias": "Minimum Start Measure"
+        },
+        {
+          "name": "maximumEndMeasure",
+          "type": "Double",
+          "alias": "Maximum End Measure"
+        },
+        {
+          "name": "xStart",
+          "type": "Double",
+          "alias": "X Start"
+        },
+        {
+          "name": "xEnd",
+          "type": "Double",
+          "alias": "X End"
+        },
+        {
+          "name": "yStart",
+          "type": "Double",
+          "alias": "Y Start"
+        },
+        {
+          "name": "yEnd",
+          "type": "Double",
+          "alias": "Y End"
+        },
+        {
+          "name": "zStart",
+          "type": "Double",
+          "alias": "Z Start"
+        },
+        {
+          "name": "zEnd",
+          "type": "Double",
+          "alias": "Z End"
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "amdsIDRouteName",
+          "type": "String",
+          "alias": "AMDS ID Route Name"
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDLinearRefSysRoute",
+          "amdsIDLinearRefSysNetwork",
+          "amdsIDRouteName"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "amdsIDLinearRefSysRoute",
+          "linearRefSysRouteName",
+          "amdsIDRouteName",
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "name": "AssetManagementDataStandard_LinearRefSysSequence",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 203262,
+      "spatialReference": null,
+      "fieldCount": 17,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDLinearRefSysSequence",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Sequence"
+        },
+        {
+          "name": "amdsIDLinearRefSysRoute",
+          "type": "String",
+          "alias": "AMDS ID Linear Reference System Route"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "lineSequence",
+          "type": "Integer",
+          "alias": "Line Sequence"
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "linearRefSysElementType",
+          "type": "SmallInteger",
+          "alias": "Linear Reference System Element Type",
+          "codedValues": {
+            "1": "Normal",
+            "2": "Increasing Divided",
+            "3": "Decreasing Divided",
+            "4": "Roundabout",
+            "5": "Ramp",
+            "6": "Slip Access",
+            "7": "Branch",
+            "8": "Hammerhead",
+            "9": "Extension",
+            "10": "Loop",
+            "11": "Cul de sac"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "lrsDirectionMatchesGeometry",
+          "type": "SmallInteger",
+          "alias": "Linear Reference System Direction Matches Geometry Direction",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDLinearRefSysSequence",
+          "amdsIDLinearRefSysRoute",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [
+          "lrsDirectionMatchesGeometry"
+        ],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "amdsIDLinearRefSysRoute",
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "name": "AssetManagementDataStandard_RestrictedTurn",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 60,
+      "spatialReference": null,
+      "fieldCount": 40,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDNetworkModel1",
+          "type": "String",
+          "alias": "AMDS ID Network Element 1"
+        },
+        {
+          "name": "position1",
+          "type": "Double",
+          "alias": "Position 1"
+        },
+        {
+          "name": "amdsIDNetworkModel2",
+          "type": "String",
+          "alias": "AMDS ID Network Element 2"
+        },
+        {
+          "name": "position2",
+          "type": "Double",
+          "alias": "Position 2"
+        },
+        {
+          "name": "amdsIDNetworkModel3",
+          "type": "String",
+          "alias": "AMDS ID Network Element 3"
+        },
+        {
+          "name": "position3",
+          "type": "Double",
+          "alias": "Position 3"
+        },
+        {
+          "name": "amdsIDNetworkModel4",
+          "type": "String",
+          "alias": "AMDS ID Network Element 4"
+        },
+        {
+          "name": "position4",
+          "type": "Double",
+          "alias": "Position 4"
+        },
+        {
+          "name": "amdsIDNetworkModel5",
+          "type": "String",
+          "alias": "AMDS ID Network Element 5"
+        },
+        {
+          "name": "position5",
+          "type": "Double",
+          "alias": "Position 5"
+        },
+        {
+          "name": "amdsIDNetworkModel6",
+          "type": "String",
+          "alias": "AMDS ID Network Element 6"
+        },
+        {
+          "name": "position6",
+          "type": "Double",
+          "alias": "Position 6"
+        },
+        {
+          "name": "amdsIDNetworkModel7",
+          "type": "String",
+          "alias": "AMDS ID Network Element 7"
+        },
+        {
+          "name": "position7",
+          "type": "Double",
+          "alias": "Position 7"
+        },
+        {
+          "name": "amdsIDNetworkModel8",
+          "type": "String",
+          "alias": "AMDS ID Network Element 8"
+        },
+        {
+          "name": "position8",
+          "type": "Double",
+          "alias": "Position 8"
+        },
+        {
+          "name": "modeEmergencyRestricted",
+          "type": "SmallInteger",
+          "alias": "Emergency Management Services are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeVehicleRestricted",
+          "type": "SmallInteger",
+          "alias": "All Other Vehicles are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeVehicleHeavyRestricted",
+          "type": "SmallInteger",
+          "alias": "Vehicles that are HCVI or HCVII classified are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modePedestrianRestricted",
+          "type": "SmallInteger",
+          "alias": "Pedestrians are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeCyclingRestricted",
+          "type": "SmallInteger",
+          "alias": "Cycles are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeMicroModeRestricted",
+          "type": "SmallInteger",
+          "alias": "Micro Modes are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeBusRestricted",
+          "type": "SmallInteger",
+          "alias": "Buses are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modePublicTransportRestricted",
+          "type": "SmallInteger",
+          "alias": "Public Transports is restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeRailRestricted",
+          "type": "SmallInteger",
+          "alias": "Trains are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "modeFerryRestricted",
+          "type": "SmallInteger",
+          "alias": "Ferries are restricted from making this turn",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "amdsIDRestrictedTurn",
+          "type": "String",
+          "alias": "AMDS ID Restricted Turn"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "created_user"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "created_date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "last_edited_user"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "last_edited_date"
+        },
+        {
+          "name": "isEndOfFirstSegment",
+          "type": "SmallInteger",
+          "alias": "Is End of First Segment",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDNetworkModel1",
+          "amdsIDNetworkModel2",
+          "amdsIDNetworkModel3",
+          "amdsIDNetworkModel4",
+          "amdsIDNetworkModel5",
+          "amdsIDNetworkModel6",
+          "amdsIDNetworkModel7",
+          "amdsIDNetworkModel8",
+          "amdsIDRestrictedTurn"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [
+          "modeEmergencyRestricted",
+          "modeVehicleRestricted",
+          "modeVehicleHeavyRestricted",
+          "modePedestrianRestricted",
+          "modeCyclingRestricted",
+          "modeMicroModeRestricted",
+          "modeBusRestricted",
+          "modePublicTransportRestricted",
+          "modeRailRestricted",
+          "modeFerryRestricted"
+        ],
+        "restriction": [
+          "modeEmergencyRestricted",
+          "modeVehicleRestricted",
+          "modeVehicleHeavyRestricted",
+          "modePedestrianRestricted",
+          "modeCyclingRestricted",
+          "modeMicroModeRestricted",
+          "modeBusRestricted",
+          "modePublicTransportRestricted",
+          "modeRailRestricted",
+          "modeFerryRestricted",
+          "amdsIDRestrictedTurn"
+        ],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "name": "AssetManagementDataStandard_Restriction",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 1372,
+      "spatialReference": null,
+      "fieldCount": 23,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDRestriction",
+          "type": "String",
+          "alias": "AMDS ID Restriction"
+        },
+        {
+          "name": "modeRestriction",
+          "type": "SmallInteger",
+          "alias": "Mode Restricted",
+          "codedValues": {
+            "1": "Vehicle",
+            "2": "Vehicle - Heavy",
+            "3": "Pedestrian",
+            "4": "Cycling",
+            "5": "Bus",
+            "6": "Micro Mode",
+            "7": "Public Transport",
+            "8": "Rail",
+            "9": "Ferry",
+            "10": "EMS"
+          }
+        },
+        {
+          "name": "modeInfo",
+          "type": "String",
+          "alias": "Mode Restricted Information"
+        },
+        {
+          "name": "heightRestriction",
+          "type": "SmallInteger",
+          "alias": "Restriction Height Limit",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "heightInfo",
+          "type": "Double",
+          "alias": "Restriction Height Limit Info (m)"
+        },
+        {
+          "name": "weightRestriction",
+          "type": "SmallInteger",
+          "alias": "Restriction Weight Limit",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "weightInfo",
+          "type": "Double",
+          "alias": "Restriction Weight Limit Info (kg)"
+        },
+        {
+          "name": "startMeasure",
+          "type": "Double",
+          "alias": "Start Measure"
+        },
+        {
+          "name": "endMeasure",
+          "type": "Double",
+          "alias": "End Measure"
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "Created User"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "Created Date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "Last Edited User"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "Last Edited Date"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "isFullLength",
+          "type": "SmallInteger",
+          "alias": "Is Full Length",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDRestriction",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [
+          "modeRestriction",
+          "modeInfo"
+        ],
+        "restriction": [
+          "amdsIDRestriction",
+          "modeRestriction",
+          "heightRestriction",
+          "weightRestriction"
+        ],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "name": "AssetManagementDataStandard_RouteName",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 92065,
+      "spatialReference": null,
+      "fieldCount": 40,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDRouteName",
+          "type": "String",
+          "alias": "AMDS ID Route Name"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "routeGroup",
+          "type": "SmallInteger",
+          "alias": "Route Group",
+          "codedValues": {
+            "1": "Roadway State Highway",
+            "2": "Waterway",
+            "3": "Busway",
+            "4": "Pathway",
+            "5": "Railway",
+            "6": "Roadway Local",
+            "7": "Route"
+          }
+        },
+        {
+          "name": "routeNumber1",
+          "type": "SmallInteger",
+          "alias": "Route Number 1"
+        },
+        {
+          "name": "routeAlpha1",
+          "type": "String",
+          "alias": "Route Alpha 1"
+        },
+        {
+          "name": "namePrefix",
+          "type": "SmallInteger",
+          "alias": "Name Prefix",
+          "codedValues": {
+            "1": "Back",
+            "2": "Front",
+            "3": "Lower",
+            "4": "Mid",
+            "5": "Upper",
+            "6": "The",
+            "7": "Mount",
+            "8": "Saint"
+          }
+        },
+        {
+          "name": "nameBody1",
+          "type": "String",
+          "alias": "Name Body 1"
+        },
+        {
+          "name": "nameType",
+          "type": "SmallInteger",
+          "alias": "Name Type",
+          "codedValues": {
+            "0": "Not Applicable",
+            "1": "Access",
+            "2": "Access Road",
+            "3": "Alley",
+            "4": "Arcade",
+            "5": "Avenue",
+            "6": "Bay",
+            "7": "Belt",
+            "8": "Bend",
+            "9": "Boulevard",
+            "10": "Brae",
+            "11": "Bridge",
+            "12": "Bypass",
+            "13": "Circle",
+            "14": "Close",
+            "15": "Common",
+            "16": "Court",
+            "17": "Courts",
+            "18": "Cove",
+            "19": "Crescent",
+            "20": "Crest",
+            "21": "Dell",
+            "22": "Downs",
+            "23": "Drive",
+            "24": "End",
+            "25": "Esplanade",
+            "26": "Expressway",
+            "27": "Gardens",
+            "28": "Gate",
+            "29": "Glade",
+            "30": "Glen",
+            "31": "Green",
+            "32": "Greens",
+            "33": "Grove",
+            "34": "Haven",
+            "35": "Heights",
+            "36": "Highway",
+            "37": "Hill",
+            "38": "Key",
+            "39": "Landing",
+            "40": "Lane",
+            "41": "Line",
+            "42": "Link",
+            "43": "Loop",
+            "44": "Loop Road",
+            "45": "Mall",
+            "46": "Mews",
+            "47": "Mile",
+            "48": "Motorway",
+            "49": "Oaks",
+            "50": "Paddock",
+            "51": "Parade",
+            "52": "Park",
+            "53": "Parkway",
+            "54": "Pass",
+            "55": "Place",
+            "56": "Point",
+            "57": "Promenade",
+            "58": "Quay",
+            "59": "Ridge",
+            "60": "Rise",
+            "61": "Road",
+            "62": "Roadway",
+            "63": "Row",
+            "64": "Side Road",
+            "65": "Spur",
+            "66": "Square",
+            "67": "Steps",
+            "68": "Strand",
+            "69": "Street",
+            "70": "Terrace",
+            "71": "Track",
+            "72": "Vale",
+            "73": "Valley",
+            "74": "View",
+            "75": "Views",
+            "76": "Vista",
+            "77": "Walk",
+            "78": "Way",
+            "79": "Wharf",
+            "1001": "Island",
+            "1002": "Express",
+            "1003": "Range",
+            "1004": "Town",
+            "1005": "Straight",
+            "1006": "Rue",
+            "1007": "Rue De",
+            "1008": "Rue De La"
+          }
+        },
+        {
+          "name": "nameSuffix",
+          "type": "SmallInteger",
+          "alias": "Name Suffix",
+          "codedValues": {
+            "1": "Central",
+            "2": "East",
+            "3": "Extension",
+            "4": "Lower",
+            "5": "North",
+            "6": "South",
+            "7": "Upper",
+            "8": "West"
+          }
+        },
+        {
+          "name": "nameBody2",
+          "type": "String",
+          "alias": "Name Body 2"
+        },
+        {
+          "name": "isMacronated",
+          "type": "SmallInteger",
+          "alias": "Is Macronated",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "routeNameFull",
+          "type": "String",
+          "alias": "Route Name Full"
+        },
+        {
+          "name": "routeNameAbbreviated",
+          "type": "String",
+          "alias": "Route Name Abbreviated"
+        },
+        {
+          "name": "routeNameFullASCII",
+          "type": "String",
+          "alias": "Route Name Full ASCII"
+        },
+        {
+          "name": "routeNameAbbreviatedASCII",
+          "type": "String",
+          "alias": "Route Name Abbreviated ASCII"
+        },
+        {
+          "name": "referenceStation",
+          "type": "SmallInteger",
+          "alias": "Reference Station"
+        },
+        {
+          "name": "distance",
+          "type": "Double",
+          "alias": "Distance"
+        },
+        {
+          "name": "rampNumber",
+          "type": "SmallInteger",
+          "alias": "Ramp Number"
+        },
+        {
+          "name": "interchangeNumber",
+          "type": "SmallInteger",
+          "alias": "Interchange Number"
+        },
+        {
+          "name": "lrsEnabled",
+          "type": "SmallInteger",
+          "alias": "Is LRS Enabled",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "localityName",
+          "type": "SmallInteger",
+          "alias": "Locality Name",
+          "codedValues": {
+            "1": "Ongaroto",
+            "2": "Tirau",
+            "3": "Putaruru",
+            "4": "Tokoroa",
+            "5": "Arapuni",
+            "6": "Akaroa",
+            "7": "Bishopdale",
+            "8": "Dallington",
+            "9": "Halswell",
+            "10": "Lyttelton/Mt Herbert",
+            "11": "Redwood",
+            "12": "Riccarton",
+            "13": "Wainui",
+            "14": "Wairewa",
+            "15": "Aro Valley",
+            "16": "Berhampore",
+            "17": "Breaker Bay",
+            "18": "Broadmeadows",
+            "19": "Brooklyn",
+            "20": "Churton Park",
+            "21": "Crofton Downs",
+            "22": "Glenside",
+            "23": "Grenada North",
+            "24": "Grenada Village",
+            "25": "Hataitai",
+            "26": "Highbury",
+            "27": "Horokiwi",
+            "28": "Houghton Bay",
+            "29": "Island Bay",
+            "30": "Johnsonville",
+            "31": "Kaiwharawhara",
+            "32": "Karaka Bays",
+            "33": "Karori",
+            "34": "Kelburn",
+            "35": "Khandallah",
+            "36": "Kilbirnie",
+            "37": "Kingston",
+            "38": "Lyall Bay",
+            "39": "Makara",
+            "40": "Makara Beach",
+            "41": "Maupuia",
+            "42": "Melrose",
+            "43": "Miramar",
+            "44": "Moa Point",
+            "45": "Mornington",
+            "46": "Mt Cook",
+            "47": "Mt Victoria",
+            "48": "Newlands",
+            "49": "Newtown",
+            "50": "Ngaio",
+            "51": "Ngauranga",
+            "52": "Northland",
+            "53": "Ohariu",
+            "54": "Oriental Bay",
+            "55": "Owhiro Bay",
+            "56": "Paparangi",
+            "57": "Pipitea",
+            "58": "Rongotai",
+            "59": "Roseneath",
+            "60": "Seatoun",
+            "61": "Southgate",
+            "62": "Strathmore Park",
+            "63": "Takapu Valley",
+            "64": "Tawa",
+            "65": "Te Aro",
+            "66": "Thorndon",
+            "67": "Vogeltown",
+            "68": "Wadestown",
+            "69": "Wellington Central",
+            "70": "Wilton",
+            "71": "Woodridge",
+            "72": "Arero",
+            "73": "Awapuni",
+            "74": "Bushmere",
+            "75": "Elgin",
+            "76": "Gisborne Central",
+            "77": "Hangaroa",
+            "78": "Hicks Bay",
+            "79": "Inner Kaiti",
+            "80": "Kaiti",
+            "81": "Kanakanaia",
+            "82": "Makaraka",
+            "83": "Mangapapa",
+            "84": "Mangatu",
+            "85": "Matawai",
+            "86": "Matawhero",
+            "87": "Motu",
+            "88": "Okitu",
+            "89": "Ormond",
+            "90": "Patutahi",
+            "91": "Poututu",
+            "92": "Puha",
+            "93": "Rakauroa",
+            "94": "Riverdale",
+            "95": "Ruatoria",
+            "96": "Te Araroa",
+            "97": "Te Hapara",
+            "98": "Te Karaka",
+            "99": "Te Puia Springs",
+            "100": "Tikitiki",
+            "101": "Tiniroto",
+            "102": "Tokomaru Bay",
+            "103": "Tolaga Bay",
+            "104": "Waerengaahika",
+            "105": "Waihirere",
+            "107": "Waipiro Bay",
+            "108": "Whatatutu",
+            "109": "Whataupoko",
+            "110": "Wairoa",
+            "111": "Wairoa Northern",
+            "112": "Wairoa Central",
+            "113": "Ruakituri",
+            "114": "Southern",
+            "115": "Frasertown",
+            "116": "Mahia Beach",
+            "117": "Mahanga",
+            "118": "Nuhaka",
+            "119": "Tuai",
+            "121": "Waikaremoana",
+            "122": "Tararua Northern",
+            "123": "Pahiatua-Woodville",
+            "124": "Eketahuna",
+            "125": "Ahuriri",
+            "126": "Awatoto",
+            "127": "Bay View",
+            "128": "Greenmeadows",
+            "129": "Jervoistown",
+            "130": "Knightsbridge",
+            "131": "Maraenui",
+            "132": "Marewa",
+            "133": "Meeanee",
+            "134": "Mission View",
+            "135": "Napier City",
+            "136": "Napier South",
+            "137": "Onekawa",
+            "138": "Onekawa Indust",
+            "139": "Pandora",
+            "140": "Parklands",
+            "141": "Pirimai",
+            "142": "Poraiti",
+            "143": "Scinde Hill",
+            "144": "Tamatea",
+            "145": "Taradale",
+            "146": "Westshore",
+            "147": "Anakiwa",
+            "148": "Anakoha",
+            "149": "Ben Morven",
+            "150": "Blenheim",
+            "151": "Bulwer",
+            "152": "Burleigh",
+            "153": "Conders Bend",
+            "154": "Dillons Point",
+            "155": "Duncan Bay",
+            "156": "Elaine Bay",
+            "157": "Flaxbourne",
+            "158": "Hallam Cove",
+            "159": "Havelock",
+            "160": "Leatham",
+            "161": "Marlborough Ridge",
+            "162": "Moetapu Bay",
+            "163": "Ngakuta Bay",
+            "164": "Okiwi Bay",
+            "165": "Old Renwick",
+            "166": "Omaka",
+            "167": "Onahau Bay",
+            "168": "Onamalutu",
+            "169": "Penzance Bay",
+            "170": "Rapaura",
+            "171": "Rarangi",
+            "172": "Renwick",
+            "174": "Riverlands Industrial",
+            "175": "Roselands",
+            "176": "Seddon",
+            "177": "Solar Heights",
+            "178": "Springlands",
+            "179": "Spy Station",
+            "180": "Taimate",
+            "181": "Tara Bay",
+            "182": "Te Towaka",
+            "183": "Tirimoana",
+            "184": "Titirangi Bay",
+            "185": "Torea Bay",
+            "186": "Tuna Bay",
+            "187": "Twidles Island",
+            "188": "Ure River",
+            "189": "Wairau",
+            "190": "Wairau Valley",
+            "191": "Wharanui",
+            "192": "Witherlea",
+            "193": "Woodbourne",
+            "194": "Arthurton",
+            "195": "Brydone",
+            "196": "Charlton",
+            "197": "Chatton",
+            "198": "Chatton North",
+            "199": "East Chatton",
+            "200": "Ferndale",
+            "201": "Gore",
+            "202": "Kaiwera",
+            "203": "Knapdale",
+            "204": "Maitland",
+            "205": "Mandeville",
+            "206": "Mataura",
+            "207": "Mcnab",
+            "208": "Otama",
+            "209": "Otama Valley",
+            "210": "Otaraia",
+            "211": "Otikerama",
+            "212": "Pukerau",
+            "213": "Te Tipua",
+            "214": "Tuturau",
+            "215": "Upper Charlton",
+            "216": "Waikaka",
+            "217": "Waikana",
+            "218": "Waimumu",
+            "219": "Wendon",
+            "220": "Wendon Valley",
+            "221": "Whiterigg"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "externalSystemGUID",
+          "type": "String",
+          "alias": "External System GUID"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "created_user"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "created_date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "last_edited_user"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "last_edited_date"
+        },
+        {
+          "name": "routeNumber2",
+          "type": "SmallInteger",
+          "alias": "Route Number 2"
+        },
+        {
+          "name": "routeAlpha2",
+          "type": "String",
+          "alias": "Route Alpha 2"
+        },
+        {
+          "name": "direction",
+          "type": "SmallInteger",
+          "alias": "Direction",
+          "codedValues": {
+            "1": "Increasing",
+            "2": "Decreasing",
+            "3": "Westbound",
+            "4": "Eastbound",
+            "5": "Northbound",
+            "6": "Southbound",
+            "7": "Right Hand Side",
+            "8": "Left Hand Side",
+            "9": "Left",
+            "10": "Right"
+          }
+        },
+        {
+          "name": "rampType",
+          "type": "SmallInteger",
+          "alias": "Ramp Type",
+          "codedValues": {
+            "1": "Off",
+            "2": "On",
+            "3": "Off/On"
+          }
+        },
+        {
+          "name": "routeSubGroup",
+          "type": "SmallInteger",
+          "alias": "Route Sub Group",
+          "codedValues": {
+            "1": "High Performance Motor Vehicle",
+            "2": "Dedicated National Detour",
+            "3": "Accessway",
+            "4": "Bus",
+            "5": "Carpark",
+            "6": "Cycleway",
+            "7": "Ferry",
+            "8": "Footpath",
+            "9": "Hammerhead",
+            "10": "High Level Access",
+            "11": "Line",
+            "12": "Local Road",
+            "13": "Loop",
+            "14": "Low Level Access",
+            "15": "Dedicated Hazardous Material",
+            "16": "Ramp",
+            "17": "Dedicated Lifeline",
+            "18": "Reference Station",
+            "19": "Reserve",
+            "20": "Walkway",
+            "21": "Roundabout",
+            "22": "Toll Road",
+            "23": "Service Lane",
+            "24": "Shared Path",
+            "25": "Slip",
+            "26": "State Highway",
+            "27": "Tourist",
+            "28": "Trail",
+            "29": "Cul-De-Sac",
+            "30": "Crossing"
+          }
+        },
+        {
+          "name": "includeLocalityInName",
+          "type": "SmallInteger",
+          "alias": "Include Locality in name",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "authorisedAlternative",
+          "type": "SmallInteger",
+          "alias": "Authorised/Alternative",
+          "codedValues": {
+            "1": "Authorised",
+            "2": "Alternative"
+          }
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDRouteName"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [
+          "direction"
+        ],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "amdsIDRouteName",
+          "routeGroup",
+          "routeNumber1",
+          "routeAlpha1",
+          "namePrefix",
+          "nameBody1",
+          "nameType",
+          "nameSuffix",
+          "nameBody2",
+          "routeNameFull",
+          "routeNameAbbreviated",
+          "routeNameFullASCII",
+          "routeNameAbbreviatedASCII",
+          "localityName",
+          "externalSystemName",
+          "routeNumber2",
+          "routeAlpha2",
+          "routeSubGroup",
+          "includeLocalityInName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "name": "AssetManagementDataStandard_UrbanRural",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "OBJECTID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 212416,
+      "spatialReference": null,
+      "fieldCount": 19,
+      "fields": [
+        {
+          "name": "OBJECTID",
+          "type": "OID",
+          "alias": "OBJECTID"
+        },
+        {
+          "name": "amdsIDUrbanRural",
+          "type": "String",
+          "alias": "AMDS ID Urban Rural"
+        },
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "AMDS ID Network Element"
+        },
+        {
+          "name": "dataManagingOrganisation",
+          "type": "SmallInteger",
+          "alias": "Data Managing Organisation",
+          "codedValues": {
+            "1": "Waka Kotahi NZ Transport Agency",
+            "2": "Department of Conservation",
+            "33": "Ashburton District Council",
+            "34": "Auckland Transport",
+            "35": "Buller District Council",
+            "36": "Carterton District Council",
+            "37": "Central Hawke's Bay District Council",
+            "38": "Central Otago District Council",
+            "39": "Chatham Islands Council",
+            "40": "Christchurch City Council",
+            "41": "Clutha District Council",
+            "42": "Dunedin City Council",
+            "43": "Far North District Council",
+            "44": "Gisborne District Council",
+            "45": "Gore District Council",
+            "46": "Grey District Council",
+            "47": "Hamilton City Council",
+            "48": "Hastings District Council",
+            "49": "Hauraki District Council",
+            "50": "Horowhenua District Council",
+            "51": "Hurunui District Council",
+            "52": "Hutt City Council",
+            "53": "Invercargill City Council",
+            "54": "Kaikōura District Council",
+            "55": "Kaipara District Council",
+            "56": "Kāpiti Coast District Council",
+            "57": "Kawerau District Council",
+            "58": "Mackenzie District Council",
+            "59": "Manawatu District Council",
+            "60": "Marlborough District Council",
+            "61": "Masterton District Council",
+            "62": "Matamata-Piako District Council",
+            "63": "Napier City Council",
+            "64": "Nelson City Council",
+            "65": "New Plymouth District Council",
+            "66": "Ōpōtiki District Council",
+            "67": "Ōtorohanga District Council",
+            "68": "Palmerston North City Council",
+            "69": "Porirua City Council",
+            "70": "Queenstown-Lakes District Council",
+            "71": "Rangītikei District Council",
+            "72": "Rotorua Lakes Council",
+            "73": "Ruapehu District Council",
+            "74": "Selwyn District Council",
+            "75": "South Taranaki District Council",
+            "76": "South Waikato District Council",
+            "77": "South Wairarapa District Council",
+            "78": "Southland District Council",
+            "79": "Stratford District Council",
+            "80": "Tararua District Council",
+            "81": "Tasman District Council",
+            "82": "Taupō District Council",
+            "83": "Tauranga City Council",
+            "84": "Thames-Coromandel District Council",
+            "85": "Timaru District Council",
+            "86": "Upper Hutt City Council",
+            "87": "Waikato District Council",
+            "88": "Waimakariri District Council",
+            "89": "Waimate District Council",
+            "90": "Waipā District Council",
+            "91": "Wairoa District Council",
+            "92": "Waitaki District Council",
+            "93": "Waitomo District Council",
+            "94": "Wellington City Council",
+            "95": "Western Bay of Plenty District Council",
+            "96": "Westland District Council",
+            "97": "Whakatāne District Council",
+            "98": "Whanganui District Council",
+            "99": "Whangārei District Council",
+            "100": "Private",
+            "101": "Baseline Dataset (For Development Only)",
+            "102": "KiwiRail Holdings Limited",
+            "103": "Land Information New Zealand",
+            "104": "Auckland Council",
+            "105": "(NOC) CENTRAL WAIKATO",
+            "106": "(NOC) SOUTH CANTERBURY",
+            "107": "(NOC) WEST WAIKATO",
+            "108": "(NOC) BOP WEST",
+            "109": "(NOC) WEST COAST",
+            "110": "AUCK ALLIANCE (ASM)",
+            "111": "(NOC) COASTAL OTAGO",
+            "112": "(NOC) TARANAKI",
+            "113": "(NOC) Tairawhiti",
+            "114": "(NOC) NORTH CANTERBURY",
+            "115": "(NOC) WELLINGTON",
+            "116": "(NOC) MILFORD",
+            "117": "(NOC) MANAWATU-WHANGANUI",
+            "118": "(NOC) BOP EAST",
+            "119": "(NOC) TAIRAWHITI ROADS WESTERN",
+            "120": "(NOC) SOUTHLAND",
+            "121": "(NOC) OTAGO CENTRAL",
+            "122": "(NOC) NELSON-TASMAN",
+            "123": "(NOC) EAST WAIKATO",
+            "124": "(NOC) HAWKES BAY",
+            "125": "(EC) MARLBOROUGH",
+            "126": "(NOC) NORTHLAND",
+            "127": "(NOC) TAIRAWHITI ROADS NORTHERN",
+            "128": "WTA - Wellington Transport Alliance",
+            "129": "RATA - Regional Asset Technical Accord",
+            "130": "AT - Auckland Transport Alliance",
+            "131": "FN - Far North - Northland Transport Alliance",
+            "132": "NTA - Northern Transport Alliance",
+            "133": "Greater Wellington Regional Council",
+            "134": "Lakeland Network Ltd",
+            "135": "Watercare",
+            "136": "Ministry of Education",
+            "137": "Northland Regional Council",
+            "138": "Waikato Regional Council",
+            "139": "Bay of Plenty Regional Council",
+            "140": "Hawke's Bay Regional Council",
+            "141": "Taranaki Regional Council",
+            "142": "Horizons Regional Council",
+            "143": "Greater Wellington Regional Council",
+            "144": "West Coast Regional Council",
+            "145": "Environment Canterbury",
+            "146": "Otago Regional Council",
+            "147": "Southland Regional Council"
+          }
+        },
+        {
+          "name": "isFullLength",
+          "type": "SmallInteger",
+          "alias": "Is Full Length",
+          "codedValues": {
+            "0": "No",
+            "1": "Yes"
+          }
+        },
+        {
+          "name": "startMeasure",
+          "type": "Double",
+          "alias": "Start Measure"
+        },
+        {
+          "name": "endMeasure",
+          "type": "Double",
+          "alias": "End Measure"
+        },
+        {
+          "name": "urbanRural",
+          "type": "SmallInteger",
+          "alias": "Urban Rural",
+          "codedValues": {
+            "1": "Urban",
+            "2": "Rural"
+          }
+        },
+        {
+          "name": "urbanRuralSource",
+          "type": "SmallInteger",
+          "alias": "Urban Rural Source",
+          "codedValues": {
+            "1": "Controlling Authority",
+            "2": "National Speed Limit Register",
+            "3": "Land Use"
+          }
+        },
+        {
+          "name": "effectiveFrom",
+          "type": "Date",
+          "alias": "Effective From Date"
+        },
+        {
+          "name": "effectiveTo",
+          "type": "Date",
+          "alias": "Effective To Date"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "created_user"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "created_date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "last_edited_user"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "last_edited_date"
+        },
+        {
+          "name": "externalReference",
+          "type": "String",
+          "alias": "External Reference GUID"
+        },
+        {
+          "name": "externalSystemName",
+          "type": "String",
+          "alias": "External Source Name"
+        },
+        {
+          "name": "status",
+          "type": "SmallInteger",
+          "alias": "Status",
+          "codedValues": {
+            "0": "Under Review",
+            "1": "Current",
+            "2": "Retired",
+            "3": "Future",
+            "4": "Proposed/Indicative",
+            "5": "Under Review"
+          }
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDUrbanRural",
+          "amdsIDNetworkModel"
+        ],
+        "suspectedSourceTargetNode": [
+          "urbanRuralSource"
+        ],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [
+          "amdsIDUrbanRural",
+          "urbanRural",
+          "urbanRuralSource"
+        ],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "externalSystemName"
+        ],
+        "authority": [
+          "dataManagingOrganisation"
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "name": "AMDS_NetworkModel_AMDS_RouteName",
+      "type": "Table",
+      "geometryType": null,
+      "objectIdField": "RID",
+      "globalIdField": "GlobalID",
+      "maxRecordCount": 2000,
+      "supportsPagination": true,
+      "supportsStatistics": true,
+      "featureCount": 98266,
+      "spatialReference": null,
+      "fieldCount": 13,
+      "fields": [
+        {
+          "name": "amdsIDNetworkModel",
+          "type": "String",
+          "alias": "amdsIDNetworkModel"
+        },
+        {
+          "name": "amdsIDRouteName",
+          "type": "String",
+          "alias": "amdsIDRouteName"
+        },
+        {
+          "name": "RID",
+          "type": "OID",
+          "alias": "RID"
+        },
+        {
+          "name": "isPrimary",
+          "type": "SmallInteger",
+          "alias": "isPrimary"
+        },
+        {
+          "name": "GlobalID",
+          "type": "GlobalID",
+          "alias": "GlobalID"
+        },
+        {
+          "name": "created_user",
+          "type": "String",
+          "alias": "created_user"
+        },
+        {
+          "name": "created_date",
+          "type": "Date",
+          "alias": "created_date"
+        },
+        {
+          "name": "last_edited_user",
+          "type": "String",
+          "alias": "last_edited_user"
+        },
+        {
+          "name": "last_edited_date",
+          "type": "Date",
+          "alias": "last_edited_date"
+        },
+        {
+          "name": "CreationDate",
+          "type": "Date",
+          "alias": "CreationDate"
+        },
+        {
+          "name": "Creator",
+          "type": "String",
+          "alias": "Creator"
+        },
+        {
+          "name": "EditDate",
+          "type": "Date",
+          "alias": "EditDate"
+        },
+        {
+          "name": "Editor",
+          "type": "String",
+          "alias": "Editor"
+        }
+      ],
+      "classification": {
+        "suspectedStableId": [
+          "amdsIDNetworkModel",
+          "amdsIDRouteName"
+        ],
+        "suspectedSourceTargetNode": [],
+        "directionality": [],
+        "modeAccess": [],
+        "restriction": [],
+        "speed": [],
+        "zLevel": [],
+        "roadName": [
+          "amdsIDRouteName"
+        ],
+        "authority": []
+      }
+    }
+  ],
+  "routableProfile": {
+    "1=1": 677024,
+    "status=1": 676880,
+    "status=1 AND modeVehicle=1": 272441,
+    "status=1 AND modeVehicle=1 AND modelAssetType=1": 262057,
+    "status=1 AND modeVehicle=1 AND oneway=1": 9054,
+    "status=1 AND modeVehicle=1 AND oneway IS NULL": 0,
+    "status=1 AND modeVehicleHeavy=1": 271342,
+    "status=1 AND modeEmergencyManagement=1": 248744,
+    "status=1 AND modeFerry=1": 59,
+    "status=1 AND assetOwnerOrganisation=1": 7303
+  },
+  "extractionProbe": {
+    "capabilities": "Query,Extract",
+    "declaresExtract": true,
+    "returnIdsOnlySupported": true,
+    "idListSampleSize": 7123,
+    "nativeOutSR2193": true
+  },
+  "attributionUsed": "Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, maintained by New Zealand Road Controlling Authorities, the Department of Conservation and NZTA."
+}

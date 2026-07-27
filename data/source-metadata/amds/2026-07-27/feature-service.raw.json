@@ -1,0 +1,285 @@
+{
+  "currentVersion": 12,
+  "serviceItemId": "f955c118272b462e9ce757405890b87f",
+  "serviceDescription": "",
+  "hasVersionedData": false,
+  "supportsDisconnectedEditing": false,
+  "hasStaticData": true,
+  "hasSharedDomains": false,
+  "maxRecordCount": 2000,
+  "maxIdsCount": 1000000,
+  "supportedQueryFormats": "JSON",
+  "supportsVCSProjection": false,
+  "supportedExportFormats": "csv,shapefile,sqlite,geoPackage,filegdb,featureCollection,geojson,kml,excel",
+  "supportedConvertFileFormats": "JSON,PBF",
+  "supportedConvertContentFormats": "LayerEditCollection",
+  "supportedFullTextLocales": [
+    "neutral",
+    "ar-SA",
+    "bg-BG",
+    "bn-IN",
+    "ca-ES",
+    "cs-CZ",
+    "da-DK",
+    "de-DE",
+    "el-GR",
+    "en-GB",
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "gu-IN",
+    "he-IL",
+    "hi-IN",
+    "hr-HR",
+    "id-ID",
+    "is-IS",
+    "it-IT",
+    "ja-JP",
+    "kn-IN",
+    "ko-KR",
+    "lt-LT",
+    "lv-LV",
+    "ml-IN",
+    "mr-IN",
+    "ms-MY",
+    "nb-NO",
+    "nl-NL",
+    "pa-IN",
+    "pl-PL",
+    "pt-BR",
+    "pt-PT",
+    "ro-RO",
+    "ru-RU",
+    "sk-SK",
+    "sl-SI",
+    "sr-Cyrl-CS",
+    "sr-Latn-CS",
+    "sv-SE",
+    "ta-IN",
+    "te-IN",
+    "th-TH",
+    "tr-TR",
+    "uk-UA",
+    "ur-PK",
+    "vi-VN",
+    "zh-CN",
+    "zh-HK",
+    "zh-MO",
+    "zh-SG",
+    "zh-TW"
+  ],
+  "supportsSharedTemplates": true,
+  "hasSharedTemplates": true,
+  "capabilities": "Query,Extract",
+  "description": "",
+  "copyrightText": "",
+  "spatialReference": {
+    "wkid": 102100,
+    "latestWkid": 3857
+  },
+  "initialExtent": {
+    "xmin": -20037507.067179184,
+    "ymin": -5943768.025204212,
+    "xmax": 20037507.06717921,
+    "ymax": -4037608.8430214897,
+    "spatialReference": {
+      "wkid": 102100,
+      "latestWkid": 3857
+    }
+  },
+  "fullExtent": {
+    "xmin": -20037507.067179184,
+    "ymin": -5943768.025204212,
+    "xmax": 20037507.06717921,
+    "ymax": -4037608.8430214897,
+    "spatialReference": {
+      "wkid": 102100,
+      "latestWkid": 3857
+    }
+  },
+  "allowGeometryUpdates": true,
+  "supportsTrueCurve": true,
+  "trueCurveSupportMode": "OGC",
+  "supportedCurveTypes": [
+    "esriGeometryCircularArc"
+  ],
+  "supportedTrueCurvePbfFeatureEncodings": [
+    "esriCompressedShapeBuffer",
+    "esriDefault"
+  ],
+  "allowTrueCurvesUpdates": true,
+  "onlyAllowTrueCurveUpdatesByTrueCurveClients": false,
+  "units": "esriMeters",
+  "supportsAppend": true,
+  "supportedAppendCapabilities": "Features",
+  "supportsSharedDomains": true,
+  "supportsWebHooks": true,
+  "supportsTemporalLayers": true,
+  "layerOverridesEnabled": true,
+  "size": 2312798208,
+  "syncEnabled": false,
+  "supportsApplyEditsWithGlobalIds": true,
+  "supportsReturnDeleteResults": true,
+  "supportsLayerOverrides": true,
+  "supportsTilesAndBasicQueriesMode": true,
+  "supportsQueryContingentValues": true,
+  "supportedContingentValuesFormats": "JSON, PBF",
+  "supportsContingentValuesJson": 2,
+  "advancedEditingCapabilities": {
+    "supportsSplit": false,
+    "supportsReturnServiceEditsInSourceSR": false,
+    "supportsAsyncApplyEdits": true,
+    "supportsReturnEditResults": true,
+    "supportsApplyEditsbyUploadID": true,
+    "supportedApplyEditsUploadIDFormats": "JSON,PBF"
+  },
+  "editorTrackingInfo": {
+    "enableEditorTracking": true,
+    "enableOwnershipAccessControl": false,
+    "allowOthersToQuery": true,
+    "allowOthersToUpdate": true,
+    "allowOthersToDelete": true,
+    "allowAnonymousToQuery": true,
+    "allowAnonymousToUpdate": true,
+    "allowAnonymousToDelete": true
+  },
+  "xssPreventionInfo": {
+    "xssPreventionEnabled": true,
+    "xssPreventionRule": "InputOnly",
+    "xssInputRule": "rejectInvalid"
+  },
+  "layers": [
+    {
+      "id": 0,
+      "name": "AssetManagementDataStandard_LinearRefSysCalibration",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0,
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPoint"
+    },
+    {
+      "id": 1,
+      "name": "AssetManagementDataStandard_NetworkModel",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 31162,
+      "maxScale": 0,
+      "type": "Feature Layer",
+      "geometryType": "esriGeometryPolyline"
+    }
+  ],
+  "tables": [
+    {
+      "id": 2,
+      "name": "AssetManagementDataStandard_Authority",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 3,
+      "name": "AssetManagementDataStandard_Cycleway",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 4,
+      "name": "AssetManagementDataStandard_Geometry",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 5,
+      "name": "AssetManagementDataStandard_Lane",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 6,
+      "name": "AssetManagementDataStandard_LinearRefSysNetwork",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 7,
+      "name": "AssetManagementDataStandard_LinearRefSysRoute",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 8,
+      "name": "AssetManagementDataStandard_LinearRefSysSequence",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 9,
+      "name": "AssetManagementDataStandard_RestrictedTurn",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 10,
+      "name": "AssetManagementDataStandard_Restriction",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 11,
+      "name": "AssetManagementDataStandard_RouteName",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 12,
+      "name": "AssetManagementDataStandard_UrbanRural",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    },
+    {
+      "id": 13,
+      "name": "AMDS_NetworkModel_AMDS_RouteName",
+      "parentLayerId": -1,
+      "defaultVisibility": true,
+      "subLayerIds": null,
+      "minScale": 0,
+      "maxScale": 0
+    }
+  ]
+}
