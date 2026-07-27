@@ -17,3 +17,14 @@ data/exports/
 .vite/
 .DS_Store
 Thumbs.db
+
+# Stray output if DATA_DIR resolves relative to a pipeline cwd
+python/data/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/

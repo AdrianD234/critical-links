@@ -1,28 +1,18 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Start the API and the web app together.
+  Start the FastAPI service (in WSL) and the web app (on Windows).
 .PARAMETER SnapshotId
-  Snapshot to serve. Defaults to the most recent.
+  Snapshot to serve. Defaults to the most recent in the database.
 #>
-param([string]$SnapshotId)
+param([string]$SnapshotId = '', [string]$Distro = 'Ubuntu')
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
+$wslRepo = (& wsl -d $Distro -- wslpath -a "$((Get-Location).Path)").Trim()
 
-if (-not $SnapshotId) {
-  $dirs = Get-ChildItem 'data/processed' -Directory -ErrorAction SilentlyContinue | Sort-Object Name
-  if (-not $dirs) { throw 'No snapshots found. Run .\scripts\download-pilot.ps1 first.' }
-  $SnapshotId = $dirs[-1].Name
-}
+Write-Host 'Starting API in WSL (PostgreSQL + PostGIS + pgRouting)' -ForegroundColor Cyan
+& wsl -d $Distro -u root -- env VENV=/home/$(& wsl -d $Distro -- whoami)/.venvs/nzcl bash "$wslRepo/scripts/wsl-run-api.sh" $SnapshotId
+if ($LASTEXITCODE -ne 0) { throw 'API failed to start' }
 
-Write-Host "Starting API with snapshot $SnapshotId" -ForegroundColor Cyan
-$env:SNAPSHOT_ID = $SnapshotId
-$api = Start-Process -PassThru -NoNewWindow npx -ArgumentList 'tsx','apps/api/src/server.ts'
-Start-Sleep -Seconds 8
-
-Write-Host 'Starting web app on http://localhost:5173' -ForegroundColor Cyan
-try {
-  & npm run dev --workspace apps/web
-} finally {
-  if ($api -and -not $api.HasExited) { Stop-Process -Id $api.Id -Force -ErrorAction SilentlyContinue }
-}
+Write-Host "`nStarting web app on http://localhost:5173" -ForegroundColor Cyan
+& npm run dev --workspace apps/web

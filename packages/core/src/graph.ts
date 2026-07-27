@@ -256,25 +256,51 @@ export function buildGraph(
   const tol = opts.toleranceM ?? 0.01; // 10 mm
   const strict = opts.strictToleranceM ?? 0.001; // 1 mm
 
-  const key = (x: number, y: number) =>
-    `${Math.round(x / tol)}|${Math.round(y / tol)}`;
-
-  const nodeIndex = new Map<string, number>();
+  const nodeIndex = new Map<string, number[]>();
   const nxs: number[] = [];
   const nys: number[] = [];
   let inferredJoins = 0;
 
+  /**
+   * Resolves a coordinate to a node, probing the 3x3 cell neighbourhood rather
+   * than only the cell the point lands in.
+   *
+   * Quantising to a single grid cell splits two points that straddle a cell
+   * boundary however close they are. A real case in the Wellington pilot had
+   * two link endpoints 0.4 mm apart assigned to different nodes, severing a
+   * junction and sending a detour 3.6 km the wrong way. It was found by
+   * cross-validating this engine against the independent pgRouting
+   * implementation, which had the same flaw.
+   */
   const nodeOf = (x: number, y: number): number => {
-    const k = key(x, y);
-    const existing = nodeIndex.get(k);
-    if (existing !== undefined) {
-      if (Math.hypot(x - nxs[existing], y - nys[existing]) > strict) inferredJoins++;
-      return existing;
+    const cx = Math.floor(x / tol);
+    const cy = Math.floor(y / tol);
+    let best = -1;
+    let bestD = tol;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = nodeIndex.get(`${cx + dx}|${cy + dy}`);
+        if (!bucket) continue;
+        for (const id of bucket) {
+          const d = Math.hypot(x - nxs[id], y - nys[id]);
+          if (d <= bestD) {
+            bestD = d;
+            best = id;
+          }
+        }
+      }
+    }
+    if (best >= 0) {
+      if (bestD > strict) inferredJoins++;
+      return best;
     }
     const id = nxs.length;
     nxs.push(x);
     nys.push(y);
-    nodeIndex.set(k, id);
+    const k = `${cx}|${cy}`;
+    const bucket = nodeIndex.get(k);
+    if (bucket) bucket.push(id);
+    else nodeIndex.set(k, [id]);
     return id;
   };
 

@@ -13,14 +13,33 @@ exactly what gets cut off.
 
 ---
 
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Database | PostgreSQL 16.14 · PostGIS 3.4.2 · pgRouting 3.6.1 |
+| Backend | Python 3.12 · FastAPI · psycopg 3 · Shapely · pyproj |
+| Frontend | React · TypeScript · Vite · MapLibre GL JS |
+| Tiles | `ST_AsMVT`, served straight from PostGIS |
+| Basemap | LINZ Basemaps |
+
+The database runs in **WSL** — no Docker required, Ubuntu carries the whole
+stack in `apt`. Provisioning is scripted and idempotent.
+
+A second, independent implementation of the same engine in TypeScript lives in
+`packages/core` and `apps/api`. It is kept deliberately: cross-validating the
+two caught a real bug that neither test suite found on its own (see below).
+
+---
+
 ## Quick start
 
 ```bash
-.\scripts\bootstrap.ps1
+.\scripts\setup-python.ps1
 ```
 
 ```bash
-.\scripts\download-pilot.ps1
+.\scripts\ingest-pilot.ps1
 ```
 
 ```bash
@@ -29,15 +48,10 @@ exactly what gets cut off.
 
 Then open <http://localhost:5173>.
 
-Bootstrap installs dependencies and creates `.env`. The pilot download runs
-source discovery and ingests the Wellington region (~5 minutes). `run-dev`
-starts the API and the map.
-
-A free [LINZ Basemaps](https://basemaps.linz.govt.nz/) key in
-`VITE_LINZ_API_KEY` adds the background map. The app runs without one.
-
-**Requires Node 20.11+ only** — no database or container runtime needed to run it. That is a design choice, not a limitation of the machine; see
-[ADR-001](docs/ARCHITECTURE.md#adr-001-node--typescript-instead-of-python-postgis-and-pgrouting).
+Setup installs PostgreSQL/PostGIS/pgRouting in WSL, creates the database, builds
+a Python venv and applies migrations. Ingest discovers the AMDS source and loads
+the Wellington region (~30 s). A free [LINZ](https://basemaps.linz.govt.nz/) key
+in `VITE_LINZ_API_KEY` adds the background map; the app runs without one.
 
 ---
 
@@ -61,44 +75,58 @@ closure, and forward/reverse. Every view is a permalink.
 
 ## Verified results
 
-Wellington pilot — 29,053 source links → **36,395 graph links**, 69,942 arcs,
-8,473 km of road.
-
-Full batch: **19,573 / 19,573 links complete**, 316.7 s, p95 **58 ms**,
-**zero timeouts**.
+Wellington pilot — 29,053 source links → **36,397 graph links**, 69,944 arcs,
+8,473 km of road, 87.3% in one connected component.
 
 The highest-criticality links the model found, with no local knowledge encoded:
 
 | Road | Added distance if closed | Ratio |
 | --- | --- | --- |
-| Moonshine Road | +56.0 km | 81× |
-| Paekākāriki Hill Road | +35.3 km | 71× |
+| Moonshine Road (forward) | +20.9 km | 11.6× |
+| Moonshine Road (reverse) | +53.5 km | 28.1× |
+| Paekākāriki Hill Road | +35 km | 71× |
 
 Both are hill roads linking the Hutt Valley to the Kāpiti Coast — exactly the
-links a Wellington resilience practitioner would nominate.
+links a Wellington resilience practitioner would nominate. Moonshine Road also
+shows a real directional asymmetry, which the model reports rather than averages
+away.
 
-The model also independently rediscovered **Cook Strait**: the second-largest
-connected component is Marlborough, and Waiheke Island appears as its own
-ferry-only component.
+The model independently rediscovered **Cook Strait**: nationally the largest
+connected component is the North Island (63.8%) and the second the South Island
+(31.4%). Waiheke Island appears as its own ferry-only component.
 
 National snapshot: **272,441 / 272,441 links downloaded**, 375,485 graph links,
-147,848 km, p95 561 ms per closure.
+147,848 km.
 
 ---
 
-## The finding that mattered most
+## Two findings worth reading
 
-AMDS does not split a through road where a side road terminates on it, and
-publishes no from/to node ids. Building the graph from coincident endpoints
-alone gave **5,719 components with the largest holding 21% of links** — not a
-road network.
+### AMDS does not split roads at junctions
 
-Measurement showed **7,119 of 16,463** dangling endpoints sat within 10 mm of
-another link's *interior*. Splitting there — and **never** where two interiors
-merely cross, which is what preserves every overbridge and tunnel — gives
-**273 components, largest 87.3%**.
+Building the graph from coincident endpoints alone gave **5,719 components with
+the largest holding 21% of links** — not a road network. Measurement showed
+**7,119 of 16,463** dangling endpoints sat within 10 mm of another link's
+*interior*: AMDS does not cut a through road where a side road ends on it.
 
-Full detail: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) §2.
+Splitting there — and **never** where two interiors merely cross, which is what
+preserves every overbridge and tunnel — gives **268 components, largest 87.3%**.
+
+### Cross-validation caught a bug in both engines
+
+Running the pgRouting and TypeScript engines against each other found one
+disagreement of 3,611 m. Two links met end-to-end **0.4 mm apart** yet had
+different nodes: both engines snapped coordinates to a single grid cell, so
+points either side of a cell boundary never merged however close they were. The
+junction was severed and a detour went 3.6 km the wrong way.
+
+Both now probe the cell neighbourhood. After the fix both engines independently
+produce **33,015 nodes** and agree on **100% of 478 direction-results**, median
+delta 2.6 cm.
+
+```bash
+python -m nzcl.crossvalidate --ts-url http://<windows-host>:8787
+```
 
 ---
 
@@ -106,43 +134,49 @@ Full detail: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) §2.
 
 | Task | Command |
 | --- | --- |
-| Setup | `.\scripts\bootstrap.ps1` |
-| Discover source | `npm run discover` |
-| Ingest pilot | `npm run ingest -- --pilot wellington` |
-| Ingest nationally | `.\scripts\download-national.ps1` |
-| Quality report | `npm run qa -- <snapshotId>` |
-| Batch all links | `npm run detours -- --snapshot <id>` |
-| Benchmark | `npm run detours -- --snapshot <id> --benchmark 600` |
-| Export CSV + XLSX | `npm run export -- --snapshot <id>` |
-| API only | `npm run api` |
-| Web only | `npm run web` |
-| Tests | `npm test` |
-
-Batch runs are restartable: add `--resume`.
+| Provision database + Python | `.\scripts\setup-python.ps1` |
+| Discover source | `python -m nzcl.discover` |
+| Ingest pilot | `python -m nzcl.ingest --pilot wellington` |
+| Ingest nationally | `python -m nzcl.ingest --national` |
+| Quality report | `python -m nzcl.qa <snapshotId>` |
+| Batch all links | `python -m nzcl.batch --snapshot <id> [--resume]` |
+| Benchmark | `python -m nzcl.bench <snapshotId> 60` |
+| Export CSV + XLSX | `python -m nzcl.export --snapshot <id>` |
+| Cross-validate engines | `python -m nzcl.crossvalidate` |
+| API | `uvicorn nzcl.api:app --port 8000` |
+| Both test suites | `.\scripts\test.ps1` |
 
 ---
 
-## Excel output
+## Performance
 
-`npm run export` writes CSV and a five-sheet workbook to `data/exports/`:
-**Link Detours** (one row per link and direction, with a permalink back into the
-app), **Network Metadata**, **Quality Summary**, **Metric Definitions** and
-**Source Lineage**. Values are computed by the validated backend — there are no
-spreadsheet formulas that could drift from the engine.
+Measured on the Wellington pilot (36,397 links, 69,944 arcs):
+
+| | Python + pgRouting | TypeScript (in-memory) |
+| --- | --- | --- |
+| Single shortest path | 39.9 ms | ~2 ms |
+| Full closure analysis (mean) | 190 ms | 16.9 ms |
+| p95 | 265 ms | 58 ms |
+
+Each `pgr_dijkstra` call reloads the whole edge set, which is the entire
+difference. Interactive performance is comfortably inside the 2 s target; batch
+throughput is the real cost of the stack, and it is stated rather than hidden.
+See [ADR-004](docs/ARCHITECTURE.md).
 
 ---
 
 ## Layout
 
 ```
-packages/core     graph, routing, topology, metrics — no dependencies
-apps/api          Fastify API + vector tiles
+python/src/nzcl   ingest, topology, routing, detour, QA, export, API
+sql/migrations    PostGIS schema, arc_transitions expanded graph
 apps/web          React + MapLibre GL JS
-pipelines/        discovery, ingestion, validation, detours, export
-scripts/          PowerShell entry points
+packages/core     independent TypeScript engine (cross-validation)
+apps/api          TypeScript API (cross-validation)
+scripts/          PowerShell and WSL entry points
 docs/             architecture, sources, licensing, limitations, validation
-tests/            67 unit + 16 integration
-data/             snapshots and exports (gitignored)
+python/tests      48 tests against a real PostGIS database
+tests/            70 TypeScript tests
 ```
 
 ---
@@ -154,9 +188,9 @@ data/             snapshots and exports (gitignored)
 | [SOURCE_DISCOVERY.md](docs/SOURCE_DISCOVERY.md) | How the AMDS service was found, its schema, what it lacks |
 | [DATA_SOURCES.md](docs/DATA_SOURCES.md) | Every input, and what is deliberately not used |
 | [LICENSING.md](docs/LICENSING.md) | Attribution, and the open question about AMDS licence terms |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design and three ADRs |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design, four ADRs, and the cross-validation story |
 | [METRIC_DEFINITIONS.md](docs/METRIC_DEFINITIONS.md) | What every number means |
-| [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Twelve limitations, each measured |
+| [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Each one measured |
 | [VALIDATION_PLAN.md](docs/VALIDATION_PLAN.md) | Every test and its result |
 
 ---

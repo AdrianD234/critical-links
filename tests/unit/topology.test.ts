@@ -180,3 +180,48 @@ describe('a junction at an existing vertex', () => {
     expect(graph.componentCount).toBe(1);
   });
 });
+
+describe('grid-boundary node snapping', () => {
+  /**
+   * Regression. Quantising a coordinate to a single grid cell splits two points
+   * that straddle a cell boundary however close they are. In the Wellington
+   * pilot two link endpoints 0.4 mm apart were assigned different nodes,
+   * severing a junction and sending a detour 3.6 km the wrong way. Found by
+   * cross-validating against the independent pgRouting engine, which had the
+   * same flaw.
+   */
+  it('shares a node between endpoints astride a cell boundary', () => {
+    // 0.2 mm apart, either side of a 0.01 m cell edge.
+    const a = 1000.0099;
+    const b = 1000.0101;
+    expect(Math.abs(b - a)).toBeLessThan(0.001);
+    expect(Math.floor(a / 0.01)).not.toBe(Math.floor(b / 0.01));
+
+    const { graph } = split([
+      { id: 'A', pts: [[0, 0], [a, 0]] },
+      { id: 'B', pts: [[b, 0], [2000, 0]] },
+    ]);
+    expect(graph.nodeCount).toBe(3);
+    expect(graph.componentCount).toBe(1);
+  });
+
+  it('still refuses to merge endpoints beyond the tolerance', () => {
+    const { graph } = split([
+      { id: 'A', pts: [[0, 0], [100, 0]] },
+      { id: 'B', pts: [[100.5, 0], [200, 0]] },
+    ]);
+    expect(graph.nodeCount).toBe(4);
+    expect(graph.componentCount).toBe(2);
+  });
+
+  it('collapses several endpoints that all fall within the tolerance', () => {
+    const { graph } = split([
+      { id: 'A', pts: [[0, 0], [100, 0]] },
+      { id: 'B', pts: [[100.004, 0], [200, 0]] },
+      { id: 'C', pts: [[100.008, 0], [300, 0]] },
+    ]);
+    // One shared junction node, not three separate ones.
+    expect(graph.nodeCount).toBe(4);
+    expect(graph.componentCount).toBe(1);
+  });
+});

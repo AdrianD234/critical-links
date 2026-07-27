@@ -214,3 +214,118 @@ without it the whole run buffers in memory and a kill loses everything.
 For a national run, `worker_threads` sharding by link-id range is the obvious
 next step: the graph is read-only after construction and `SharedArrayBuffer`
 would let workers share it without copying.
+
+---
+
+## ADR-004: full port to Python, FastAPI, PostGIS and pgRouting
+
+**Status:** accepted, implemented
+**Supersedes the operative part of ADR-001.**
+
+**Context.** ADR-001 rested on a false premise (see its correction note). Once
+Python and a WSL route to PostgreSQL were confirmed, the reference stack became
+achievable, and the decision was taken to build it.
+
+**What was provisioned.** No Docker was needed: WSL Ubuntu 24.04 carries all of
+it in `apt`.
+
+| Component | Version |
+| --- | --- |
+| PostgreSQL | 16.14 |
+| PostGIS | 3.4.2 (GEOS 3.12.1, PROJ 9.4.0) |
+| pgRouting | 3.6.1 |
+| Python | 3.12.3 |
+| FastAPI / psycopg | 0.140 / 3.3.4 |
+
+Provisioning is scripted and idempotent: `scripts/wsl-setup-db.sh`.
+
+**What changed.**
+
+| Concern | Before | After |
+| --- | --- | --- |
+| Storage | Immutable files, typed arrays | PostGIS tables, `sql/migrations/` |
+| Routing | Hand-written arc-expanded A* | `pgr_dijkstra` over the `arcs` table |
+| Projection | Hand-written Redfearn series | PROJ via pyproj |
+| API | Fastify | FastAPI |
+| Tiles | geojson-vt + vt-pbf | `ST_AsMVT` in the database |
+| Spatial ops | Hand-written | PostGIS / Shapely STRtree |
+
+The React + MapLibre client was **not** ported: it was already the specified
+stack. The response contract was kept identical, so the same client runs against
+either service unchanged — which is what made the cross-validation below
+possible.
+
+**Turn restrictions.** The Ubuntu pgRouting build does not ship `pgr_trsp`
+(verified: `scripts/probe-pgrouting.sh`). Banned manoeuvres are handled with an
+edge-expanded graph, `arc_transitions`, where a node is an arc and a prohibited
+turn is expressed by the absence of an edge. Because AMDS publishes only 60
+restricted turns nationally, routes take the cheap plain-graph path first and
+only fall back to the expanded graph when a candidate route actually violates a
+restriction — always correct, rarely expensive.
+
+**Measured cost.** This is the honest trade, now quantified on the Wellington
+pilot rather than predicted:
+
+| | TypeScript (in-memory) | Python + pgRouting |
+| --- | --- | --- |
+| Single shortest path | ~2 ms | **39.9 ms** |
+| Full closure analysis (mean) | 16.9 ms | **190 ms** |
+| p95 | 58 ms | 265 ms |
+| Pilot batch, 19.5k links | 5.3 min | ~62 min |
+
+Each `pgr_dijkstra` call reloads the entire edge set — 69,944 arcs for the
+pilot — which is the whole of the difference. One optimisation was applied
+where it mattered: the corridor search now resolves all its probe distances in a
+single multi-target call instead of one per probe, cutting the mean from 469 ms
+to 190 ms.
+
+Interactive performance is still comfortably inside target (p95 265 ms against a
+2 s goal). Batch throughput is the real cost, and it is a defensible one to pay
+for SQL access, QGIS connectivity and a standard stack.
+
+**What was gained.** SQL for ad-hoc analysis; QGIS can connect directly to the
+database; the tile pipeline lives in PostGIS so tiles cannot drift from the data
+being routed on; and the stack is the one a GIS team would expect to maintain.
+
+---
+
+## Cross-validation: two engines, one specification
+
+The TypeScript engine was kept rather than deleted, which turned out to be worth
+far more than the code itself. Two independent implementations — different
+languages, graph representations and shortest-path libraries — computing the
+same quantity over the same source data is a stronger check than either one's
+own test suite.
+
+Run it with `python -m nzcl.crossvalidate --ts-url http://<host>:8787`.
+
+**It immediately found a real bug present in BOTH engines.**
+
+The first run agreed on 99.74% of 378 direction-results, with one distance
+disagreement of 3,611 m on Raiha Street. Investigation (`nzcl.diagnose`) showed
+every link of the TypeScript route existed in the pgRouting graph, but two of
+them were not adjacent there. Measuring the geometry directly settled it: the
+two links met end-to-end **0.4 mm apart**, yet had been assigned different
+nodes.
+
+The cause was grid quantisation. Both engines snapped a coordinate to a single
+grid cell — `round(x / tolerance)` — so two points either side of a cell
+boundary get different keys no matter how close they are. The junction was
+severed and a detour was sent 3.6 km the wrong way.
+
+Both now probe the 3×3 cell neighbourhood and merge with the nearest node inside
+the tolerance. Regression tests in both suites cover a pair deliberately placed
+astride a cell edge.
+
+After the fix, both engines independently produce **33,015 nodes** for the
+Wellington pilot, and cross-validation reports:
+
+```
+250 links sampled, 478 direction-results compared
+  status agreements:      478      status disagreements: 0
+  distance agreements:    478      distance disagreements: 0
+  agreement: 100.0%   median delta 0.026 m   max delta 0.118 m
+```
+
+The residual 12 cm is floating-point and geometry-rounding difference between
+the two stacks.

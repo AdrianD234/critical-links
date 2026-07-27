@@ -52,7 +52,11 @@ function baseStyle(): maplibregl.StyleSpecification {
     });
   }
 
-  return { version: 8, sources, layers, glyphs: undefined } as any;
+  // `glyphs` must be omitted entirely, not set to undefined: the style
+  // specification requires a string, and `glyphs: undefined` fails validation.
+  // A failed style load leaves every source unregistered, which surfaces as
+  // "source \"network\" not found" when the layers are added.
+  return { version: 8, sources, layers } as maplibregl.StyleSpecification;
 }
 
 const NETWORK_LAYERS: maplibregl.LayerSpecification[] = [
