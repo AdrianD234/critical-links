@@ -156,8 +156,8 @@ Measured on the Wellington pilot (36,397 links, 69,944 arcs):
 | | Python + pgRouting | TypeScript (in-memory) |
 | --- | --- | --- |
 | Single shortest path | 39.9 ms | ~2 ms |
-| Full closure analysis (mean) | 190 ms | 16.9 ms |
-| p95 | 265 ms | 58 ms |
+| Full closure analysis (mean) | 179 ms | 16.9 ms |
+| p95 | 276 ms | 58 ms |
 
 Each `pgr_dijkstra` call reloads the whole edge set, which is the entire
 difference. Interactive performance is comfortably inside the 2 s target; batch

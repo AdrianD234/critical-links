@@ -269,15 +269,15 @@ pilot rather than predicted:
 | | TypeScript (in-memory) | Python + pgRouting |
 | --- | --- | --- |
 | Single shortest path | ~2 ms | **39.9 ms** |
-| Full closure analysis (mean) | 16.9 ms | **190 ms** |
-| p95 | 58 ms | 265 ms |
-| Pilot batch, 19.5k links | 5.3 min | ~62 min |
+| Full closure analysis (mean) | 16.9 ms | **179 ms** |
+| p95 | 58 ms | 276 ms |
+| Pilot batch, 19.5k links | 5.3 min | 58.7 min (measured) |
 
 Each `pgr_dijkstra` call reloads the entire edge set — 69,944 arcs for the
 pilot — which is the whole of the difference. One optimisation was applied
 where it mattered: the corridor search now resolves all its probe distances in a
 single multi-target call instead of one per probe, cutting the mean from 469 ms
-to 190 ms.
+to 179 ms over the full run.
 
 Interactive performance is still comfortably inside target (p95 265 ms against a
 2 s goal). Batch throughput is the real cost, and it is a defensible one to pay
