@@ -95,10 +95,24 @@ const NETWORK_LAYERS: maplibregl.LayerSpecification[] = [
     source: 'network',
     'source-layer': 'network',
     paint: { 'line-color': '#4da3ff', 'line-width': 4, 'line-opacity': 0.9 },
-    filter: ['==', ['get', 'linkId'], -1],
+    filter: ['==', ['id'], -1],
   },
 ];
 
+/**
+ * Resolve a rendered map feature to a link id.
+ *
+ * Prefers the MVT feature id: ST_AsMVT removes the feature-id column from the
+ * property bag, so a backend that publishes the id ONLY as the id would leave
+ * properties.linkId undefined. Reading both means the client works against
+ * either tile producer in this repository.
+ */
+function linkIdOf(f: maplibregl.MapGeoJSONFeature | undefined): number | null {
+  if (!f) return null;
+  const raw = f.id ?? (f.properties as Record<string, unknown> | undefined)?.linkId;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
 export interface MapViewProps {
   detour: DetourResponse | null;
   onPickLink: (linkId: number) => void;
@@ -181,21 +195,19 @@ export default function MapView({ detour, onPickLink, showCorridor }: MapViewPro
 
     let hovered = -1;
     map.on('mousemove', 'network-hit', (e) => {
-      const f = e.features?.[0];
-      if (!f) return;
-      const id = f.properties?.linkId as number;
-      if (id !== hovered) {
+      const id = linkIdOf(e.features?.[0]);
+      if (id !== null && id !== hovered) {
         hovered = id;
-        map.setFilter('network-hover', ['==', ['get', 'linkId'], id]);
+        map.setFilter('network-hover', ['==', ['id'], id]);
       }
     });
     map.on('mouseleave', 'network-hit', () => {
       hovered = -1;
-      map.setFilter('network-hover', ['==', ['get', 'linkId'], -1]);
+      map.setFilter('network-hover', ['==', ['id'], -1]);
     });
     map.on('click', 'network-hit', (e) => {
-      const f = e.features?.[0];
-      if (f?.properties?.linkId !== undefined) pickRef.current(Number(f.properties.linkId));
+      const id = linkIdOf(e.features?.[0]);
+      if (id !== null) pickRef.current(id);
     });
 
     return () => {

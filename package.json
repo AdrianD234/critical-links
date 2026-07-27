@@ -23,8 +23,9 @@
     "qa": "tsx pipelines/validation/qa.ts",
     "detours": "tsx pipelines/detours/compute-all.ts",
     "export": "tsx pipelines/detours/export.ts",
-    "api": "tsx apps/api/src/server.ts",
-    "web": "npm run dev --workspace apps/web"
+    "web": "npm run dev --workspace apps/web",
+    "reference-api": "tsx apps/api/src/server.ts",
+    "decode-tile": "python scripts/decode-tile.py"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

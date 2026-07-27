@@ -39,7 +39,11 @@ import { openApiDocument } from './openapi.js';
 import { buildTileIndex, type TileIndex } from './tiles.js';
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
-const PORT = Number(process.env.API_PORT ?? 8787);
+// The TypeScript service is a REFERENCE implementation, retained for
+// cross-validation only. It deliberately does not default to a port the
+// application might use: two plausible backends on adjacent ports is how the
+// wrong one ends up answering without anyone noticing.
+const PORT = Number(process.env.REFERENCE_API_PORT ?? 8788);
 const WEB_ORIGIN = process.env.APPLICATION_BASE_URL ?? 'http://localhost:5173';
 
 /**

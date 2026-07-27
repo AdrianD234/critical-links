@@ -3,8 +3,9 @@
 Road-network criticality and detour analysis for New Zealand, built on the
 **NZTA Waka Kotahi AMDS Network Model**.
 
-Close any road link and see the shortest legal replacement path: how far traffic
-must go around, how much distance that adds, and — when there is no way around —
+Close any road link and see the shortest replacement path available in the
+represented network: how far traffic must go around, how much distance that
+adds, and — when there is no way around —
 exactly what gets cut off.
 
 > **This is structural resilience analysis, not a traffic model.** It computes

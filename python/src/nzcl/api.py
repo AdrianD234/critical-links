@@ -123,11 +123,73 @@ STATUS_MEANING = {
 }
 
 
+#: Bumped when the tile property contract changes. Part of the tile URL so a
+#: cached tile can never be reinterpreted under a new schema.
+TILE_SCHEMA_VERSION = 2
+
+
+def _build_info() -> dict[str, str | None]:
+    """Git commit and branch, so a running service is identifiable.
+
+    Prefers values injected by the launcher. Asking git directly from the
+    server process is unreliable: the service may run as a different user than
+    the one that owns the checkout, and git then refuses with "dubious
+    ownership" and returns nothing - which looks identical to "not a repo".
+    """
+    import os
+    import subprocess
+    from pathlib import Path
+
+    injected = {
+        "commit": os.environ.get("NZCL_BUILD_COMMIT"),
+        "branch": os.environ.get("NZCL_BUILD_BRANCH"),
+        "timestamp": os.environ.get("NZCL_BUILD_TIMESTAMP"),
+    }
+    if injected["commit"]:
+        return {**injected, "source": "launcher"}
+
+    repo = Path(__file__).resolve().parents[3]
+
+    def git(*args: str) -> str | None:
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(repo), *args],
+                capture_output=True, text=True, timeout=5,
+            )
+            return r.stdout.strip() or None
+        except Exception:  # noqa: BLE001
+            return None
+
+    out = {
+        "commit": git("rev-parse", "--short", "HEAD"),
+        "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
+        "timestamp": git("log", "-1", "--format=%cI"),
+    }
+    # Say why it is unknown rather than reporting a bare null.
+    out["source"] = "git" if out["commit"] else "unavailable"
+    return out
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
+    """Liveness plus enough identity to prove WHICH backend answered.
+
+    Two implementations of this API exist in the repository. Without an
+    explicit implementation marker there is no way to tell from a response, or
+    a screenshot, which one served it.
+    """
     m = _ACTIVE["meta"]
     return {
         "status": "ok",
+        "implementation": "python-fastapi-postgis",
+        "build": _build_info(),
+        "algorithm": ALGORITHM,
+        "algorithmVersion": ALGORITHM_VERSION,
+        "processingVersion": m["processing_version"],
+        "tileSchemaVersion": TILE_SCHEMA_VERSION,
+        "activeSnapshotId": m["snapshot_id"],
+        "activeSnapshotStatus": m["status"],
+        # Retained for backwards compatibility with the existing client.
         "snapshotId": m["snapshot_id"],
         "links": m["routable_link_count"],
         "arcs": m["arc_count"],
@@ -492,23 +554,48 @@ def tile(z: int, x: int, y: int) -> Response:
     if not (0 <= z <= 22) or not (0 <= x < 2 ** z) or not (0 <= y < 2 ** z):
         raise HTTPException(400, "tile coordinates out of range")
 
+    # Property names are camelCase to match what the MapLibre client reads.
+    # They were snake_case until a decoded-tile test caught it: the client
+    # reads feature.properties.linkId and styles on stateHighway, so a
+    # snake_case tile made every map click resolve undefined and silently
+    # dropped state-highway styling. The style-spec test could not catch this
+    # because it validates the style, never a real tile.
+    #
+    # Candidate selection filters on the NZTM geometry against a reprojected
+    # tile envelope, so the existing 2193 GiST index does the work; only the
+    # surviving candidates are transformed for output.
     row = db.query_one(
         """
-        WITH bounds AS (SELECT ST_TileEnvelope(%(z)s, %(x)s, %(y)s) AS geom),
+        WITH bounds AS (
+            SELECT ST_TileEnvelope(%(z)s, %(x)s, %(y)s) AS merc,
+                   ST_Transform(ST_TileEnvelope(%(z)s, %(x)s, %(y)s), 2193) AS nztm
+        ),
         src AS (
-            SELECT l.link_id, l.amds_id, coalesce(l.road_name,'') AS road_name,
-                   (l.oneway = 1)::int AS oneway,
-                   (l.rca_code = 1)::int AS state_highway,
-                   l.lifeline_route::int AS lifeline,
-                   l.in_analysis_area::int AS core,
-                   round(l.length_m)::int AS length_m,
+            -- link_id is selected twice on purpose. ST_AsMVT REMOVES the
+            -- feature-id column from the property bag, so publishing it only
+            -- as the id would leave properties.linkId undefined - the exact
+            -- bug this schema fixes. `mvtId` becomes feature.id (the robust
+            -- handle, used for selection and feature-state) and `linkId`
+            -- remains a property for debugging and interoperability.
+            SELECT l.link_id                       AS "mvtId",
+                   l.link_id                       AS "linkId",
+                   l.amds_id                       AS "amdsId",
+                   l.closure_group_id              AS "closureGroupId",
+                   coalesce(l.road_name, '')       AS "roadName",
+                   coalesce(l.road_number, '')     AS "roadNumber",
+                   (l.oneway = 1)::int             AS oneway,
+                   (l.rca_code = 1)::int           AS "stateHighway",
+                   l.lifeline_route::int           AS lifeline,
+                   l.in_analysis_area::int         AS core,
+                   round(l.length_m)::int          AS "lengthM",
+                   coalesce(l.model_asset_type, 0) AS "roadClass",
                    ST_AsMVTGeom(ST_Transform(l.geom_2193, 3857),
-                                bounds.geom, 4096, 64, true) AS geom
+                                bounds.merc, 4096, 64, true) AS geom
             FROM links l, bounds
             WHERE l.snapshot_id = %(snap)s
-              AND ST_Transform(l.geom_2193, 3857) && bounds.geom
+              AND l.geom_2193 && bounds.nztm
         )
-        SELECT ST_AsMVT(src, 'network', 4096, 'geom', 'link_id') AS mvt
+        SELECT ST_AsMVT(src, 'network', 4096, 'geom', 'mvtId') AS mvt
         FROM src WHERE geom IS NOT NULL
         """,
         {"z": z, "x": x, "y": y, "snap": snapshot_id()},

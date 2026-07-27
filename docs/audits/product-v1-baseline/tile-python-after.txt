@@ -1,0 +1,27 @@
+GET http://127.0.0.1:8000/tiles/12/4036/2564.pbf
+  329732 bytes, HTTP 200
+
+layer 'network': 2580 features
+  feature id: 147
+  properties (11):
+    amdsId           = '{701c3543-e895-4ce2-beae-70055db4f9a9}'
+    closureGroupId   = '{701c3543-e895-4ce2-beae-70055db4f9a9}'
+    core             = 1
+    lengthM          = 77
+    lifeline         = 0
+    linkId           = 147
+    oneway           = 0
+    roadClass        = 1
+    roadName         = ''
+    roadNumber       = ''
+    stateHighway     = 0
+
+client compatibility (MapView.tsx reads these):
+  linkId           present
+  stateHighway     present
+  core             present
+  roadName         present
+  oneway           present
+  feature.id       present
+
+RESULT: tile satisfies the client contract

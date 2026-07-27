@@ -1,6 +1,15 @@
 /** Typed client for the detour API. */
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787';
+/**
+ * Same-origin by default: Vite proxies /api, /tiles and /health to the backend
+ * in development, and production serves both from one origin. An absolute base
+ * is only for pointing a build at a remote deployment.
+ *
+ * This used to default to an absolute localhost URL, which made it possible to
+ * run the app against the wrong one of the repository's two API implementations
+ * without noticing.
+ */
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export interface LinkSummary {
   linkId: number;

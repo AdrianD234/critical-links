@@ -116,7 +116,8 @@ export default function App() {
       <div className="panel">
         <h1>NZ Critical Links</h1>
         <p className="sub">
-          Close a road link and see the shortest legal replacement path.
+          Close a road link and see the shortest replacement path available in
+          the represented network.
           Structural resilience only &mdash; this does <strong>not</strong>{' '}
           predict how much traffic uses each alternative.
         </p>
@@ -177,7 +178,7 @@ export default function App() {
             label="Closure"
             value={options.closureScope}
             options={[
-              ['physical', 'Whole road'],
+              ['physical', 'AMDS feature'],
               ['directed', 'One direction'],
             ]}
             onChange={(v) => set('closureScope', v as Options['closureScope'])}

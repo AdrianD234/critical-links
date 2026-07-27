@@ -26,7 +26,17 @@ if command -v fuser >/dev/null 2>&1; then
   sleep 1
 fi
 
-cd "$(dirname "$0")/../python"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Resolve build identity here rather than in the server. The service may run as
+# a different user than the checkout owner, and git then refuses with "dubious
+# ownership" and returns nothing - indistinguishable from "not a repo".
+NZCL_BUILD_COMMIT="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || true)"
+NZCL_BUILD_BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+NZCL_BUILD_TIMESTAMP="$(git -C "$REPO" log -1 --format=%cI 2>/dev/null || true)"
+export NZCL_BUILD_COMMIT NZCL_BUILD_BRANCH NZCL_BUILD_TIMESTAMP
+
+cd "$REPO/python"
 export PYTHONPATH="$PWD/src"
 [ -n "$SNAP" ] && export SNAPSHOT_ID="$SNAP"
 

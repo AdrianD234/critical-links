@@ -1,0 +1,25 @@
+GET http://127.0.0.1:8000/tiles/12/4036/2564.pbf
+  285447 bytes, HTTP 200
+
+layer 'network': 2538 features
+  feature id: 147
+  properties (7):
+    amds_id          = '{701c3543-e895-4ce2-beae-70055db4f9a9}'
+    core             = 1
+    length_m         = 77
+    lifeline         = 0
+    oneway           = 0
+    road_name        = ''
+    state_highway    = 0
+
+client compatibility (MapView.tsx reads these):
+  linkId           MISSING
+  stateHighway     MISSING
+  core             present
+  roadName         MISSING
+  oneway           present
+  feature.id       present
+
+RESULT: tile does NOT satisfy the client contract
+  -> map clicks resolve properties.linkId === undefined
+  -> style expressions on stateHighway fall back to the default

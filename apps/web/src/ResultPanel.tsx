@@ -96,7 +96,9 @@ export default function ResultPanel({
           <tbody>
             <Row
               k="Scope"
-              v={detour.closure.scope === 'physical' ? 'Whole road asset' : 'Single direction'}
+              v={detour.closure.scope === 'physical'
+                ? 'All pieces of one AMDS source feature'
+                : 'Single direction'}
             />
             <Row k="Links removed" v={String(detour.closure.removedLinkCount)} />
             <Row k="Directed arcs removed" v={String(detour.closure.removedArcCount)} />
@@ -104,7 +106,7 @@ export default function ResultPanel({
         </table>
         <div className="note">
           {detour.closure.scope === 'physical'
-            ? 'Every graph link belonging to this source road is removed, in both directions.'
+            ? 'Every graph link derived from this AMDS source feature is removed, in both directions. AMDS publishes no road-asset or paired-carriageway grouping, so this is a source-feature closure, not necessarily a whole physical road.'
             : 'Only the arc travelling in the direction under test is removed; the opposite direction stays open.'}
         </div>
       </div>
