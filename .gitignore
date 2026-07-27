@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+
+# Raw and processed national datasets are large and re-derivable from the
+# documented pipelines. Never commit them. See docs/DATA_SOURCES.md.
+data/raw/
+data/processed/
+data/exports/
+
+# Source metadata snapshots ARE committed (small JSON, provenance evidence),
+# except any bulky payloads.
+!data/source-metadata/
+
+.vite/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "name": "nz-critical-links",
+  "private": true,
+  "version": "0.1.0",
+  "description": "New Zealand road-network criticality and detour analysis, built on the NZTA AMDS Network Model",
+  "type": "module",
+  "engines": { "node": ">=20.11" },
+  "workspaces": [
+    "packages/core",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "tsc -b packages/core apps/api",
+    "typecheck": "tsc -b packages/core apps/api --pretty",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "discover": "tsx pipelines/discovery/discover.ts",
+    "ingest": "tsx pipelines/ingestion/ingest.ts",
+    "build-graph": "tsx pipelines/topology/build-graph.ts",
+    "qa": "tsx pipelines/validation/qa.ts",
+    "detours": "tsx pipelines/detours/compute-all.ts",
+    "export": "tsx pipelines/detours/export.ts",
+    "api": "tsx apps/api/src/server.ts",
+    "web": "npm run dev --workspace apps/web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
