@@ -198,3 +198,131 @@ Not done, and not claimed:
 5. **NSLR integration** before any travel-time figure is used in a decision.
 6. **Reviewer sign-off records.** The structure exists (per-case pass/fail with
    notes) but no human review has been recorded.
+
+---
+
+# Part 2 — Python + PostGIS + pgRouting
+
+After the stack was ported (ADR-004), the validation was rebuilt against the new
+implementation and extended with cross-engine comparison.
+
+## 8. Python test suite — 48 tests, all passing
+
+```bash
+cd python && ~/.venvs/nzcl/bin/python -m pytest tests/ -q
+```
+
+`tests/test_routing.py` runs against a **real PostGIS database with real
+pgr_dijkstra calls**, not a stand-in. Synthetic fixtures are loaded through the
+same junction-splitting and node-assignment code that production data uses, so a
+test cannot pass against a graph assembled by a different route than users get.
+
+| Case | Expected | Status |
+| --- | --- | --- |
+| Isolated edge | `DISCONNECTED`, null metrics | pass |
+| Square loop, side 100 m | alternative 300 m, ratio 3.0, penalty 200 m | pass |
+| Triangle 300/400/500 | close hypotenuse → 700 m, ratio 1.4 | pass |
+| Directed one-way loop | forward `DISCONNECTED`, reverse 300 m | pass |
+| One-way / two-way arc counts | 1 and 2 respectively | pass |
+| Grade-separated crossing | 4 nodes, no route | pass |
+| Prohibited turn | car forced onto 341.42 m path via the expanded graph; emergency takes the 200 m banned turn | pass |
+| Mode restriction | car 300 m vs emergency 100 m; car 100 m vs heavy 300 m | pass |
+| Cul-de-sac / island | `DISCONNECTED` with isolation profile | pass |
+| **Timeout** | `UNRESOLVED_TIMEOUT`, explicitly not `DISCONNECTED` | pass |
+| Closure scope | physical removes 2 arcs and isolates; directed removes 1, 500 m route survives | pass |
+| Network penalty ≠ added distance | added −900 m, penalty 0 | pass |
+| Time metric | prefers 1,600 m fast route over 1,000 m slow one | pass |
+| Corridor on a one-way pair | endpoint undefined, corridor penalty exactly 600 m | pass |
+| Route integrity | never uses a closure arc; arc lengths sum to reported distance | pass |
+
+`tests/test_topology.py` — 20 tests covering T-junction splitting, exact length
+preservation, closure-group cohesion, grade separation, interchanges, near
+misses, and the grid-boundary regression below.
+
+## 9. Cross-engine validation — the strongest check available
+
+Two independent implementations of the same specification: different languages,
+graph representations and shortest-path libraries, over the same source data.
+
+```bash
+python -m nzcl.crossvalidate --ts-url http://<windows-host>:8787
+```
+
+### It found a bug neither test suite caught
+
+First run: **99.74% agreement** on 378 direction-results, with one distance
+disagreement of **3,611 m** on Raiha Street.
+
+Diagnosis, step by step:
+
+1. `nzcl.diagnose` confirmed all 91 links of the TypeScript route existed in the
+   pgRouting graph, but two consecutive ones were **not adjacent** there — so the
+   engines had different graphs, not different answers.
+2. `scripts/check-gap.sh` measured the geometry directly: the two links met
+   end-to-end **0.4 mm apart**, well inside the 10 mm node tolerance, yet had
+   been assigned different nodes.
+3. Cause: both engines quantised coordinates to a single grid cell
+   (`round(x / tolerance)`). Two points either side of a cell boundary get
+   different keys however close they are.
+
+Consequence: a severed junction, and a detour routed 3.6 km the wrong way.
+
+Fix: probe the 3×3 cell neighbourhood and merge with the nearest node inside the
+tolerance. Applied to **both** engines, with regression tests in both suites
+using a pair deliberately placed astride a cell edge.
+
+### After the fix
+
+Both engines independently produce **33,015 nodes** for the Wellington pilot —
+they had differed before.
+
+```
+250 links sampled, 478 direction-results compared
+  links not comparable (different split): 0
+  status agreements:      478      status disagreements:   0
+  distance agreements:    478      distance disagreements: 0
+  agreement: 100.0%
+  median delta 0.026 m    max delta 0.118 m
+```
+
+The residual 12 cm is floating-point and geometry-rounding difference between
+the two stacks.
+
+**This is the single most valuable validation artefact in the project.** Neither
+engine's own tests found the bug, because both suites were written against the
+same mental model. Only an independent implementation exposed it.
+
+## 10. API smoke test
+
+`python scripts/smoke-api.py` exercises the endpoints the web client depends on
+and prints enough of each response to judge whether the numbers are sane, not
+merely present: health, metadata, search, detour with route geometry, both
+closure scopes, all three vehicle profiles, and a 404 on an unknown link.
+
+Notable: the `heavy` profile returns `DISCONNECTED` on a link where `car`
+returns `OK`, because the car detour uses a link heavy vehicles may not — the
+profile filter doing real work on real data.
+
+## 11. Measured performance (Python + pgRouting)
+
+| measure | value |
+| --- | --- |
+| Ingest, Wellington pilot | 28 s (download, split, node, load) |
+| Single shortest path | 39.9 ms |
+| Full closure analysis, mean | 190 ms |
+| p50 / p95 / max | ~150 / 265 / 326 ms |
+| Interactive target | p95 < 2 s — met with ~7.5× margin |
+
+The 39.9 ms floor is `pgr_dijkstra` reloading all 69,944 arcs per call. See
+ADR-004 for the comparison against the in-memory engine and what was optimised.
+
+## 12. Still outstanding
+
+Unchanged from Part 1, and still not claimed:
+
+1. **Visual map verification** — blocked by the hidden browser pane.
+2. **National batch** — not run; measured throughput implies a long run.
+3. **Independent OSM cross-check** of a stratified sample.
+4. **Field review** of the near-miss endpoints.
+5. **NSLR integration** before any travel-time figure informs a decision.
+6. **Reviewer sign-off records** — the structure exists, no human review recorded.
