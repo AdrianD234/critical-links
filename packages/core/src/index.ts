@@ -6,4 +6,6 @@ export * from './detour.js';
 export * from './snapshot.js';
 export * from './topology.js';
 export * from './cache.js';
+export * from './corridor.js';
+export * from './isolation.js';
 export * from './speed.js';

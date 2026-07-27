@@ -82,6 +82,9 @@ export class RoadGraph {
   readonly arcDirection: Uint8Array;
   readonly outStart: Int32Array;
   readonly outArcs: Int32Array;
+  /** Reverse adjacency, needed to walk upstream to a driver's choice point. */
+  readonly inStart: Int32Array;
+  readonly inArcs: Int32Array;
   readonly linkCount: number;
   readonly nodeCount: number;
   readonly arcCount: number;
@@ -134,6 +137,15 @@ export class RoadGraph {
     const outArcs = new Int32Array(this.arcCount);
     for (let i = 0; i < this.arcCount; i++) outArcs[cursor[this.arcFrom[i]]++] = i;
     this.outArcs = outArcs;
+
+    const inCounts = new Int32Array(this.nodeCount + 1);
+    for (let i = 0; i < this.arcCount; i++) inCounts[this.arcTo[i] + 1]++;
+    for (let i = 0; i < this.nodeCount; i++) inCounts[i + 1] += inCounts[i];
+    this.inStart = inCounts;
+    const inCursor = Int32Array.from(inCounts.subarray(0, this.nodeCount));
+    const inArcs = new Int32Array(this.arcCount);
+    for (let i = 0; i < this.arcCount; i++) inArcs[inCursor[this.arcTo[i]]++] = i;
+    this.inArcs = inArcs;
 
     // --- weakly connected components (union-find over arcs) ---
     const parent = new Int32Array(this.nodeCount);

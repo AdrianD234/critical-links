@@ -207,6 +207,47 @@ export interface DetourDirectionResult extends DetourMetrics {
   runtimeMs: number;
   /** Nodes settled by the search - a proxy for query cost. */
   nodesExplored: number;
+  /**
+   * Corridor-level replacement path, measured between the nearest upstream and
+   * downstream points at which a driver has a genuine choice. Answers "how much
+   * longer is a through trip" where the endpoint measure answers "can I get
+   * from this link's start back to its end". Populated when the endpoint
+   * measure returns DISCONNECTED, which on one-way carriageways is routine and
+   * says little about real disruption. See packages/core/src/corridor.ts.
+   */
+  corridor: CorridorSummary | null;
+  /**
+   * When no replacement path exists, how much of the network is cut off.
+   * Distinguishes a stranded driveway from a stranded settlement.
+   */
+  isolation: IsolationSummary | null;
+}
+
+export interface IsolationSummary {
+  side: 'downstream' | 'upstream' | 'none';
+  pocketNodeCount: number;
+  pocketLinkCount: number;
+  pocketLengthM: number;
+  bounded: boolean;
+  exact: boolean;
+}
+
+export interface CorridorSummary {
+  status: DetourStatus;
+  entryNode: number;
+  exitNode: number;
+  hopsUpstream: number;
+  hopsDownstream: number;
+  corridorDistanceM: number | null;
+  normalDistanceM: number | null;
+  alternativeDistanceM: number | null;
+  penaltyM: number | null;
+  normalTimeS: number | null;
+  alternativeTimeS: number | null;
+  penaltyTimeS: number | null;
+  truncated: boolean;
+  exitReachable: boolean;
+  detail: string | null;
 }
 
 export interface DetourResult {

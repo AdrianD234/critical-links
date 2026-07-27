@@ -19,6 +19,8 @@
 
 import { RoadGraph } from './graph.js';
 import { Router } from './routing.js';
+import { computeCorridor } from './corridor.js';
+import { isolationProfile } from './isolation.js';
 import {
   ALGORITHM,
   ALGORITHM_VERSION,
@@ -39,6 +41,8 @@ export interface DetourRequest {
   directions?: Direction[];
   maxStatesExplored?: number;
   timeBudgetMs?: number;
+  /** Set false to skip the corridor fallback (batch runs that do not need it). */
+  computeCorridor?: boolean;
 }
 
 export interface DetourEngineOptions {
@@ -149,6 +153,39 @@ export class DetourEngine {
 
       if (alt.status === 'DISCONNECTED') {
         if (this.opts.clipped) flags.push('DISCONNECTED_UNVERIFIED_OUTSIDE_EXTRACT');
+
+        // Cheap first: what, if anything, is stranded? A closure that cuts off
+        // a two-link pocket is a dead end, and there is no corridor question to
+        // ask - skipping the expanding search there took the pilot from 63 ms
+        // to a few ms per link.
+        const isolation = isolationProfile(g, u, v, removed, profile);
+        if (isolation.exact) {
+          if (isolation.pocketLinkCount <= 3) flags.push('ISOLATES_CUL_DE_SAC');
+          else if (isolation.pocketLinkCount >= 100) flags.push('ISOLATES_SIGNIFICANT_AREA');
+        }
+
+        // The corridor question is asked even for tiny pockets: a one-way
+        // carriageway also strands a zero-link pocket at its far end, and that
+        // is precisely the case the corridor measure exists to answer. The
+        // search is kept cheap by probing hop distances geometrically rather
+        // than trying every hop (see corridor.ts).
+        const corridor = req.computeCorridor !== false
+          ? computeCorridor(g, this.router, {
+              sourceNode: u,
+              targetNode: v,
+              removedArcIds: removed,
+              metric,
+              profile,
+              linkLengthM: link.lengthM,
+              maxStatesExplored: req.maxStatesExplored,
+              timeBudgetMs: req.timeBudgetMs,
+            })
+          : null;
+        if (corridor?.status === 'OK') flags.push('ENDPOINT_MEASURE_UNDEFINED_CORRIDOR_USED');
+        if (corridor && corridor.status !== 'OK' && !corridor.exitReachable) {
+          flags.push('SOLE_ACCESS');
+        }
+
         return {
           direction,
           status: 'DISCONNECTED',
@@ -164,6 +201,8 @@ export class DetourEngine {
           alternativeTimeS: null,
           addedTimeS: null,
           removedArcIds: removed,
+          corridor,
+          isolation,
           routeArcIds: [],
           routeLinkIds: [],
           qualityFlags: flags,
@@ -204,6 +243,8 @@ export class DetourEngine {
             ? alt.timeS - normal.timeS
             : null,
         removedArcIds: removed,
+        corridor: null,
+        isolation: null,
         routeArcIds: alt.arcIds,
         routeLinkIds,
         qualityFlags: flags,
@@ -270,6 +311,8 @@ function blank(
     alternativeTimeS: null,
     addedTimeS: null,
     removedArcIds,
+    corridor: null,
+    isolation: null,
     routeArcIds: [],
     routeLinkIds: [],
     qualityFlags: flags,

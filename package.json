@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "description": "New Zealand road-network criticality and detour analysis, built on the NZTA AMDS Network Model",
   "type": "module",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "workspaces": [
     "packages/core",
     "apps/api",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "exceljs": "^4.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
