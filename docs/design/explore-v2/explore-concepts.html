@@ -55,6 +55,7 @@
     --hero-size:52px;
     --hero-family:var(--mono);
     --hero-weight:620;
+    --hero-ink:var(--closure-ink);
     --hero-track:-.035em;
     --measure-gap:9px;
     --label-track:.12em;
@@ -82,11 +83,47 @@
     --hero-size:58px;
     --hero-family:var(--ui);
     --hero-weight:680;
+    --hero-ink:var(--closure-ink);
     --hero-track:-.03em;
     --measure-gap:13px;
     --label-track:.17em;
     --rule:1px solid var(--panel-line);
     --route-width:2.8;
+    --route-glow:none;
+  }
+
+
+  /* ---------------- C · Graphite Atlas (synthesis) --------------------------
+     A's graphite canvas, top bar, filled nav chip and icon rail, with B's cool
+     paper inspector, ruled rows, underlined tabs and bordered control cells.
+
+     The hero figure is NEUTRAL INK, not closure red. Red is reserved for the
+     closed link and its marker; borrowing it for the result made a measured
+     analytical figure read as an alert. Magnitude comes from size, weight and
+     whitespace instead. */
+  [data-dir="c"] {
+    --map-water:#0f1418; --map-land:#161c21; --map-contour:#1e262c;
+    --surface:#1b2127; --surface-2:#222a31; --line:#2c353d; --line-soft:#232b32;
+    --fg:#e8edf1; --fg-muted:#8794a1; --fg-faint:#5d6874;
+    --closure:#ff4d4d; --route:#2de1c2; --compare:#ffb020;
+    --highway:#4a7fb5; --local:#39434d;
+
+    --panel-bg:#eceef1; --panel-fg:#151a20; --panel-muted:#59646f;
+    --panel-line:#d2d7dd; --panel-inset:#e3e7ea; --panel-chip:#dee3e8;
+    /* Semantic inks for the panel. --hero-ink is deliberately NOT closure red. */
+    --hero-ink:#12171d;
+    --closure-ink:#c1302b; --route-ink:#0a7767; --compare-ink:#9d6100;
+
+    --radius:3px;
+    --pad-x:24px;
+    --hero-size:58px;
+    --hero-family:var(--ui);
+    --hero-weight:680;
+    --hero-track:-.032em;
+    --measure-gap:13px;
+    --label-track:.15em;
+    --rule:1px solid var(--panel-line);
+    --route-width:3.2;
     --route-glow:none;
   }
 
@@ -244,7 +281,7 @@
     text-transform:uppercase; color:var(--panel-muted); font-weight:640; }
   .insp-head h2 { margin:6px 0 0; font-size:22px; font-weight:660;
     letter-spacing:-.02em; line-height:1.15; text-wrap:balance; }
-  [data-dir="b"] .insp-head h2 { font-size:25px; font-weight:640; letter-spacing:-.024em; }
+  [data-dir="b"] .insp-head h2, [data-dir="c"] .insp-head h2, [data-dir="c"] .insp-head h2 { font-size:25px; font-weight:640; letter-spacing:-.024em; }
   .insp-head .close { margin-left:auto; width:26px; height:26px; flex:none;
     cursor:pointer; border:1px solid var(--panel-line); border-radius:5px;
     background:transparent; color:var(--panel-muted); display:grid;
@@ -253,7 +290,7 @@
   .statusline { display:flex; align-items:center; gap:8px; padding:10px var(--pad-x) 0; }
   .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 9px;
     border-radius:999px; font-size:11px; font-weight:600; }
-  [data-dir="b"] .pill { border-radius:2px; }
+  [data-dir="b"] .pill, [data-dir="c"] .pill, [data-dir="c"] .pill { border-radius:2px; }
   .pill--ok { color:var(--route-ink);
     background:color-mix(in srgb,var(--route-ink) 15%,transparent); }
   .pill--dir { color:var(--panel-fg); background:var(--panel-chip);
@@ -261,14 +298,15 @@
 
   /* --- the answer, above the fold --- */
   .headline { padding:16px var(--pad-x) 0; position:relative; }
-  /* A: a severity rail marks the magnitude of the result. */
+  /* A only: a severity rail. C drops it - a coloured rail beside a result
+     implies an alert state the number does not carry. */
   [data-dir="a"] .headline { border-left:3px solid var(--closure-ink);
     margin-left:calc(var(--pad-x) - 3px); padding-left:15px; }
   .headline .value { display:flex; align-items:baseline; gap:9px; margin-top:3px; }
   .headline .num { font-family:var(--hero-family);
     font-variant-numeric:tabular-nums; font-size:var(--hero-size);
     font-weight:var(--hero-weight); letter-spacing:var(--hero-track);
-    line-height:1; color:var(--closure-ink); }
+    line-height:1; color:var(--hero-ink); }
   .headline .unit { font-family:var(--mono); font-size:15px; font-weight:560;
     color:var(--panel-muted); }
   .headline .sub { margin-top:9px; font-size:12.5px; color:var(--panel-muted);
@@ -287,11 +325,17 @@
     margin-left:3px; }
   .measure--em dd { font-size:17px; }
   /* B: small-caps row labels and a heavier top rule, like a record sheet. */
-  [data-dir="b"] .measures { border-top-width:2px; }
-  [data-dir="b"] .measure dt { font-size:11px; letter-spacing:.07em;
+  [data-dir="b"] .measures, [data-dir="c"] .measures, [data-dir="c"] .measures { border-top-width:2px; }
+  [data-dir="b"] .measure dt, [data-dir="c"] .measure dt, [data-dir="c"] .measure dt { font-size:11px; letter-spacing:.07em;
     text-transform:uppercase; font-weight:600; }
   .est { font-size:10px; color:var(--panel-muted); font-weight:500;
     text-transform:none; letter-spacing:0; }
+  /* Sits against the value, so the qualifier travels with the number rather
+     than living in explanatory text further down the panel. */
+  .est-tag { margin-left:7px; font-size:9.5px; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--panel-muted);
+    border:1px solid var(--panel-line); border-radius:2px; padding:1px 5px;
+    vertical-align:2px; }
 
   /* --- direction control: A segmented, B underlined text tabs --- */
   .tabs { display:flex; margin:18px var(--pad-x) 0; }
@@ -302,12 +346,12 @@
     font:inherit; font-size:12px; font-weight:560; }
   [data-dir="a"] .tabs button[aria-selected="true"] { background:var(--surface-2);
     color:var(--panel-fg); }
-  [data-dir="b"] .tabs { gap:20px; border-bottom:1px solid var(--panel-line); }
-  [data-dir="b"] .tabs button { padding:0 0 9px; border:0; cursor:pointer;
+  [data-dir="b"] .tabs, [data-dir="c"] .tabs, [data-dir="c"] .tabs { gap:20px; border-bottom:1px solid var(--panel-line); }
+  [data-dir="b"] .tabs button, [data-dir="c"] .tabs button, [data-dir="c"] .tabs button { padding:0 0 9px; border:0; cursor:pointer;
     background:transparent; color:var(--panel-muted); font:inherit;
     font-size:12.5px; font-weight:560; border-bottom:2px solid transparent;
     margin-bottom:-1px; }
-  [data-dir="b"] .tabs button[aria-selected="true"] { color:var(--panel-fg);
+  [data-dir="b"] .tabs button[aria-selected="true"], [data-dir="c"] .tabs button[aria-selected="true"], [data-dir="c"] .tabs button[aria-selected="true"] { color:var(--panel-fg);
     border-bottom-color:var(--route-ink); }
 
   /* --- comparison --- */
@@ -325,8 +369,8 @@
   /* Headline comparison figures earn the monospace. */
   .compare td.n { font-family:var(--mono); font-variant-numeric:tabular-nums;
     font-weight:600; font-size:12px; }
-  [data-dir="b"] .compare tbody tr { border-bottom:1px solid var(--panel-line); }
-  [data-dir="b"] .compare tbody tr:last-child { border-bottom:0; }
+  [data-dir="b"] .compare tbody tr, [data-dir="c"] .compare tbody tr, [data-dir="c"] .compare tbody tr { border-bottom:1px solid var(--panel-line); }
+  [data-dir="b"] .compare tbody tr:last-child, [data-dir="c"] .compare tbody tr:last-child, [data-dir="c"] .compare tbody tr:last-child { border-bottom:0; }
 
   /* --- scenario controls --- */
   .controls { margin:18px var(--pad-x) 0; display:grid; gap:10px; }
@@ -342,13 +386,13 @@
   [data-dir="a"] .seg button[aria-pressed="true"] { background:var(--panel-chip);
     color:var(--panel-fg); }
   /* B: bordered cells, like a form field on a record. */
-  [data-dir="b"] .seg { gap:0; border:1px solid var(--panel-line); }
-  [data-dir="b"] .seg button { flex:1; padding:6px 0; border:0;
+  [data-dir="b"] .seg, [data-dir="c"] .seg, [data-dir="c"] .seg { gap:0; border:1px solid var(--panel-line); }
+  [data-dir="b"] .seg button, [data-dir="c"] .seg button, [data-dir="c"] .seg button { flex:1; padding:6px 0; border:0;
     border-right:1px solid var(--panel-line); cursor:pointer; background:transparent;
     color:var(--panel-muted); font:inherit; font-size:11.5px; font-weight:540;
     white-space:nowrap; }
-  [data-dir="b"] .seg button:last-child { border-right:0; }
-  [data-dir="b"] .seg button[aria-pressed="true"] { background:var(--panel-chip);
+  [data-dir="b"] .seg button:last-child, [data-dir="c"] .seg button:last-child, [data-dir="c"] .seg button:last-child { border-right:0; }
+  [data-dir="b"] .seg button[aria-pressed="true"], [data-dir="c"] .seg button[aria-pressed="true"], [data-dir="c"] .seg button[aria-pressed="true"] { background:var(--panel-chip);
     color:var(--panel-fg); font-weight:620; }
 
   /* --- scope + confidence --- */
@@ -356,7 +400,7 @@
     line-height:1.5; background:var(--panel-inset); border-radius:var(--radius);
     color:var(--panel-muted); }
   .scope b { color:var(--panel-fg); font-weight:620; }
-  [data-dir="b"] .scope { background:transparent; padding:9px 0;
+  [data-dir="b"] .scope, [data-dir="c"] .scope, [data-dir="c"] .scope { background:transparent; padding:9px 0;
     border-top:1px solid var(--panel-line); border-bottom:1px solid var(--panel-line);
     border-radius:0; }
 
@@ -429,6 +473,7 @@
       <div class="switch" role="group" aria-label="Visual direction">
         <button type="button" data-pick="a" aria-pressed="true">A · Graphite Command Centre</button>
         <button type="button" data-pick="b" aria-pressed="false">B · Hybrid Atlas</button>
+        <button type="button" data-pick="c" aria-pressed="false">C · Graphite Atlas</button>
       </div>
       <div class="switch" role="group" aria-label="Viewport size">
         <button type="button" data-size="desktop" aria-pressed="true">1440 × 900</button>
@@ -727,7 +772,7 @@
 
           <div class="statusline">
             <span class="pill pill--dir">REVERSE</span>
-            <span class="pill pill--ok">Alternative path found</span>
+            <span class="pill pill--ok">Represented-network alternative found</span>
           </div>
 
           <div class="headline">
@@ -748,8 +793,8 @@
               <dt>Detour multiplier</dt><dd>28.14<span class="u">×</span></dd>
             </div>
             <div class="measure">
-              <dt>Added time <span class="est">estimated speeds</span></dt>
-              <dd>56<span class="u">min</span></dd>
+              <dt>Added time</dt>
+              <dd>56<span class="u">min</span><span class="est-tag">estimated</span></dd>
             </div>
             <div class="measure">
               <dt>Network penalty</dt><dd>53 479<span class="u">m</span></dd>
@@ -922,7 +967,9 @@
     a: ['A · Graphite Command Centre',
         'Dense and instrumented. One material throughout; severity rail on the result; segmented controls.'],
     b: ['B · Hybrid Atlas',
-        'Editorial survey record. Cool paper panel on a dark canvas; ruled rows, text tabs, flatter cartography.']
+        'Editorial survey record. Cool paper panel on a dark canvas; ruled rows, text tabs, flatter cartography.'],
+    c: ['C · Graphite Atlas — synthesis',
+        "A's graphite shell and map chrome with B's cool paper inspector. Hero in neutral ink; red reserved for the closure."]
   };
   document.querySelectorAll('[data-pick]').forEach((b) => {
     b.addEventListener('click', () => {
