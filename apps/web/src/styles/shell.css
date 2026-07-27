@@ -310,6 +310,18 @@
   background: var(--shell-chip);
 }
 
+/* A control for a layer that does not exist yet. Visible, so its absence is
+ * stated rather than hidden, but plainly not operable. */
+.rail button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.rail button:disabled:hover {
+  background: none;
+  color: var(--shell-fg-faint);
+}
+
 .rail .rail-spacer {
   margin-top: auto;
 }
@@ -335,6 +347,9 @@
   top: 12px;
   left: 12px;
   z-index: 5;
+  /* Informational only. It must never intercept a gesture meant for the map
+   * underneath it or a panel above it. */
+  pointer-events: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -354,11 +369,20 @@
   flex: none;
 }
 
-.map-legend {
+/* Scale above legend, in one column anchored to the bottom-left corner. */
+.map-corner {
   position: absolute;
   left: 12px;
   bottom: 12px;
   z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.map-legend {
   padding: 10px 12px;
   background: rgba(27, 33, 39, 0.86);
   border: var(--rule-shell);
@@ -383,10 +407,7 @@
 }
 
 .map-scale {
-  position: absolute;
-  left: 14px;
-  bottom: 96px;
-  z-index: 5;
+  padding-left: 2px;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--shell-fg-faint);

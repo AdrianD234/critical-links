@@ -25,20 +25,42 @@
  */
 
 export interface MergeResult {
-  /** One LineString in travel order, or null if there was nothing to merge. */
+  /**
+   * One LineString in travel order — but ONLY when the arcs actually met end
+   * to end. Null when there was nothing to merge, or when a gap was found.
+   *
+   * Null-on-gap is deliberate and is the whole safety property of this module.
+   * Concatenating across a gap produces a LineString whose two sides are joined
+   * by a straight segment that exists in no dataset: GeoJSON has no way to say
+   * "these points are not connected". The map would draw a confident line down
+   * a route nobody can drive. A missing reveal animation is a cosmetic loss; an
+   * invented road is a false statement about the network.
+   */
   feature: GeoJSON.Feature<GeoJSON.LineString> | null;
+
+  /**
+   * The route split at every gap, each part internally contiguous.
+   *
+   * This is what to draw when `hasGaps` — it preserves every valid portion of
+   * the route and draws nothing between them.
+   */
+  parts: GeoJSON.Feature<GeoJSON.LineString>[];
+
   /** Arcs whose geometry was unusable, for diagnostics. */
   skipped: number;
+
   /**
    * True when consecutive arcs did not actually meet.
    *
-   * A gap means an assumption above has been violated — most likely the
-   * backend stopped orienting arcs, or the route contains a link the tile and
-   * geometry endpoints disagree about. The merge still produces a drawable
-   * line, but the caller should not present it as a continuous path without
-   * looking into it.
+   * A gap means an assumption has been violated — most likely the backend
+   * stopped orienting arcs in travel direction, or the route references a link
+   * whose geometry and graph topology disagree. It is a data-quality finding
+   * and the caller must surface it, not swallow it.
    */
   hasGaps: boolean;
+
+  /** Where the breaks are, as indices into the ordered arc list. */
+  gapAfter: number[];
 }
 
 /** Positions within this distance are the same vertex, in degrees (~1 mm). */
@@ -73,9 +95,14 @@ function coordsOf(g: GeoJSON.Geometry | null): GeoJSON.Position[] | null {
 export function mergeRouteToLineString(
   collection: GeoJSON.FeatureCollection | null | undefined,
 ): MergeResult {
-  if (!collection?.features?.length) {
-    return { feature: null, skipped: 0, hasGaps: false };
-  }
+  const nothing: MergeResult = {
+    feature: null,
+    parts: [],
+    skipped: 0,
+    hasGaps: false,
+    gapAfter: [],
+  };
+  if (!collection?.features?.length) return nothing;
 
   const ordered = [...collection.features].sort((a, b) => {
     const ao = Number(a.properties?.order ?? 0);
@@ -83,42 +110,55 @@ export function mergeRouteToLineString(
     return ao - bo;
   });
 
-  const coords: GeoJSON.Position[] = [];
+  /* Accumulate into runs. A new run starts wherever the next arc does not
+   * begin where the previous one ended, so no run ever spans a gap. */
+  const runs: GeoJSON.Position[][] = [];
+  let current: GeoJSON.Position[] = [];
   let skipped = 0;
-  let hasGaps = false;
+  const gapAfter: number[] = [];
 
-  for (const f of ordered) {
+  ordered.forEach((f, i) => {
     const c = coordsOf(f.geometry as GeoJSON.Geometry);
     if (!c) {
       skipped++;
-      continue;
+      return;
     }
-    if (coords.length === 0) {
-      coords.push(...c);
-      continue;
+    if (current.length === 0) {
+      current = [...c];
+      return;
     }
-    const tail = coords[coords.length - 1]!;
+    const tail = current[current.length - 1]!;
     if (samePoint(tail, c[0]!)) {
       /* Normal case: drop the duplicated joint. */
-      coords.push(...c.slice(1));
+      current.push(...c.slice(1));
     } else {
-      hasGaps = true;
-      coords.push(...c);
+      gapAfter.push(i - 1);
+      runs.push(current);
+      current = [...c];
     }
-  }
+  });
+  if (current.length) runs.push(current);
 
-  if (coords.length < 2) {
-    return { feature: null, skipped, hasGaps };
-  }
+  const parts = runs
+    .filter((r) => r.length >= 2)
+    .map<GeoJSON.Feature<GeoJSON.LineString>>((coordinates, i) => ({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates },
+      properties: { part: i },
+    }));
+
+  if (!parts.length) return { ...nothing, skipped };
+
+  const hasGaps = gapAfter.length > 0;
 
   return {
-    feature: {
-      type: 'Feature',
-      geometry: { type: 'LineString', coordinates: coords },
-      properties: {},
-    },
+    /* One contiguous run: safe to animate. More than one: the caller must not
+     * be handed anything it could mistake for a continuous path. */
+    feature: hasGaps ? null : (parts[0] ?? null),
+    parts,
     skipped,
     hasGaps,
+    gapAfter,
   };
 }
 

@@ -50,9 +50,9 @@ def lonlat_to_tile(lon: float, lat: float, z: int) -> tuple[int, int]:
 @pytest.fixture(scope="module")
 def tile_fixture():
     """A deterministic two-link snapshot with known attributes."""
-    from conftest import _load_synthetic
+    from nzcl.fixtures import load_synthetic
 
-    net = _load_synthetic([
+    net = load_synthetic([
         # A state highway and an ordinary road, meeting end to end, so the
         # stateHighway flag has both values to distinguish.
         {"id": "SH-TEST", "pts": [(WGTN_X, WGTN_Y), (WGTN_X + 400, WGTN_Y)],

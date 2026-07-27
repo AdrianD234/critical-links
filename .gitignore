@@ -34,3 +34,8 @@ venv/
 
 # Playwright MCP scratch output
 .playwright-mcp/
+
+# Playwright
+/test-results/
+/tests/e2e/.output/
+/playwright-report/

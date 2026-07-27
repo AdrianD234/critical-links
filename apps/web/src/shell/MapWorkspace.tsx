@@ -41,29 +41,37 @@ export default function MapWorkspace({
 
       {closureBadge}
 
-      {legend.length > 0 && (
-        <div className="map-legend" aria-hidden="true">
-          {legend.map((l) => (
-            <div className="row" key={l.label}>
-              <span
-                className="swatch"
-                style={{
-                  borderTopColor: l.colour,
-                  borderTopStyle: l.dashed ? 'dashed' : 'solid',
-                }}
-              />
-              <span>{l.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/*
+        Scale and legend stack in one column rather than being positioned
+        independently from the bottom edge. Independently placed, the scale bar
+        sat behind the legend whenever the legend grew — and it grows with the
+        result, gaining rows for the comparison route and stranded links.
+      */}
+      <div className="map-corner">
+        {scale && (
+          <div className="map-scale" aria-hidden="true">
+            <div>{scale.label}</div>
+            <div className="bar" style={{ width: `${scale.widthPx}px` }} />
+          </div>
+        )}
 
-      {scale && (
-        <div className="map-scale" aria-hidden="true">
-          <div>{scale.label}</div>
-          <div className="bar" style={{ width: `${scale.widthPx}px` }} />
-        </div>
-      )}
+        {legend.length > 0 && (
+          <div className="map-legend" aria-hidden="true">
+            {legend.map((l) => (
+              <div className="row" key={l.label}>
+                <span
+                  className="swatch"
+                  style={{
+                    borderTopColor: l.colour,
+                    borderTopStyle: l.dashed ? 'dashed' : 'solid',
+                  }}
+                />
+                <span>{l.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/*
         Both credits, always. The API's attribution string covers the AMDS

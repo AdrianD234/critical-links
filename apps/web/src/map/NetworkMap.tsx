@@ -64,6 +64,19 @@ export interface ScaleReading {
 }
 
 /**
+ * A geometry problem the map found while drawing a result.
+ *
+ * Reported upward rather than logged, so the inspector can show it beside the
+ * figures it affects. A console warning is invisible to the person reading the
+ * number.
+ */
+export interface GeometryWarning {
+  kind: 'ROUTE_GEOMETRY_GAP';
+  partCount: number;
+  skippedArcs: number;
+}
+
+/**
  * Resolve a rendered map feature to a link id.
  *
  * Prefers the MVT feature id: ST_AsMVT removes the feature-id column from the
@@ -111,6 +124,8 @@ export default function NetworkMap({
   onHoverChange,
   onScaleChange,
   onReady,
+  onGeometryWarning,
+  onBasemapError,
   inset,
   previewLinkId,
   layersVisible,
@@ -122,6 +137,9 @@ export default function NetworkMap({
   onHoverChange: (h: HoverInfo | null) => void;
   onScaleChange: (s: ScaleReading | null) => void;
   onReady: () => void;
+  onGeometryWarning: (w: GeometryWarning | null) => void;
+  /** Called once if the LINZ basemap or its glyphs cannot be loaded. */
+  onBasemapError: () => void;
   /**
    * How much of the map the inspector covers, so route framing centres in the
    * *visible* map rather than underneath the panel. On desktop that is a right
@@ -148,6 +166,14 @@ export default function NetworkMap({
   readyRef.current = onReady;
   const insetRef = useRef(inset);
   insetRef.current = inset;
+  /* Whether the current result's route had gaps, read by the reveal effect. */
+  const gapsRef = useRef(false);
+  const warnRef = useRef(onGeometryWarning);
+  warnRef.current = onGeometryWarning;
+  const basemapErrRef = useRef(onBasemapError);
+  basemapErrRef.current = onBasemapError;
+  /* The bounds of the result on screen, so a settled resize can reframe it. */
+  const boundsRef = useRef<[number, number, number, number] | null>(null);
 
   /* ------------------------------------------------------------ create */
 
@@ -170,9 +196,32 @@ export default function NetworkMap({
     mapRef.current = map;
     if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__map = map;
 
-    map.on('error', (e) =>
-      console.error('maplibre error:', (e as unknown as { error?: unknown }).error),
-    );
+    /*
+     * A LINZ failure — expired key, outage, rate limit — must not look like the
+     * analysis failing. The network tiles come from our own backend and are
+     * unaffected, so the basemap is reported once, non-blockingly, and the map
+     * carries on over the graphite ground.
+     *
+     * Reported once: a failing raster source errors per tile, and forwarding
+     * every one would put hundreds of identical notices through the UI.
+     */
+    let basemapReported = false;
+    map.on('error', (e) => {
+      const err = e as unknown as { error?: { message?: string }; sourceId?: string };
+      const fromBasemap =
+        err.sourceId === SRC.linz ||
+        /basemaps\.linz|fonts\/.*\.pbf/.test(err.error?.message ?? '');
+
+      if (fromBasemap) {
+        if (!basemapReported) {
+          basemapReported = true;
+          basemapErrRef.current();
+          console.warn('LINZ basemap unavailable:', err.error?.message);
+        }
+        return;
+      }
+      console.error('maplibre error:', err.error);
+    });
 
     map.on('load', () => {
       for (const l of NETWORK_LAYERS) map.addLayer(l);
@@ -295,50 +344,71 @@ export default function NetworkMap({
      * the reveal discards their properties. */
     src(SRC.routeHit)?.setData(result.focus ?? emptyCollection());
 
+    /*
+     * A gapped route is drawn as its contiguous parts and nothing between
+     * them. It is NOT merged: concatenating across a gap yields a LineString
+     * whose two sides are joined by a straight segment that exists in no
+     * dataset, and the map would draw a confident line down a route nobody can
+     * drive. Losing the reveal animation is cosmetic; drawing an invented road
+     * is a false statement about the network.
+     */
     const merged = mergeRouteToLineString(result.focus);
-    if (merged.hasGaps) {
-      console.warn(
-        'Route arcs did not meet end to end. The API is expected to return ' +
-          'them in path order, already oriented in travel direction.',
-      );
-    }
+    gapsRef.current = merged.hasGaps;
+
     src(SRC.routeFocus)?.setData(
-      merged.feature
-        ? { type: 'FeatureCollection', features: [merged.feature] }
+      merged.parts.length
+        ? { type: 'FeatureCollection', features: merged.parts }
         : emptyCollection(),
     );
 
-    if (result.fitBounds) {
-      const [w, s, e, n] = result.fitBounds;
-      /*
-       * Padding accounts for whatever the inspector covers, so the route is
-       * centred in the *visible* map rather than underneath the panel.
-       *
-       * Clamped: MapLibre throws if padding exceeds the canvas, which is easy
-       * to hit when a bottom sheet is expanded to 90% of a short viewport.
-       */
-      const { clientWidth: cw, clientHeight: ch } = map.getContainer();
-      const pad = (v: number, extent: number) =>
-        Math.max(20, Math.min(v, Math.floor(extent / 2) - 20));
-
-      map.fitBounds(
-        [
-          [w, s],
-          [e, n],
-        ],
-        {
-          padding: {
-            top: pad(60, ch),
-            bottom: pad(insetRef.current.bottom + 40, ch),
-            left: pad(60, cw),
-            right: pad(insetRef.current.right + 50, cw),
-          },
-          maxZoom: 15.5,
-          duration: prefersReducedMotion() ? 0 : 700,
-        },
+    /* line-gradient measures progress per feature, so with several parts the
+     * reveal would restart in each one simultaneously. Pin it solid instead. */
+    if (map.getLayer(LYR.routeFocus)) {
+      map.setPaintProperty(
+        LYR.routeFocus,
+        'line-gradient',
+        revealGradient(palette.route, 1) as never,
       );
     }
+
+    warnRef.current(
+      merged.hasGaps
+        ? {
+            kind: 'ROUTE_GEOMETRY_GAP',
+            partCount: merged.parts.length,
+            skippedArcs: merged.skipped,
+          }
+        : null,
+    );
+
+    boundsRef.current = result.fitBounds;
+    if (result.fitBounds) frame(map, result.fitBounds, insetRef.current, true);
   }, [result]);
+
+  /*
+   * Reframe after a settled resize.
+   *
+   * Framing accounts for the inspector, so once the panel is a different width
+   * — or the mobile sheet has settled at a new stop — the route the user was
+   * looking at may now be behind it. Only `map.resize()` used to run here,
+   * which keeps the canvas correct but leaves the view where it was.
+   *
+   * Debounced, and only on the settled value: refitting on every drag pixel
+   * would fight the user's own gesture.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.resize();
+
+    const b = boundsRef.current;
+    if (!b || !ready.current) return;
+
+    const t = window.setTimeout(() => {
+      frame(map, b, { right: inset.right, bottom: inset.bottom }, false);
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [inset.right, inset.bottom]);
 
   /* --------------------------------------------------------- the reveal */
 
@@ -361,6 +431,14 @@ export default function NetworkMap({
     /* Under reduced motion the path appears complete: one assignment, and the
      * animation loop never starts. */
     if (prefersReducedMotion()) {
+      set(1);
+      return;
+    }
+
+    /* A gapped route is several features, and `line-progress` is measured per
+     * feature — every part would reveal from its own start at once, which
+     * misreads as several separate routes drawing. Show it complete. */
+    if (gapsRef.current) {
       set(1);
       return;
     }
@@ -410,14 +488,6 @@ export default function NetworkMap({
     map.setFilter(LYR.networkHover, ['==', ['id'], previewLinkId ?? -1]);
   }, [previewLinkId]);
 
-  /* The map must resize when the inspector does, or the canvas keeps its old
-   * width and the right-hand slice of the network is simply never drawn. */
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    map.resize();
-  }, [inset.right, inset.bottom]);
-
   useEffect(() => {
     const el = container.current;
     const map = mapRef.current;
@@ -432,4 +502,43 @@ export default function NetworkMap({
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Fit the map to a result, leaving room for whatever the inspector covers so
+ * the route is centred in the *visible* map rather than underneath the panel.
+ *
+ * Padding is clamped to half the canvas: MapLibre throws when padding exceeds
+ * the container, which a bottom sheet expanded to 90% of a short viewport
+ * reaches easily.
+ */
+function frame(
+  map: MLMap,
+  bounds: [number, number, number, number],
+  inset: { right: number; bottom: number },
+  isNewResult: boolean,
+) {
+  const [w, s, e, n] = bounds;
+  const { clientWidth: cw, clientHeight: ch } = map.getContainer();
+  const pad = (v: number, extent: number) =>
+    Math.max(20, Math.min(v, Math.floor(extent / 2) - 20));
+
+  map.fitBounds(
+    [
+      [w, s],
+      [e, n],
+    ],
+    {
+      padding: {
+        top: pad(60, ch),
+        bottom: pad(inset.bottom + 40, ch),
+        left: pad(60, cw),
+        right: pad(inset.right + 50, cw),
+      },
+      maxZoom: 15.5,
+      /* A reframe after a resize is a correction, not an arrival: it should be
+       * quick and unobtrusive rather than the full 700ms reveal ease. */
+      duration: prefersReducedMotion() ? 0 : isNewResult ? 700 : 260,
+    },
+  );
 }

@@ -21,6 +21,7 @@ import type { Isolation } from '../api/types.js';
 export default function IsolationPanel({ isolation }: { isolation: Isolation }) {
   const len = distance(isolation.pocketLengthM);
   const approx = !isolation.exact || !isolation.bounded;
+  const drawn = Boolean(isolation.linkGeoJson?.features?.length);
 
   return (
     <div className="stranded">
@@ -41,9 +42,16 @@ export default function IsolationPanel({ isolation }: { isolation: Isolation }) 
         </div>
       </div>
       <p className="note">
-        {isolation.side === 'none'
-          ? 'The stranded links are shown in amber on the map.'
-          : `Stranded ${isolation.side} of the closure, shown in amber on the map.`}{' '}
+        {/* The claim that they are on the map must only be made when they are.
+          * A large stranded set is reported without geometry, and saying "shown
+          * in amber" then sends the reader looking for something absent. */}
+        {drawn
+          ? isolation.side === 'none'
+            ? 'The stranded links are shown in amber on the map.'
+            : `Stranded ${isolation.side} of the modelled closure, shown in ` +
+              'amber on the map.'
+          : 'Too many links to draw, so the extent is not shown on the map. ' +
+            'The figures above are still exact.'}{' '}
         {approx
           ? 'The search was bounded, so these figures are a lower bound rather ' +
             'than a complete enumeration.'

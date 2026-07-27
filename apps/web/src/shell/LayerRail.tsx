@@ -22,7 +22,6 @@ export interface MapLayerState {
   network: boolean;
   basemap: boolean;
   labels: boolean;
-  quality: boolean;
 }
 
 const TOGGLES: {
@@ -31,9 +30,10 @@ const TOGGLES: {
   Icon: (p: { size?: number }) => JSX.Element;
 }[] = [
   { id: 'network', label: 'Road network', Icon: LayersIcon },
-  { id: 'basemap', label: 'Basemap imagery', Icon: BasemapIcon },
+  /* "Basemap context", not "Basemap imagery": the basemap is styled vector
+   * water, landcover and buildings, not photography. */
+  { id: 'basemap', label: 'Basemap context', Icon: BasemapIcon },
   { id: 'labels', label: 'Map labels', Icon: FlagIcon },
-  { id: 'quality', label: 'Data-quality flags', Icon: WarningIcon },
 ];
 
 export default function LayerRail({
@@ -59,6 +59,22 @@ export default function LayerRail({
           <Icon />
         </button>
       ))}
+
+      {/*
+        Data-quality flags is disabled, not hidden, because the layer is
+        planned and its absence is worth stating. It used to toggle its own
+        pressed state while NetworkMap consumed nothing — a control that looks
+        like it did something and did not.
+      */}
+      <button
+        type="button"
+        disabled
+        aria-label="Data-quality flags — not available in this snapshot"
+        title="Data-quality flags — layer not yet available"
+        onClick={undefined}
+      >
+        <WarningIcon />
+      </button>
 
       <button
         type="button"

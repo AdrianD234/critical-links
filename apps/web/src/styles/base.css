@@ -108,6 +108,61 @@ input {
   border-radius: var(--radius);
 }
 
+/*
+ * Scrollbars.
+ *
+ * The native bar is heavy enough on both Windows and Android to read as a
+ * structural element of the panel rather than an affordance. Thinned and
+ * tinted to the surface it sits on — but never hidden: an invisible scrollbar
+ * removes the only cue that there is more to read.
+ */
+.inspector-scroll,
+.sheet-scroll,
+.about-body,
+.omnibox-results {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-line) transparent;
+}
+
+.inspector-scroll::-webkit-scrollbar,
+.sheet-scroll::-webkit-scrollbar,
+.about-body::-webkit-scrollbar,
+.omnibox-results::-webkit-scrollbar {
+  width: 9px;
+}
+
+.inspector-scroll::-webkit-scrollbar-track,
+.sheet-scroll::-webkit-scrollbar-track,
+.about-body::-webkit-scrollbar-track,
+.omnibox-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inspector-scroll::-webkit-scrollbar-thumb,
+.sheet-scroll::-webkit-scrollbar-thumb,
+.about-body::-webkit-scrollbar-thumb {
+  background: var(--panel-line);
+  border: 2px solid var(--panel-bg);
+  border-radius: 999px;
+}
+
+.inspector-scroll::-webkit-scrollbar-thumb:hover,
+.sheet-scroll::-webkit-scrollbar-thumb:hover,
+.about-body::-webkit-scrollbar-thumb:hover {
+  background: var(--panel-muted);
+}
+
+/* The search popup is on the dark side, so its thumb needs the shell inks. */
+.omnibox-results {
+  scrollbar-color: var(--shell-line) transparent;
+}
+
+.omnibox-results::-webkit-scrollbar-thumb {
+  background: var(--shell-line);
+  border: 2px solid var(--shell-raised);
+  border-radius: 999px;
+}
+
 /* Numeric columns must not jitter between values, and must align across rows.
  * Applied wherever a figure can change in place. */
 .tnum {

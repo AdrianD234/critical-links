@@ -42,6 +42,10 @@ settings = get_settings()
 # caller asked for, and label the answer as if it were what they requested.
 SUPPORTED_CLOSURE_SCOPES = ["amds-feature", "direction"]
 
+# Above this many stranded links the geometry is omitted from the response.
+# The figures are still exact; only the drawing is skipped.
+MAX_DRAWN_STRANDED_LINKS = 2_000
+
 _ACTIVE: dict[str, Any] = {}
 
 
@@ -447,6 +451,48 @@ def detour(
             })
         return {"type": "FeatureCollection", "features": feats}
 
+    def _links_geojson(snapshot: str, link_ids: list[int]) -> dict[str, Any] | None:
+        """Geometry for a set of links, or None when there is nothing to draw.
+
+        Capped: a pathological closure can strand a large part of the network,
+        and shipping tens of thousands of geometries would make the response
+        slower than the analysis that produced it. Past the cap the counts are
+        still returned, and the client says the extent is not drawn rather than
+        drawing part of it and implying that is all of it.
+        """
+        if not geometry or not link_ids:
+            return None
+        if len(link_ids) > MAX_DRAWN_STRANDED_LINKS:
+            return None
+        import json
+
+        rows = db.query(
+            """
+            SELECT l.link_id, l.amds_id, l.road_name, l.length_m,
+                   ST_AsGeoJSON(l.geom_4326, 7) AS geom
+            FROM links l
+            WHERE l.snapshot_id = %s AND l.link_id = ANY(%s)
+            """,
+            (snapshot, link_ids),
+        )
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": json.loads(r["geom"]),
+                    "properties": {
+                        "role": "stranded",
+                        "linkId": r["link_id"],
+                        "amdsId": r["amds_id"],
+                        "roadName": r["road_name"],
+                        "lengthM": _round(r["length_m"], 1),
+                    },
+                }
+                for r in rows
+            ],
+        }
+
     def serialise(d) -> dict[str, Any] | None:
         if d is None:
             return None
@@ -492,6 +538,15 @@ def detour(
                 "pocketLengthM": _round(d.isolation.pocket_length_m, 1),
                 "bounded": d.isolation.bounded,
                 "exact": d.isolation.exact,
+                # The stranded links themselves, so the map can draw what is
+                # cut off rather than only report how much of it there is.
+                #
+                # NOT a polygon, and deliberately never one: this is a set of
+                # links that lose connectivity, not a service area or a
+                # catchment. A hull drawn round them would enclose properties
+                # still reachable by roads outside the set, and would read as a
+                # claim about an area that the analysis does not make.
+                "linkGeoJson": _links_geojson(snap, d.isolation.pocket_link_ids),
             },
             "removedArcIds": d.removed_arc_ids,
             "routeArcIds": d.route_arc_ids,

@@ -13,6 +13,7 @@
 
 import { useRef } from 'react';
 
+import { focusableTab } from '../state/direction.js';
 import type { DirectionKey } from '../api/scenario.js';
 
 export type DirectionView = DirectionKey | 'compare';
@@ -29,6 +30,7 @@ export default function DirectionTabs({
   panelId: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const focusable = focusableTab(view, available);
 
   const tabs: { id: DirectionView; label: string; enabled: boolean; why?: string }[] = [
     {
@@ -90,7 +92,14 @@ export default function DirectionTabs({
           data-tab={t.id}
           aria-selected={view === t.id}
           aria-controls={panelId}
-          tabIndex={view === t.id ? 0 : -1}
+          /*
+           * Roving tabindex, but the tab stop must land on an ENABLED tab.
+           * Keying it on `view === t.id` alone meant that when the selected
+           * view was unavailable — a one-way link defaulting to reverse — the
+           * only tab with tabIndex 0 was disabled, and the whole control
+           * dropped out of the keyboard order with no way to reach it.
+           */
+          tabIndex={focusable === t.id ? 0 : -1}
           disabled={!t.enabled}
           title={t.why}
           onClick={() => onChange(t.id)}

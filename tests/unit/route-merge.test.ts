@@ -94,10 +94,16 @@ describe('mergeRouteToLineString', () => {
     expect(merged.hasGaps).toBe(false);
   });
 
-  it('flags a gap when consecutive arcs do not meet', () => {
-    /* A gap means the backend stopped orienting arcs in travel direction, or
-     * the route references geometry the graph disagrees about. The line still
-     * draws — but the caller must not call it continuous. */
+  it('NEVER produces a merged line across a gap', () => {
+    /*
+     * The safety property of this module.
+     *
+     * Concatenating across a gap yields a LineString whose two sides are joined
+     * by a straight segment present in no dataset — GeoJSON has no way to say
+     * "these points are not connected" — and the map would draw a confident
+     * line down a route nobody can drive. Losing the reveal animation is
+     * cosmetic; drawing an invented road is a false statement about the network.
+     */
     const merged = mergeRouteToLineString(
       fc(
         arc(0, [
@@ -112,7 +118,85 @@ describe('mergeRouteToLineString', () => {
     );
 
     expect(merged.hasGaps).toBe(true);
-    expect(merged.feature?.geometry.coordinates).toHaveLength(4);
+    expect(merged.feature).toBeNull();
+  });
+
+  it('returns the contiguous parts so valid geometry is still drawn', () => {
+    const merged = mergeRouteToLineString(
+      fc(
+        arc(0, [
+          [0, 0],
+          [1, 0],
+        ]),
+        arc(1, [
+          [1, 0],
+          [2, 0],
+        ]),
+        /* gap */
+        arc(2, [
+          [5, 5],
+          [6, 5],
+        ]),
+      ),
+    );
+
+    expect(merged.parts).toHaveLength(2);
+    expect(merged.parts[0]!.geometry.coordinates).toEqual([
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ]);
+    expect(merged.parts[1]!.geometry.coordinates).toEqual([
+      [5, 5],
+      [6, 5],
+    ]);
+    expect(merged.gapAfter).toEqual([1]);
+  });
+
+  it('never joins two parts — no coordinate bridges a gap', () => {
+    /* Stated as an invariant over the output rather than a specific shape: no
+     * part may contain a vertex from the other side of a break. */
+    const merged = mergeRouteToLineString(
+      fc(
+        arc(0, [
+          [0, 0],
+          [1, 0],
+        ]),
+        arc(1, [
+          [50, 50],
+          [51, 50],
+        ]),
+        arc(2, [
+          [51, 50],
+          [52, 50],
+        ]),
+      ),
+    );
+
+    for (const part of merged.parts) {
+      const xs = part.geometry.coordinates.map((c) => c[0]!);
+      const spread = Math.max(...xs) - Math.min(...xs);
+      /* Each part is internally short; a bridged part would span ~50 degrees. */
+      expect(spread).toBeLessThan(5);
+    }
+  });
+
+  it('gives a single contiguous route one animatable feature', () => {
+    const merged = mergeRouteToLineString(
+      fc(
+        arc(0, [
+          [0, 0],
+          [1, 0],
+        ]),
+        arc(1, [
+          [1, 0],
+          [2, 0],
+        ]),
+      ),
+    );
+    expect(merged.hasGaps).toBe(false);
+    expect(merged.feature).not.toBeNull();
+    expect(merged.parts).toHaveLength(1);
   });
 
   it('skips unusable geometry instead of throwing', () => {

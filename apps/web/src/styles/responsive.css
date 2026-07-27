@@ -100,8 +100,8 @@
     height: var(--control-h-touch);
   }
 
-  .map-legend,
-  .map-scale {
+  /* No room for either on a phone; the sheet carries the same information. */
+  .map-corner {
     display: none;
   }
 
@@ -123,8 +123,21 @@
     transition: bottom var(--dur-panel) var(--ease-out);
   }
 
+  /*
+   * The badge must sit UNDER the sheet, not over it.
+   *
+   * It was raised above the sheet's z-index, and at the expanded stop its
+   * bottom edge overlapped the drag handle — so the one control that collapses
+   * the sheet could not be grabbed. Caught by the screenshot run, which could
+   * not click the handle.
+   *
+   * `pointer-events: none` as well as the stacking fix: the badge is purely
+   * informational and should never intercept a gesture aimed at the map or the
+   * sheet, whatever the layout does later.
+   */
   .map-badge {
-    z-index: 21;
+    z-index: 4;
+    pointer-events: none;
   }
 
   /* ------------------------------------------------------- the sheet */

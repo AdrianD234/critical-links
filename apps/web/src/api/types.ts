@@ -63,6 +63,18 @@ export interface Isolation {
   pocketLengthM: number;
   bounded: boolean;
   exact: boolean;
+  /**
+   * The stranded links themselves.
+   *
+   * Null when there is nothing stranded, or when the set is too large to ship
+   * — in which case the counts are still exact and the interface must say the
+   * extent is not drawn rather than drawing part of it.
+   *
+   * Never a polygon. The engine identifies links that lose connectivity, not a
+   * service area, and a hull around them would claim an extent the analysis
+   * does not compute.
+   */
+  linkGeoJson: GeoJSON.FeatureCollection | null;
 }
 
 export interface DirectionResult {

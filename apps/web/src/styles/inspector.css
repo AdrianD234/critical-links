@@ -81,15 +81,17 @@
   border-radius: var(--radius-chip);
 }
 
-/* A replacement path was found. Route teal, because that is what it is. */
+/* A replacement path was found. Route teal, because that is what it is.
+ * The darker on-tint ink: 11px text on a tint of its own colour needs it to
+ * clear 4.5:1. See tokens.css. */
 .status-pill[data-kind='ok'] {
-  color: var(--route-ink);
+  color: var(--route-ink-on-tint);
   background: rgba(10, 119, 103, 0.12);
 }
 
 /* A finding, not a failure: DISCONNECTED and isolation. Amber, never red. */
 .status-pill[data-kind='finding'] {
-  color: var(--compare-ink);
+  color: var(--compare-ink-on-tint);
   background: rgba(157, 97, 0, 0.13);
 }
 
@@ -191,6 +193,13 @@
   font-weight: var(--weight-measure);
   letter-spacing: -0.01em;
   white-space: nowrap;
+}
+
+/* A measure that does not apply to this result — not one still arriving. */
+.measure dd .na {
+  color: var(--panel-muted);
+  font-weight: 500;
+  cursor: help;
 }
 
 .measure dd .u {
@@ -372,7 +381,7 @@
   font-size: var(--text-micro);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--compare-ink);
+  color: var(--compare-ink-on-tint);
   font-weight: 600;
   flex: none;
 }
@@ -623,6 +632,199 @@
   cursor: default;
 }
 
+/* --------------------------------------------------------- notices */
+
+/*
+ * A qualification on the figures below it. Amber left rule, never red: these
+ * are caveats about the result, and red is the modelled closure.
+ */
+.notice {
+  margin: 14px var(--pad-x) 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--compare-ink);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--panel-inset);
+}
+
+.notice-title {
+  font-size: var(--text-meta);
+  font-weight: 640;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--compare-ink-on-tint);
+  margin-bottom: 5px;
+}
+
+.notice p {
+  font-size: var(--text-control);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+}
+
+.notice p + p {
+  margin-top: 6px;
+}
+
+.notice b {
+  color: var(--panel-fg);
+  font-weight: 620;
+}
+
+/* Neutral: a statement about what the app did, not a caveat about the data. */
+.notice--info {
+  border-left-color: var(--panel-line);
+}
+
+.notice--info p {
+  color: var(--panel-muted);
+}
+
+.notice code {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  background: var(--panel-chip);
+  border-radius: 2px;
+  padding: 1px 4px;
+  word-break: break-all;
+}
+
+/* The basemap notice floats over the map, not the paper panel. */
+.map-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100% - 40px));
+  padding: 8px 10px 8px 13px;
+  background: rgba(27, 33, 39, 0.95);
+  border: var(--rule-shell);
+  border-left: 3px solid var(--compare);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-tooltip);
+  font-size: var(--text-meta);
+  color: var(--shell-fg-muted);
+  line-height: 1.45;
+}
+
+.map-notice button {
+  flex: none;
+  padding: 4px 9px;
+  border: var(--rule-shell);
+  border-radius: 3px;
+  font-size: var(--text-label);
+  color: var(--shell-fg);
+}
+
+.map-notice button:hover {
+  background: var(--shell-chip);
+}
+
+/* --------------------------------------------------------- about */
+
+/*
+ * MUST be scoped to [open].
+ *
+ * A closed <dialog> is hidden by the UA stylesheet's `display: none`. Setting
+ * `display: grid` on the element unconditionally overrides that, and the dialog
+ * renders permanently — un-modal, un-backdropped, floating over the top bar.
+ * Which is exactly what happened.
+ */
+.about[open] {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.about {
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(760px, calc(100vh - 60px));
+  padding: 0;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  background: var(--panel-bg);
+  color: var(--panel-fg);
+  overflow: hidden;
+}
+
+.about::backdrop {
+  background: rgba(9, 12, 15, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.about-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--pad-x);
+  border-bottom: var(--rule);
+}
+
+.about-head h2 {
+  font-size: 17px;
+  font-weight: 640;
+  letter-spacing: -0.012em;
+}
+
+.about-head .insp-close {
+  position: static;
+}
+
+.about-body {
+  overflow-y: auto;
+  padding: 4px var(--pad-x) 20px;
+  min-height: 0;
+}
+
+.about-body section {
+  padding: 15px 0;
+  border-bottom: var(--rule);
+}
+
+.about-body section:last-of-type {
+  border-bottom: 0;
+}
+
+.about-body h3 {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+  margin-bottom: 7px;
+}
+
+.about-body p {
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-fg);
+}
+
+.about-body p + p {
+  margin-top: 8px;
+}
+
+.about-body b {
+  font-weight: 640;
+}
+
+.about-body ul {
+  margin: 0;
+  padding-left: 17px;
+  font-size: var(--text-control);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+}
+
+.about-attrib {
+  margin-top: 14px;
+  font-size: var(--text-meta) !important;
+  color: var(--panel-muted) !important;
+}
+
 /* --------------------------------------------------------- isolation */
 
 .stranded {
@@ -650,7 +852,7 @@
   font-size: 20px;
   font-weight: var(--weight-measure);
   font-variant-numeric: tabular-nums;
-  color: var(--compare-ink);
+  color: var(--compare-ink-on-tint);
 }
 
 .stranded .fig .t {

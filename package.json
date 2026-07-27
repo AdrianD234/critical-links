@@ -26,7 +26,10 @@
     "web": "npm run dev --workspace apps/web",
     "reference-api": "tsx apps/api/src/server.ts",
     "decode-tile": "python scripts/decode-tile.py",
-    "typecheck:web": "tsc -p apps/web/tsconfig.json --noEmit"
+    "typecheck:web": "tsc -p apps/web/tsconfig.json --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test --project=desktop",
+    "test:all": "npm run typecheck && vitest run && playwright test"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

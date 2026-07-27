@@ -129,6 +129,25 @@
   --stranded-ink: #9d6100;
 
   /*
+   * The same inks, darkened for small text on their own tinted chips.
+   *
+   * A status pill tints its background with its own ink, which lifts the
+   * background towards the text and costs contrast exactly where the text is
+   * smallest. `--route-ink` on its 12% tint measured 4.01:1 at 11px — below
+   * the 4.5:1 floor — and `--compare-ink` on its tint measured 3.72:1. An
+   * accessibility scan caught both.
+   *
+   * Separate tokens rather than darkening the base inks, so the approved
+   * palette is unchanged everywhere it already passes: these are used only for
+   * small text sitting on a tint of itself.
+   *
+   * Measured against the composited chip backgrounds (#d1e0e0, #e2dcd2):
+   * 6.60:1 and 5.43:1.
+   */
+  --route-ink-on-tint: #065349;
+  --compare-ink-on-tint: #7a4b00;
+
+  /*
    * A fault is not a finding. DISCONNECTED is a result and gets amber;
    * API_ERROR / UNRESOLVED_TIMEOUT / INVALID_GRAPH / SOURCE_DATA_ERROR are
    * failures of the analysis and get neutral charcoal on an inset chip with

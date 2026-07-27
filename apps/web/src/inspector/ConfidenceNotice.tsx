@@ -19,6 +19,7 @@
  * describes what was actually computed rather than what was requested.
  */
 
+import { closureLabel, scopeOfResponse } from '../api/scenario.js';
 import type { DetourResponse, NetworkMetadata } from '../api/types.js';
 
 export default function ConfidenceNotice({
@@ -34,20 +35,20 @@ export default function ConfidenceNotice({
   return (
     <>
       <div className="scope">
-        Closing <b>{scopeLabel(detour.closure.scope)}</b> — {removed}{' '}
+        <b>{closureLabel(scopeOfResponse(detour.closure.scope))}</b> — {removed}{' '}
         {removed === 1 ? 'link' : 'links'} removed from the graph
         {detour.closure.removedArcCount
           ? `, ${detour.closure.removedArcCount} directed arcs`
           : ''}
         . This is what the engine removes; it is not necessarily a whole
-        physical road.
+        physical road. Nothing here reflects live road status.
       </div>
 
       <div className="confidence">
         <b>Structural analysis, not a traffic forecast.</b> The replacement path
-        is the shortest route the represented network still offers. It does not
-        say how many vehicles are affected or how congested the alternative
-        becomes.
+        is the shortest route the represented network still offers between the
+        selected link&rsquo;s endpoints. It does not say which traffic used the
+        link, how trips redistribute, or how congested the alternative becomes.
         {clipped && (
           <>
             {' '}
@@ -58,8 +59,4 @@ export default function ConfidenceNotice({
       </div>
     </>
   );
-}
-
-function scopeLabel(wire: string): string {
-  return wire === 'directed' ? 'one direction of travel' : 'one AMDS source feature';
 }

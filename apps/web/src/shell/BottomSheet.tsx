@@ -142,7 +142,11 @@ export default function BottomSheet({
         <span className="grip" aria-hidden="true" />
       </button>
 
-      <div className="sheet-scroll">{children}</div>
+      {/* Focusable so it can be scrolled from the keyboard — see the note in
+        * ContextInspector. */}
+      <div className="sheet-scroll" tabIndex={0}>
+        {children}
+      </div>
 
       {footer && <div className="inspector-foot">{footer}</div>}
     </aside>

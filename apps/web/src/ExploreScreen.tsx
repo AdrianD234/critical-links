@@ -26,16 +26,26 @@ import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
 import NetworkMap, {
+  type GeometryWarning,
   type HoverInfo,
   type MapResult,
   type ScaleReading,
 } from './map/NetworkMap.js';
 import { hasLinzKey } from './map/style.js';
+import AboutDialog from './shell/AboutDialog.js';
+import { BasemapUnavailable } from './inspector/ResultNotices.js';
+import { availabilityOf, normaliseDirection } from './state/direction.js';
 import InspectorActions from './inspector/InspectorActions.js';
 import ResultView from './inspector/ResultView.js';
 import type { DirectionView } from './inspector/DirectionTabs.js';
 import { UnsupportedScopeError } from './api/client.js';
-import { type DirectionKey, type Scenario } from './api/scenario.js';
+import {
+  closureLabel,
+  closureLabelShort,
+  scopeOfResponse,
+  type DirectionKey,
+  type Scenario,
+} from './api/scenario.js';
 import type { LinkSummary } from './api/types.js';
 import {
   resultVersion,
@@ -54,10 +64,6 @@ interface LegendItem {
   dashed?: boolean;
 }
 
-const LEGEND_BASE: LegendItem[] = [
-  { colour: palette.closure, label: 'Closed segment' },
-];
-
 export default function ExploreScreen() {
   const initial = useRef(readUrl()).current;
 
@@ -74,6 +80,19 @@ export default function ExploreScreen() {
   const [scale, setScale] = useState<ScaleReading | null>(null);
   const [preview, setPreview] = useState<LinkSummary | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(400);
+  /* Increments once per user selection. History keys on this rather than on the
+   * link identifier, which changes shape when a numeric id resolves to an AMDS
+   * id for the same road. */
+  const [selectionEpoch, setSelectionEpoch] = useState(0);
+  /* The snapshot a permalink asked for, if it named one. Cleared on any fresh
+   * selection, because that is no longer the saved result. */
+  const [urlSnapshot, setUrlSnapshot] = useState<string | null>(
+    initial.snapshot,
+  );
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [geometryWarning, setGeometryWarning] =
+    useState<GeometryWarning | null>(null);
+  const [basemapFailed, setBasemapFailed] = useState(false);
   const [sheetStop, setSheetStop] = useState<SheetStop>('medium');
   const [sheetPx, setSheetPx] = useState(() =>
     sheetHeight('medium', window.innerHeight),
@@ -82,7 +101,6 @@ export default function ExploreScreen() {
     network: true,
     basemap: true,
     labels: true,
-    quality: false,
   });
 
   /* ------------------------------------------------------------- data */
@@ -113,27 +131,92 @@ export default function ExploreScreen() {
   const loading = detourQ.isPending && link !== null;
   const stale = loading && detourQ.isFetching;
 
+  /* ------------------------------------------- direction normalisation */
+
+  /*
+   * A one-way link has no reverse result, and the URL defaults to reverse. Left
+   * alone that produces a panel with the Reverse tab selected, the Reverse tab
+   * disabled, no hero, no route, and no keyboard-focusable tab to escape with.
+   *
+   * So the focus follows what the response can actually show. The decision is
+   * in state/direction.ts, pure and tested; this only applies it and remembers
+   * what to announce.
+   */
+  const available = useMemo(
+    () => availabilityOf({ forward: detour?.forward, reverse: detour?.reverse }),
+    [detour],
+  );
+
+  /*
+   * DERIVED, not an effect that writes back to state.
+   *
+   * An effect version of this was wrong in a way the browser tests caught:
+   * after Back restored a URL asking for an unavailable direction, the effect's
+   * dependencies (the result, the availability) had not changed, so it never
+   * re-ran and the panel returned to the blank state it was written to prevent.
+   *
+   * Deriving it on every render means the displayed direction cannot disagree
+   * with what the response can show, whatever route the request came in by —
+   * fresh load, map click, permalink, or history navigation.
+   */
+  const normalised = useMemo(
+    () => normaliseDirection(view, available),
+    [view, available],
+  );
+  const effectiveView = detour ? normalised.view : view;
+  const directionNotice = detour && normalised.changed
+    ? normalised.announcement
+    : null;
+
   /* --------------------------------------------------------- the URL */
+
+  /*
+   * The link in the URL is whatever we have: an AMDS id once the result
+   * resolves, the internal numeric id a map click produced before that.
+   */
+  const urlLink =
+    detour?.selectedLink.amdsId ?? (link === null ? null : String(link));
 
   const urlState = useMemo(
     () => ({
-      link: detour?.selectedLink.amdsId ?? (link === null ? null : String(link)),
+      link: urlLink,
       scenario,
-      focus: (view === 'compare' ? 'reverse' : view) as DirectionKey,
-      compare: view === 'compare',
+      focus: (effectiveView === 'compare' ? 'reverse' : effectiveView) as DirectionKey,
+      compare: effectiveView === 'compare',
       snapshot: detour?.snapshotId ?? meta?.snapshotId ?? null,
     }),
-    [detour, link, scenario, view, meta],
+    [urlLink, scenario, effectiveView, detour, meta],
   );
 
-  /* A new selection is a new history entry; changing a setting on the same
-   * link replaces, so Back does not have to step through every toggle. */
-  const lastLink = useRef(initial.link);
+  /*
+   * HISTORY: one entry per user selection, never two.
+   *
+   * A map click selects an internal numeric link id, which goes into the URL
+   * immediately. When the result lands, the same road is now identified by its
+   * AMDS id — a different string for the same selection. Comparing strings, as
+   * this used to, saw a change and pushed a second entry, so Back returned to
+   * the same road in its numeric form before returning to the previous road.
+   *
+   * The fix is to key history on a selection *epoch* rather than on the
+   * identifier. The epoch increments only when the user picks something; every
+   * other change to the URL, including the numeric-to-AMDS canonicalisation, is
+   * a replace.
+   */
+  /*
+   * Starts at the initial epoch, NOT -1.
+   *
+   * With -1 the very first write after mount counted as a new selection and
+   * pushed, adding an entry on top of the one the navigation had already
+   * created. Back then returned to the same road, which is precisely the
+   * double-entry symptom this mechanism exists to prevent — the app was
+   * causing it at load as well as on click.
+   */
+  const lastEpoch = useRef(0);
   useEffect(() => {
-    const mode = urlState.link !== lastLink.current ? 'push' : 'replace';
-    lastLink.current = urlState.link;
+    const mode = selectionEpoch !== lastEpoch.current ? 'push' : 'replace';
+    lastEpoch.current = selectionEpoch;
     writeUrl(urlState, mode);
-  }, [urlState]);
+  }, [urlState, selectionEpoch]);
 
   /* Back and Forward restore state rather than leaving the page. */
   useEffect(() => {
@@ -142,7 +225,13 @@ export default function ExploreScreen() {
       setLink(s.link);
       setScenario(s.scenario);
       setView(s.compare ? 'compare' : s.focus);
-      lastLink.current = s.link;
+      setUrlSnapshot(s.snapshot);
+      /* A popstate is a move within existing history, so the next write must
+       * not push another entry on top of it. */
+      setSelectionEpoch((e) => {
+        lastEpoch.current = e;
+        return e;
+      });
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -157,6 +246,10 @@ export default function ExploreScreen() {
     setLink(id);
     setPendingName(name ?? null);
     setHover(null);
+    /* One epoch bump per user selection — this is what makes it one history
+     * entry regardless of how the identifier is later canonicalised. */
+    setSelectionEpoch((e) => e + 1);
+    setUrlSnapshot(null);
   }, []);
 
   const onPickLink = useCallback(
@@ -180,7 +273,7 @@ export default function ExploreScreen() {
 
   /* ------------------------------------------------------ map result */
 
-  const focusKey: DirectionKey = view === 'compare' ? 'reverse' : view;
+  const focusKey: DirectionKey = effectiveView === 'compare' ? 'reverse' : effectiveView;
 
   const mapResult: MapResult | null = useMemo(() => {
     if (!detour) return null;
@@ -192,35 +285,57 @@ export default function ExploreScreen() {
       focus: focused?.routeGeoJson ?? null,
       /* The comparison route is only drawn in Compare. In single-direction
        * view a second route would compete with the answer. */
-      compare: view === 'compare' ? (other?.routeGeoJson ?? null) : null,
+      compare: effectiveView === 'compare' ? (other?.routeGeoJson ?? null) : null,
       corridor: null,
-      stranded: null,
+      /* The links that lose connectivity, in amber. Never a hull around them:
+       * the engine identifies links, not a catchment. */
+      stranded: focused?.isolation?.linkGeoJson ?? null,
       fitBounds: detour.fitBounds,
       revealKey: `${detour.snapshotId}:${detour.selectedLink.linkId}:${focusKey}:${scenario.metric}:${scenario.vehicle}:${scenario.closureScope}`,
     };
-  }, [detour, focusKey, view, scenario]);
+  }, [detour, focusKey, effectiveView, scenario]);
 
+  /*
+   * The legend names what was actually closed.
+   *
+   * It used to read "Closed segment" regardless of scope, which was wrong on
+   * two counts: the engine removes an AMDS source feature, not a segment, and
+   * "closed" without qualification reads as a live road status.
+   */
   const legend = useMemo<LegendItem[]>(() => {
-    const items: LegendItem[] = [...LEGEND_BASE];
+    const scope = detour ? scopeOfResponse(detour.closure.scope) : null;
+    const items: LegendItem[] = [
+      {
+        colour: palette.closure,
+        label: scope ? closureLabel(scope) : 'Modelled closure',
+      },
+    ];
     if (detour) {
       items.push({
         colour: palette.route,
         label: `Replacement path — ${focusKey}`,
       });
-      if (view === 'compare') {
+      if (effectiveView === 'compare') {
         items.push({
           colour: palette.compare,
           label: focusKey === 'reverse' ? 'Forward direction' : 'Reverse direction',
           dashed: true,
         });
       }
-      if (detour[focusKey]?.status === 'DISCONNECTED') {
+      /* Only when links are genuinely stranded. A DISCONNECTED one-way result
+       * routinely strands nothing, and a legend entry for an absent layer
+       * claims the map is showing something it is not. */
+      /* Only when stranded links are actually drawn. A legend entry for a
+       * layer with no data tells the reader to look for something that is not
+       * there. */
+      const iso = detour[focusKey]?.isolation;
+      if (iso?.linkGeoJson?.features?.length) {
         items.push({ colour: palette.stranded, label: 'Stranded links' });
       }
     }
     items.push({ colour: palette.mapHighway, label: 'State highway' });
     return items;
-  }, [detour, focusKey, view]);
+  }, [detour, focusKey, effectiveView]);
 
   /* ---------------------------------------------------------- export */
 
@@ -243,6 +358,23 @@ export default function ExploreScreen() {
   const unsupported = error instanceof UnsupportedScopeError;
 
   const permalink = permalinkFor(urlState);
+
+  /*
+   * SNAPSHOT MISMATCH.
+   *
+   * The URL records a snapshot so a historical link cannot silently produce
+   * different numbers later. But the API has no snapshot parameter yet — every
+   * request answers from the backend's active snapshot — so a permalink from an
+   * older snapshot is recalculated rather than reproduced.
+   *
+   * Recalculating is not wrong. Presenting the recalculated figures as if they
+   * were the saved result would be, so the mismatch is stated instead.
+   */
+  const activeSnapshot = detour?.snapshotId ?? meta?.snapshotId ?? null;
+  const snapshotMismatch =
+    urlSnapshot && activeSnapshot && urlSnapshot !== activeSnapshot
+      ? { requested: urlSnapshot, active: activeSnapshot }
+      : null;
 
   /* ------------------------------------------------------------ view */
 
@@ -281,17 +413,26 @@ export default function ExploreScreen() {
         onScenarioChange={setScenario}
         scenarioOpen={scenarioOpen}
         onScenarioToggle={() => setScenarioOpen((o) => !o)}
-        view={view}
+        view={effectiveView}
         onViewChange={setView}
         onClear={clear}
+        snapshotMismatch={snapshotMismatch}
+        geometryWarning={geometryWarning}
+        directionNotice={directionNotice}
       />
     );
 
+  {
+    /* "Modelled closure", never "Closure active": nothing here observes a road
+     * being closed, and a screenshot of the latter is one step from being read
+     * as a live incident feed. */
+  }
   const closureBadge = detour ? (
     <div className="map-badge">
       <span className="dot" />
       <span>
-        Closure active — {detour.closure.removedLinkCount}{' '}
+        {closureLabelShort(scopeOfResponse(detour.closure.scope))} —{' '}
+        {detour.closure.removedLinkCount}{' '}
         {detour.closure.removedLinkCount === 1 ? 'link' : 'links'},{' '}
         {detour.closure.removedArcCount} directed arcs
       </span>
@@ -299,6 +440,12 @@ export default function ExploreScreen() {
   ) : null;
 
   return (
+    <>
+    <AboutDialog
+      open={aboutOpen}
+      onClose={() => setAboutOpen(false)}
+      meta={meta}
+    />
     <AppShell
       bottomInset={mobile ? sheetPx : 0}
       topBar={
@@ -325,7 +472,7 @@ export default function ExploreScreen() {
         <LayerRail
           layers={layers}
           onToggle={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
-          onAbout={() => setScenarioOpen(true)}
+          onAbout={() => setAboutOpen(true)}
         />
       }
       workspace={
@@ -349,6 +496,8 @@ export default function ExploreScreen() {
             onHoverChange={setHover}
             onScaleChange={setScale}
             onReady={() => undefined}
+            onGeometryWarning={setGeometryWarning}
+            onBasemapError={() => setBasemapFailed(true)}
             inset={
               mobile
                 ? { right: 0, bottom: sheetPx }
@@ -377,6 +526,10 @@ export default function ExploreScreen() {
               </span>
             </div>
           )}
+
+          {basemapFailed && (
+            <BasemapUnavailable onDismiss={() => setBasemapFailed(false)} />
+          )}
         </MapWorkspace>
       }
       inspector={
@@ -404,6 +557,7 @@ export default function ExploreScreen() {
         )
       }
     />
+    </>
   );
 }
 

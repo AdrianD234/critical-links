@@ -277,21 +277,43 @@ export const LABEL_LAYERS: LayerSpecification[] = [
     },
   },
   {
-    /* Road names along the line. Late zoom only: at z13 the network is dense
-     * enough that labelling it would bury the routes under text. */
+    /*
+     * Road names along the line. Late zoom only: at z13 the network is dense
+     * enough that labelling it would bury the routes under text.
+     *
+     * DENSITY IS THE PROBLEM HERE. These are analytical graph links, and one
+     * named road is split into many of them — at junctions, and again wherever
+     * another link ends on its interior. Labelling per feature therefore
+     * repeats a road's name far more often than a cartographic layer would.
+     *
+     * Two mitigations, short of building a name-grouped generalisation layer:
+     * a wide `symbol-spacing` so repeats are at least far apart, and a
+     * `text-padding` that makes MapLibre's collision detection reject a second
+     * instance of a name near one already placed. Junction stubs are excluded
+     * outright — a 30 m link is not worth a road name, and they are the densest
+     * source of repeats.
+     */
     id: LYR.networkLabel,
     type: 'symbol',
     source: SRC.network,
     'source-layer': 'network',
     minzoom: 13.5,
-    filter: ['!=', ['get', 'roadName'], ''],
+    filter: [
+      'all',
+      ['!=', ['get', 'roadName'], ''],
+      ['>', ['get', 'lengthM'], 60],
+    ],
     layout: {
       'symbol-placement': 'line',
       'text-field': ['get', 'roadName'],
       'text-font': LABEL_FONT,
       'text-size': ['interpolate', ['linear'], ['zoom'], 13.5, 9.5, 17, 12],
-      'text-max-angle': 35,
-      'symbol-spacing': 260,
+      'text-max-angle': 30,
+      'symbol-spacing': 420,
+      'text-padding': 22,
+      /* Longer links carry their name first, so when several fragments of one
+       * road compete the one with room to render it wins. */
+      'symbol-sort-key': ['-', 0, ['get', 'lengthM']],
     },
     paint: {
       'text-color': palette.shellFgMuted,

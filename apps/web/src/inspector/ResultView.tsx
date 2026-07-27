@@ -20,6 +20,7 @@
 import { useId } from 'react';
 
 import ConfidenceNotice from './ConfidenceNotice.js';
+import CorridorPanel from './CorridorPanel.js';
 import DirectionComparison from './DirectionComparison.js';
 import DirectionTabs, { type DirectionView } from './DirectionTabs.js';
 import HeroMetric, { HeroSkeleton, detourDetail } from './HeroMetric.js';
@@ -33,8 +34,16 @@ import ScenarioControls from './ScenarioControls.js';
 import ScenarioSummary from './ScenarioSummary.js';
 import SecondaryMeasures, { measureRows } from './SecondaryMeasures.js';
 import SourceMethodology from './SourceMethodology.js';
+import { RouteGeometryGap, SnapshotMismatch } from './ResultNotices.js';
 import { distance, signedKm } from '../lib/format.js';
-import { summariseScenario, type DirectionKey, type Scenario } from '../api/scenario.js';
+import {
+  closureLabel,
+  scopeOfResponse,
+  summariseScenario,
+  type DirectionKey,
+  type Scenario,
+} from '../api/scenario.js';
+import type { GeometryWarning } from '../map/NetworkMap.js';
 import type { DetourResponse, NetworkMetadata } from '../api/types.js';
 
 export interface ResultViewProps {
@@ -52,6 +61,12 @@ export interface ResultViewProps {
   view: DirectionView;
   onViewChange: (v: DirectionView) => void;
   onClear: () => void;
+  /** Set when the permalink names a snapshot other than the active one. */
+  snapshotMismatch: { requested: string; active: string } | null;
+  /** Set when the map could not draw the route as a continuous path. */
+  geometryWarning: GeometryWarning | null;
+  /** Announced when the focused direction was moved automatically. */
+  directionNotice: string | null;
 }
 
 export default function ResultView({
@@ -67,6 +82,9 @@ export default function ResultView({
   view,
   onViewChange,
   onClear,
+  snapshotMismatch,
+  geometryWarning,
+  directionNotice,
 }: ResultViewProps) {
   const controlsId = useId();
   const panelId = useId();
@@ -105,9 +123,20 @@ export default function ResultView({
         onClear={onClear}
       />
 
+      {snapshotMismatch && (
+        <SnapshotMismatch
+          requested={snapshotMismatch.requested}
+          active={snapshotMismatch.active}
+        />
+      )}
+
       {/* aria-live so a screen-reader user is told the outcome without having
        * to go looking for it. `polite` because it must not interrupt. */}
       <div aria-live="polite" aria-atomic="true">
+        {/* An automatic direction change is announced here rather than left
+         * for the user to notice: the tab they asked for is not the tab they
+         * got, and silently swapping it is disorienting. */}
+        {directionNotice && <p className="sr-only">{directionNotice}</p>}
         {showSkeleton ? (
           <div className="status-row">
             <span className="dir-tag">{focus}</span>
@@ -132,14 +161,37 @@ export default function ResultView({
         focused && <Hero result={focused} detour={detour!} revealKey={revealKey} />
       )}
 
+      {directionNotice && (
+        <div className="notice notice--info">
+          <p>{directionNotice}</p>
+        </div>
+      )}
+
       <SecondaryMeasures
-        rows={measureRows(focused?.metrics ?? null)}
+        rows={measureRows(focused?.metrics ?? null, focused?.status)}
         loading={showSkeleton}
         revealKey={revealKey}
       />
 
-      {focused?.isolation && focused.status === 'DISCONNECTED' && (
-        <IsolationPanel isolation={focused.isolation} />
+      {geometryWarning && (
+        <RouteGeometryGap
+          partCount={geometryWarning.partCount}
+          skippedArcs={geometryWarning.skippedArcs}
+        />
+      )}
+
+      {/* Only when something is genuinely stranded. A pocket of zero links is
+        * not an isolation finding, and showing it as one turns a routine
+        * one-way artefact into an alarming panel about severed access. */}
+      {focused?.status === 'DISCONNECTED' &&
+        focused.isolation &&
+        (focused.isolation.pocketLinkCount > 0 ||
+          focused.isolation.pocketLengthM > 0) && (
+          <IsolationPanel isolation={focused.isolation} />
+        )}
+
+      {focused?.status === 'DISCONNECTED' && focused.corridor?.status === 'OK' && (
+        <CorridorPanel corridor={focused.corridor} />
       )}
 
       <DirectionTabs
@@ -253,20 +305,78 @@ function Hero({
   }
 
   if (result.status === 'DISCONNECTED') {
-    const len = distance(result.isolation?.pocketLengthM ?? null);
+    /*
+     * DISCONNECTED does not mean "cut off". On a one-way carriageway it is
+     * routine — the API says so in `statusMeaning` — because the endpoint
+     * measure asks for a path from a link's end back to its start, which a
+     * one-way link does not have and never did.
+     *
+     * An earlier version headlined every DISCONNECTED as "Road cut off", and on
+     * a one-way state-highway segment it read "Road cut off: 0 m": the pocket
+     * was one node, zero links, zero metres, and traffic in fact got past with
+     * +2.46 km. That is the exact misreading the backend warns against.
+     *
+     * So the headline follows what was actually found, in order of what the
+     * reader most needs to know.
+     */
+    const corridor = result.corridor;
+    const stranded = result.isolation;
+    const hasPocket =
+      (stranded?.pocketLinkCount ?? 0) > 0 || (stranded?.pocketLengthM ?? 0) > 0;
+
+    /* 1. A through-trip comparison exists: that is the useful measure, and the
+     *    honest one. Traffic gets past; the endpoint question was ill-posed. */
+    if (corridor?.status === 'OK' && corridor.penaltyM !== null) {
+      const pen = signedKm(corridor.penaltyM);
+      return (
+        <HeroMetric
+          label="Added distance — through trip"
+          value={pen?.value ?? '—'}
+          unit={pen?.unit ?? 'km'}
+          revealKey={revealKey}
+          detail={
+            <>
+              This is a one-way carriageway, so there is no path from the
+              link&rsquo;s end back to its start and the endpoint measure is
+              undefined. Measured instead between the nearest points upstream
+              and downstream at which a driver has a choice.
+            </>
+          }
+        />
+      );
+    }
+
+    /* 2. Something really is stranded. */
+    if (hasPocket) {
+      const len = distance(stranded!.pocketLengthM);
+      return (
+        <HeroMetric
+          label="Road cut off"
+          value={len?.value ?? '—'}
+          unit={len?.unit ?? 'km'}
+          revealKey={revealKey}
+          detail={
+            <>
+              With this modelled closure, no replacement path exists in the
+              represented network. It strands {stranded!.pocketLinkCount} links.
+            </>
+          }
+        />
+      );
+    }
+
+    /* 3. Neither. There is no number to give, and inventing a zero would say
+     *    something false about what was found. */
     return (
-      <HeroMetric
-        label="Road cut off"
-        value={len?.value ?? '—'}
-        unit={len?.unit ?? 'km'}
-        revealKey={revealKey}
-        detail={
-          <>
-            No replacement path exists in the represented network. This closure
-            strands {result.isolation?.pocketLinkCount ?? 0} links.
-          </>
-        }
-      />
+      <div className="headline">
+        <div className="lab">No replacement path</div>
+        <p className="sub" style={{ marginTop: 8 }}>
+          With this modelled closure, no path exists between the selected
+          link&rsquo;s own endpoints, and no through-trip comparison could be
+          computed. Nothing is stranded — this measures the link&rsquo;s
+          endpoints, not the surrounding area.
+        </p>
+      </div>
     );
   }
 
@@ -278,7 +388,6 @@ function Hero({
       unit={added?.unit ?? 'km'}
       revealKey={revealKey}
       detail={detourDetail({
-        selectedLengthM: detour.selectedLink.lengthM,
         alternativeM: result.metrics.alternativeDistanceM,
       })}
     />

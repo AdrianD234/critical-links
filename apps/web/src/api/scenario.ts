@@ -163,6 +163,54 @@ function labelOf<T extends string>(opts: OptionDescriptor<T>[], v: T): string {
   return opts.find((o) => o.value === v)?.label ?? v;
 }
 
+/* ------------------------------------------------- closure terminology */
+
+/**
+ * How the closure is described wherever it is named to the user.
+ *
+ * EVERY LABEL SAYS "MODELLED". Nothing in this tool observes a road being
+ * closed — the user posits a closure and the engine answers a question about
+ * the graph. Wording like "Closure active" or a map label reading "CLOSED" is
+ * one screenshot away from being mistaken for a live road event, which is a
+ * different product with different consequences for anyone acting on it.
+ *
+ * The label is also scope-aware rather than fixed, because what is removed
+ * changes with the scope and "Closed segment" is simply wrong when the engine
+ * removed an entire AMDS source feature.
+ */
+export function closureLabel(scope: ClosureScope): string {
+  switch (scope) {
+    case 'amds-feature':
+      return 'Modelled AMDS-feature closure';
+    case 'direction':
+      return 'Modelled one-direction closure';
+    case 'segment':
+      return 'Modelled segment closure';
+  }
+}
+
+/** The same thing, short enough for a map badge. */
+export function closureLabelShort(scope: ClosureScope): string {
+  switch (scope) {
+    case 'amds-feature':
+      return 'Modelled closure — AMDS feature';
+    case 'direction':
+      return 'Modelled closure — one direction';
+    case 'segment':
+      return 'Modelled closure — segment';
+  }
+}
+
+/**
+ * Read the scope back from a response.
+ *
+ * The response is authoritative over the control: it says what was actually
+ * closed, which is what the label must describe.
+ */
+export function scopeOfResponse(wireScope: string): ClosureScope {
+  return closureScopeFromWire(wireScope);
+}
+
 /** "Car · Distance · AMDS feature" — the compact sticky summary. */
 export function summariseScenario(
   s: Scenario,

@@ -68,6 +68,14 @@ class Isolation:
     pocket_length_m: float
     bounded: bool
     exact: bool
+    #: The links that lose connectivity.
+    #:
+    #: Already known - the count above is derived from exactly this set - and
+    #: returned so the map can draw them. Without it the interface could state
+    #: that 14 links are stranded but not show which, which invites the reader
+    #: to imagine an affected *area* rather than the set of links the analysis
+    #: actually identified.
+    pocket_link_ids: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -371,27 +379,28 @@ def _isolation(snapshot_id: str, u: int, v: int, excluded: Sequence[int],
         return Isolation("none", 0, 0, 0.0, bounded=True, exact=False)
 
     side, nodes = min(candidates, key=lambda c: len(c[1]))
-    stats = db.query_one(
-        f"""
-        SELECT count(DISTINCT a.link_id) AS links,
-               coalesce(sum(DISTINCT_len), 0) AS length_m
-        FROM (
-          SELECT DISTINCT a.link_id, l.length_m AS DISTINCT_len
-          FROM arcs a
-          JOIN links l ON l.snapshot_id = a.snapshot_id AND l.link_id = a.link_id
-          WHERE a.snapshot_id = %s AND a.source = ANY(%s) AND a.target = ANY(%s)
-            AND a.arc_id <> ALL (%s)
-        ) a
+    # The link ids are collected as well as counted. They cost nothing extra -
+    # the count is derived from this very set - and they let the map draw what
+    # is stranded instead of only stating how much of it there is.
+    rows = db.query(
+        """
+        SELECT DISTINCT a.link_id, l.length_m
+        FROM arcs a
+        JOIN links l ON l.snapshot_id = a.snapshot_id AND l.link_id = a.link_id
+        WHERE a.snapshot_id = %s AND a.source = ANY(%s) AND a.target = ANY(%s)
+          AND a.arc_id <> ALL (%s)
         """,
         (snapshot_id, list(nodes), list(nodes), list(excluded) or [-1]),
     )
+    link_ids = [int(r["link_id"]) for r in rows]
     return Isolation(
         side=side,
         pocket_node_count=len(nodes),
-        pocket_link_count=int(stats["links"]) if stats else 0,
-        pocket_length_m=float(stats["length_m"]) if stats else 0.0,
+        pocket_link_count=len(link_ids),
+        pocket_length_m=float(sum(float(r["length_m"]) for r in rows)),
         bounded=False,
         exact=True,
+        pocket_link_ids=link_ids,
     )
 
 

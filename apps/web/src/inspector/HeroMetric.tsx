@@ -17,8 +17,6 @@
  * one is a stale number with a motion curve attached.
  */
 
-import { inlineMetres } from '../lib/format.js';
-
 export function HeroSkeleton() {
   return (
     <div className="headline">
@@ -56,22 +54,36 @@ export default function HeroMetric({
   );
 }
 
-/** The prose under the hero for a successful result. */
+/**
+ * The prose under the hero for a successful result.
+ *
+ * THIS WORDING IS LOAD-BEARING. It used to read "Traffic that used this link
+ * must travel 55.45 km instead", which is a traffic-assignment claim the model
+ * cannot support: the engine does not know which traffic used the link, how
+ * trips redistribute, or whether affected trips would take this particular
+ * replacement route. It computes one shortest path between two nodes.
+ *
+ * What it actually computed is what it now says — a path, between the selected
+ * link's endpoints, under a hypothetical closure.
+ */
 export function detourDetail({
-  selectedLengthM,
   alternativeM,
 }: {
-  selectedLengthM: number | null;
   alternativeM: number | null;
 }) {
   const alt = alternativeM === null ? null : (alternativeM / 1000).toFixed(2);
   if (alt === null) {
-    return <>Traffic that used this {inlineMetres(selectedLengthM)} link must take another path.</>;
+    return (
+      <>
+        With this modelled closure, the shortest represented-network path
+        between the selected link&rsquo;s endpoints goes another way.
+      </>
+    );
   }
   return (
     <>
-      Traffic that used this {inlineMetres(selectedLengthM)} link must travel{' '}
-      {alt} km instead.
+      With this modelled closure, the shortest represented-network path between
+      the selected link&rsquo;s endpoints is {alt} km.
     </>
   );
 }

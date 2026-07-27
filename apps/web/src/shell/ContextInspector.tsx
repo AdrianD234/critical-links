@@ -101,7 +101,16 @@ export default function ContextInspector({
         />
       )}
 
-      <div className="inspector-scroll">{children}</div>
+      {/*
+        `tabIndex={0}` because this scrolls. Without a tab stop a keyboard-only
+        user can reach the controls inside the panel but cannot scroll the panel
+        itself, so anything between two focusable elements — the confidence
+        notes, the comparison table — is unreachable. Flagged by the
+        accessibility scan as `scrollable-region-focusable`.
+      */}
+      <div className="inspector-scroll" tabIndex={0}>
+        {children}
+      </div>
 
       {footer && <div className="inspector-foot">{footer}</div>}
     </aside>
