@@ -36,4 +36,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The default suite must never skip: a skipped regression guard protects
+# nothing. Real-data checks that need an ingested snapshot are marked and
+# deselected by default.
+addopts = "-m 'not realdata'"
+markers = [
+  "realdata: needs a real ingested snapshot; not part of the mandatory suite",
+]
 filterwarnings = ["error::DeprecationWarning"]

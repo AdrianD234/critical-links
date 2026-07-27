@@ -245,6 +245,7 @@ class TestBackendIdentity:
         assert isinstance(r.json().get("detail"), str)
 
 
+@pytest.mark.realdata
 class TestRealSnapshot:
     """Optional: additionally check a real ingested snapshot when present."""
 

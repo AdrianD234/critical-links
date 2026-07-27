@@ -677,7 +677,11 @@ def tilejson(request: Request) -> dict[str, Any]:
     a different port, or any host that is not the developer machine.
     """
     m = _ACTIVE["meta"]
-    base = str(request.base_url).rstrip("/")
+    # RELATIVE tile template. Behind the Vite proxy (changeOrigin) request.base_url
+    # is the backend address, not the browser-facing one - verified: it returned
+    # http://127.0.0.1:8000/... to a browser on :5173. A relative template is
+    # resolved by the client against whatever origin actually served the page,
+    # which is correct through a proxy, a reverse proxy, or none.
     return {
         "tilejson": "2.2.0",
         "name": f"AMDS routable network - {m['snapshot_id']}",
@@ -688,7 +692,7 @@ def tilejson(request: Request) -> dict[str, Any]:
         "tileSchemaVersion": TILE_SCHEMA_VERSION,
         "snapshotId": m["snapshot_id"],
         "tiles": [
-            f"{base}/tiles/v{TILE_SCHEMA_VERSION}/{m['snapshot_id']}"
+            f"/tiles/v{TILE_SCHEMA_VERSION}/{m['snapshot_id']}"
             + "/{z}/{x}/{y}.pbf"
         ],
     }

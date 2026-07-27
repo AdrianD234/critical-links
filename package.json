@@ -13,8 +13,8 @@
     "apps/web"
   ],
   "scripts": {
-    "build": "tsc -b packages/core apps/api && npm run build --workspace apps/web",
-    "typecheck": "tsc -b packages/core apps/api --pretty",
+    "build": "tsc -b packages/core apps/api && npm run typecheck:web && npm run build --workspace apps/web",
+    "typecheck": "tsc -b packages/core apps/api --pretty && npm run typecheck:web",
     "test": "vitest run",
     "test:watch": "vitest",
     "discover": "tsx pipelines/discovery/discover.ts",
@@ -25,7 +25,8 @@
     "export": "tsx pipelines/detours/export.ts",
     "web": "npm run dev --workspace apps/web",
     "reference-api": "tsx apps/api/src/server.ts",
-    "decode-tile": "python scripts/decode-tile.py"
+    "decode-tile": "python scripts/decode-tile.py",
+    "typecheck:web": "tsc -p apps/web/tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
