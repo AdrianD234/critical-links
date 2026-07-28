@@ -172,7 +172,19 @@ export default function NetworkMap({
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const ready = useRef(false);
-  const [, forceRender] = useState(0);
+  /*
+   * The same flag as state, so effects can depend on it.
+   *
+   * A ref alone was not enough and the failure only appeared at national
+   * scale. The result effect bails out when the map is not ready, and its only
+   * dependency is `result` — which changes exactly once, from null to the
+   * data. On the Wellington snapshot the style loaded faster than the detour
+   * computed, so the map was always ready first. On the national snapshot the
+   * detour lands while the style is still loading: the effect returned early
+   * and never ran again, leaving the closure and route undrawn and the map
+   * sitting at the country extent with a complete result beside it.
+   */
+  const [mapReady, setMapReady] = useState(false);
 
   /* Frequently-changing props, read from inside long-lived event handlers. */
   const pickRef = useRef(onPickLink);
@@ -292,7 +304,9 @@ export default function NetworkMap({
       map.getCanvas().style.cursor = 'crosshair';
       scaleRef.current(scaleReading(map));
       readyRef.current();
-      forceRender((n) => n + 1);
+      /* Re-runs the effects that depend on the map being usable, so a result
+       * that arrived during style load is applied rather than lost. */
+      setMapReady(true);
     });
 
     /* ------------------------------------------------------- interaction */
@@ -417,7 +431,7 @@ export default function NetworkMap({
 
     boundsRef.current = result.fitBounds;
     if (result.fitBounds) frame(map, result.fitBounds, insetRef.current, true);
-  }, [result]);
+  }, [result, mapReady]);
 
   /*
    * Reframe after a settled resize.
@@ -492,7 +506,7 @@ export default function NetworkMap({
     set(0);
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [result?.revealKey, result?.focus]);
+  }, [result?.revealKey, result?.focus, mapReady]);
 
   /* -------------------------------------------------------- layer state */
 
@@ -513,7 +527,7 @@ export default function NetworkMap({
     for (const id of [LYR.linzPlaceLabel, LYR.networkLabel]) {
       vis(id, layersVisible.labels);
     }
-  }, [layersVisible]);
+  }, [layersVisible, mapReady]);
 
   /*
    * Home: back to the snapshot's full extent, and forget the framed result so
@@ -533,7 +547,7 @@ export default function NetworkMap({
       ],
       { padding: 40, duration: prefersReducedMotion() ? 0 : 600 },
     );
-  }, [goHomeSignal]);
+  }, [goHomeSignal, mapReady]);
 
   /*
    * Go to a selected road at once, at a zoom where the local network is drawn.
@@ -558,7 +572,7 @@ export default function NetworkMap({
     const map = mapRef.current;
     if (!map || !ready.current || !map.getLayer(LYR.networkHover)) return;
     map.setFilter(LYR.networkHover, ['==', ['id'], previewLinkId ?? -1]);
-  }, [previewLinkId]);
+  }, [previewLinkId, mapReady]);
 
   useEffect(() => {
     const el = container.current;

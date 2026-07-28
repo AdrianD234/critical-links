@@ -175,6 +175,11 @@ def load_synthetic(
                 """,
                 {"s": snapshot_id},
             )
+            # See the note in ingest.py: without statistics the planner picks a
+            # nested loop for the self-join in build_arc_transitions, which is
+            # quadratic. Harmless on a fixture this size, done anyway so the two
+            # paths do not differ in a way that hides the problem.
+            cur.execute("ANALYZE arcs")
             cur.execute("SELECT build_arc_transitions(%s)", (snapshot_id,))
         conn.commit()
 

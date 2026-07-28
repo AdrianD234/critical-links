@@ -171,6 +171,89 @@ def _to_4326_point(x: float, y: float) -> Point:
     return Point(lon, lat)
 
 
+# Above this many arc-to-arc movements the edge-expanded graph is refused.
+#
+# Wellington produces 104,355 from 69,944 arcs - about 1.5 per arc. A national
+# graph of ~730,000 arcs should therefore land near 1.1 million. Ten million is
+# far beyond any plausible road network and means the node assignment has
+# collapsed unrelated arcs onto one node.
+MAX_TRANSITIONS = 10_000_000
+
+
+def _check_transition_cost(cur, snapshot_id: str) -> None:
+    """Refuse to build the expanded graph when the node degrees say not to.
+
+    The join in `build_arc_transitions` produces, for every node, the product
+    of its in-degree and out-degree. That is well behaved on a road network -
+    an intersection joins three or four ways - and explosive the moment
+    something goes wrong upstream. A single node that has collected 20,000 arcs
+    contributes 400 million rows on its own.
+
+    Computing the exact output size first costs one aggregate scan and turns a
+    silent multi-hour hang into an immediate, specific failure that names the
+    offending node. The alternative, discovered the hard way, is a process at
+    full CPU with no rows written and no way to tell whether it is progressing.
+    """
+    cur.execute(
+        """
+        SELECT coalesce(sum(indeg::bigint * outdeg::bigint), 0) AS transitions,
+               max(indeg) AS max_in, max(outdeg) AS max_out
+          FROM (
+            SELECT n.node_id,
+                   count(*) FILTER (WHERE a.target = n.node_id) AS indeg,
+                   count(*) FILTER (WHERE a.source = n.node_id) AS outdeg
+              FROM nodes n
+              JOIN arcs a ON a.snapshot_id = n.snapshot_id
+                         AND (a.source = n.node_id OR a.target = n.node_id)
+             WHERE n.snapshot_id = %s
+             GROUP BY n.node_id
+          ) d
+        """,
+        (snapshot_id,),
+    )
+    row = cur.fetchone()
+    estimate = int(row["transitions"] if isinstance(row, dict) else row[0])
+    max_in = int(row["max_in"] if isinstance(row, dict) else row[1])
+    max_out = int(row["max_out"] if isinstance(row, dict) else row[2])
+
+    print(f"  arc transitions: {estimate:,} expected "
+          f"(worst node: {max_in} in, {max_out} out)")
+
+    if estimate > MAX_TRANSITIONS:
+        # Name the nodes responsible, so the next step is investigation rather
+        # than guesswork.
+        cur.execute(
+            """
+            SELECT n.node_id, count(*) AS degree,
+                   ST_X(n.geom_2193)::int AS x, ST_Y(n.geom_2193)::int AS y
+              FROM nodes n
+              JOIN arcs a ON a.snapshot_id = n.snapshot_id
+                         AND (a.source = n.node_id OR a.target = n.node_id)
+             WHERE n.snapshot_id = %s
+             GROUP BY n.node_id, n.geom_2193
+             ORDER BY count(*) DESC
+             LIMIT 5
+            """,
+            (snapshot_id,),
+        )
+        worst = cur.fetchall()
+        detail = "; ".join(
+            f"node {r['node_id'] if isinstance(r, dict) else r[0]} "
+            f"degree {r['degree'] if isinstance(r, dict) else r[1]} "
+            f"at ({r['x'] if isinstance(r, dict) else r[2]}, "
+            f"{r['y'] if isinstance(r, dict) else r[3]})"
+            for r in worst
+        )
+        raise SystemExit(
+            f"refusing to build the edge-expanded graph: {estimate:,} arc "
+            f"transitions expected, limit {MAX_TRANSITIONS:,}.\n"
+            f"  Highest-degree nodes: {detail}\n"
+            f"  A road intersection joins three or four ways. A node with "
+            f"hundreds means unrelated arcs have been snapped together during "
+            f"node assignment - investigate before rebuilding."
+        )
+
+
 def run(
     *,
     national: bool = False,
@@ -473,6 +556,8 @@ def run(
         status="complete" if not dl.missing_ids and len(dl.features) == len(ids)
                else "partial",
         notes=notes,
+        coverage_kind=coverage_kind,
+        coverage_name=coverage_name,
     )
 
     print(f"\nSnapshot written: {snapshot_id}")
@@ -487,7 +572,8 @@ def run(
 
 def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misses,
           turns, analysis_poly, extract, analysis, retrieved, source_count,
-          downloaded, raw_sha256, source_version, status, notes) -> int:
+          downloaded, raw_sha256, source_version, status, notes,
+          coverage_kind: str, coverage_name: str) -> int:
     s = get_settings()
     srid = s.analysis_srid
 
@@ -625,9 +711,25 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
             # turn restrictions, resolved to a connected chain of graph links
             _load_turns(cur, snapshot_id, turns, links, pairs)
 
+            # Statistics for the planner. `arcs` was just COPYed inside this
+            # open transaction, so autovacuum has not seen it and it carries
+            # none. Measured as NOT the cause of the national hang below - the
+            # planner chose a hash join either way - but the estimates are used
+            # by everything downstream, so it is worth a second here.
+            cur.execute("ANALYZE arcs")
+            cur.execute("ANALYZE nodes")
+            cur.execute("ANALYZE links")
+
             # Edge-expanded graph, used when a route would violate a turn
             # restriction. Built here so a snapshot is routable the moment it
             # lands, rather than depending on a separate step.
+            #
+            # GUARDED, because this join is quadratic in node degree and a
+            # single degenerate node can make it effectively non-terminating.
+            # A national run spun at 99% CPU for 74 minutes and wrote nothing;
+            # Wellington, whose worst node has out-degree 12, completes the
+            # same function in 1.2 seconds.
+            _check_transition_cost(cur, snapshot_id)
             cur.execute("SELECT build_arc_transitions(%s)", (snapshot_id,))
 
             cur.execute(

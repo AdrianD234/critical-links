@@ -462,9 +462,13 @@ def search(
 ) -> dict[str, Any]:
     clauses = ["l.snapshot_id = %(snap)s"]
     params: dict[str, Any] = {"snap": snapshot_id(), "limit": limit}
-    # Ranking expression. Falls back to a constant when no name was supplied,
-    # so the ORDER BY below is valid in every branch.
-    rank = "0"
+    # Ranking expression, used in the ORDER BY below.
+    #
+    # The no-name fallback must be a typed NULL, not `0`. A bare integer
+    # constant in ORDER BY is parsed as a POSITIONAL reference to a select-list
+    # column, so `ORDER BY (0)` raises "ORDER BY position 0 is not in select
+    # list" - which is what a bbox-only search did until this was fixed.
+    rank = "NULL::int"
     if name:
         # Match the route number as well as the name: on a national snapshot
         # "SH 1" is a far more likely query than any road name, and it lives
