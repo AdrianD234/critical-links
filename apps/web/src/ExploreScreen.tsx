@@ -32,6 +32,7 @@ import NetworkMap, {
   type ScaleReading,
 } from './map/NetworkMap.js';
 import { hasLinzKey } from './map/style.js';
+import { coverageOf } from './api/coverage.js';
 import AboutDialog from './shell/AboutDialog.js';
 import { BasemapUnavailable } from './inspector/ResultNotices.js';
 import { availabilityOf, normaliseDirection } from './state/direction.js';
@@ -93,6 +94,13 @@ export default function ExploreScreen() {
   const [geometryWarning, setGeometryWarning] =
     useState<GeometryWarning | null>(null);
   const [basemapFailed, setBasemapFailed] = useState(false);
+  /* Bumped to send the map back to the snapshot's full extent. */
+  const [goHome, setGoHome] = useState(0);
+  const [locate, setLocate] = useState<{
+    lon: number;
+    lat: number;
+    seq: number;
+  } | null>(null);
   const [sheetStop, setSheetStop] = useState<SheetStop>('medium');
   const [sheetPx, setSheetPx] = useState(() =>
     sheetHeight('medium', window.innerHeight),
@@ -111,6 +119,9 @@ export default function ExploreScreen() {
   const metaQ = useMetadata();
   const meta = metaQ.data ?? null;
   const version = resultVersion(metaQ.data);
+  /* What the snapshot covers, and therefore what the map opens on and what
+   * Home returns to. Read from the backend, never inferred from a boolean. */
+  const coverage = useMemo(() => coverageOf(meta), [meta]);
 
   const detourQ = useDetour({ link, scenario, version });
   const detour = detourQ.data ?? null;
@@ -262,6 +273,18 @@ export default function ExploreScreen() {
       selectLink(l.amdsId, l.roadName);
       setQuery('');
       setDebounced('');
+      /* Move the map now, not when the detour lands. On a national snapshot
+       * the chosen road may be on the other island. */
+      if (
+        typeof l.centroid?.lon === 'number' &&
+        typeof l.centroid?.lat === 'number'
+      ) {
+        setLocate((prev) => ({
+          lon: l.centroid.lon,
+          lat: l.centroid.lat,
+          seq: (prev?.seq ?? 0) + 1,
+        }));
+      }
     },
     [selectLink],
   );
@@ -391,7 +414,7 @@ export default function ExploreScreen() {
 
   const body =
     link === null ? (
-      <InspectorEmpty clipped={Boolean(meta?.clippedExtract)} />
+      <InspectorEmpty coverage={coverage} />
     ) : error ? (
       <div className="inspector-empty">
         <h2>{unsupported ? 'Not available yet' : 'Analysis failed'}</h2>
@@ -473,6 +496,13 @@ export default function ExploreScreen() {
           layers={layers}
           onToggle={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
           onAbout={() => setAboutOpen(true)}
+          onHome={() => {
+            /* Clearing the selection as well, so Home means "show me
+             * everything" rather than "keep this result but look away". */
+            clear();
+            setGoHome((n) => n + 1);
+          }}
+          homeLabel={coverage.name}
         />
       }
       workspace={
@@ -498,6 +528,9 @@ export default function ExploreScreen() {
             onReady={() => undefined}
             onGeometryWarning={setGeometryWarning}
             onBasemapError={() => setBasemapFailed(true)}
+            homeExtent={coverage.extent}
+            goHomeSignal={goHome}
+            locate={locate}
             inset={
               mobile
                 ? { right: 0, bottom: sheetPx }

@@ -31,29 +31,34 @@ export default defineConfig({
     video: 'off',
   },
 
+  /*
+   * Desktop and laptop are the supported product viewports. Mobile development
+   * is paused, so the mobile project runs one smoke test rather than the full
+   * suite — enough that a desktop change cannot make the app unusable on a
+   * phone unnoticed, and not so much that it amounts to maintaining mobile
+   * behaviour while the desktop model is still moving.
+   */
   projects: [
     {
       name: 'desktop',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+      testIgnore: /mobile-smoke\.spec\.ts/,
     },
     {
       name: 'laptop',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+      testIgnore: /mobile-smoke\.spec\.ts/,
     },
     {
       /*
-       * Chromium at a phone viewport, not the iPhone device profile.
-       *
-       * The bundled iPhone profiles default to WebKit, which would make the
-       * mobile suite depend on a second browser download in CI for no benefit
-       * here: what is being tested is the app's own responsive behaviour — the
-       * bottom sheet, touch targets, the collapsed top bar — not WebKit's
-       * rendering. `Pixel 7` keeps Chromium and still sets touch, mobile and
-       * device-scale-factor, so the sheet's pointer handling is exercised
-       * properly.
+       * Chromium at a phone viewport, not the iPhone device profile: the
+       * bundled iPhone profiles default to WebKit, which would make CI depend
+       * on a second browser download to test the app's own responsive shell
+       * rather than WebKit's rendering.
        */
-      name: 'mobile',
+      name: 'mobile-smoke',
       use: { ...devices['Pixel 7'] },
+      testMatch: /mobile-smoke\.spec\.ts/,
     },
   ],
 

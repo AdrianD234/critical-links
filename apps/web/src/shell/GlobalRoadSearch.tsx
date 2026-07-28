@@ -178,10 +178,26 @@ export default function GlobalRoadSearch({
                 choose(r);
               }}
             >
-              <span className="r-name">{r.roadName ?? '(unnamed link)'}</span>
+              <span className="r-name">
+                {r.roadName ?? '(unnamed link)'}
+                {/* The route number sits with the name, not in the metadata
+                  * line: on a national snapshot it is often the only thing
+                  * distinguishing two identically named roads. */}
+                {r.roadNumber && <span className="r-num">{r.roadNumber}</span>}
+              </span>
               <span className="r-meta">
-                {formatMetres(r.lengthM)} · {r.oneway ? 'one-way' : 'two-way'}
-                {r.rca ? ` · ${r.rca}` : ''}
+                {[
+                  /* Locality first — it is what a reader scans for when a
+                   * dozen "Main Road" results come back from all over the
+                   * country. The RCA is a territorial authority, so it names
+                   * the district even though it is an ownership field. */
+                  r.rca,
+                  r.urbanRural,
+                  formatMetres(r.lengthM),
+                  r.oneway ? 'one-way' : 'two-way',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
             </button>
           ))}

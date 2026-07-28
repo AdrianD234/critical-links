@@ -126,6 +126,9 @@ export default function NetworkMap({
   onReady,
   onGeometryWarning,
   onBasemapError,
+  homeExtent,
+  goHomeSignal,
+  locate,
   inset,
   previewLinkId,
   layersVisible,
@@ -140,6 +143,22 @@ export default function NetworkMap({
   onGeometryWarning: (w: GeometryWarning | null) => void;
   /** Called once if the LINZ basemap or its glyphs cannot be loaded. */
   onBasemapError: () => void;
+  /**
+   * What the map opens on, and returns to. The snapshot's coverage — the
+   * country for a national snapshot, the extract for a regional one.
+   */
+  homeExtent: [number, number, number, number];
+  /** Increment to send the map back to `homeExtent`. */
+  goHomeSignal: number;
+  /**
+   * Somewhere to go immediately, before any result exists.
+   *
+   * Selecting a search result on a national map may name a road 900 km away.
+   * Waiting for the detour to compute before moving leaves the user looking at
+   * the wrong island while a spinner runs — feedback has to precede
+   * computation. `seq` is a counter so repeat selections still move the map.
+   */
+  locate: { lon: number; lat: number; seq: number } | null;
   /**
    * How much of the map the inspector covers, so route framing centres in the
    * *visible* map rather than underneath the panel. On desktop that is a right
@@ -174,6 +193,8 @@ export default function NetworkMap({
   basemapErrRef.current = onBasemapError;
   /* The bounds of the result on screen, so a settled resize can reframe it. */
   const boundsRef = useRef<[number, number, number, number] | null>(null);
+  const homeExtentRef = useRef(homeExtent);
+  homeExtentRef.current = homeExtent;
 
   /* ------------------------------------------------------------ create */
 
@@ -182,11 +203,24 @@ export default function NetworkMap({
      * and building the map before it is known would request the wrong tiles. */
     if (!container.current || mapRef.current || !snapshotId) return;
 
+    /*
+     * Open on what the snapshot actually covers.
+     *
+     * The centre and zoom used to be a hard-coded Wellington coordinate, so
+     * even with the national network loaded the application opened looking
+     * like a Wellington tool. `bounds` is used rather than centre+zoom so the
+     * initial view is derived from coverage rather than guessed per snapshot.
+     */
+    const [w, s, e, n] = homeExtentRef.current;
+
     const map = new maplibregl.Map({
       container: container.current,
       style: baseStyle(tileUrl(api.base, tileSchemaVersion, snapshotId)),
-      center: [174.86, -41.14],
-      zoom: 10.4,
+      bounds: [
+        [w, s],
+        [e, n],
+      ],
+      fitBoundsOptions: { padding: 40 },
       /* Attribution is a licensing obligation for LINZ Basemaps (CC BY 4.0)
        * and for the AMDS source, not decoration. It is rendered as part of the
        * workspace furniture instead of MapLibre's own control, so it can be
@@ -480,6 +514,44 @@ export default function NetworkMap({
       vis(id, layersVisible.labels);
     }
   }, [layersVisible]);
+
+  /*
+   * Home: back to the snapshot's full extent, and forget the framed result so
+   * a later resize does not quietly pull the view back to it.
+   *
+   * Keyed on a counter rather than a boolean, so pressing Home twice works.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready.current || goHomeSignal === 0) return;
+    boundsRef.current = null;
+    const [w, s, e, n] = homeExtentRef.current;
+    map.fitBounds(
+      [
+        [w, s],
+        [e, n],
+      ],
+      { padding: 40, duration: prefersReducedMotion() ? 0 : 600 },
+    );
+  }, [goHomeSignal]);
+
+  /*
+   * Go to a selected road at once, at a zoom where the local network is drawn.
+   *
+   * The detour's own `fitBounds` supersedes this a moment later; this exists so
+   * the intervening moment is not spent looking at the wrong part of the
+   * country.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready.current || !locate) return;
+    map.easeTo({
+      center: [locate.lon, locate.lat],
+      zoom: Math.max(map.getZoom(), 13),
+      duration: prefersReducedMotion() ? 0 : 500,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locate?.seq]);
 
   /* Preview highlight for a search candidate, before it is selected. */
   useEffect(() => {

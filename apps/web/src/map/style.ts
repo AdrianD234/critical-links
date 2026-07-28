@@ -324,6 +324,50 @@ export const LABEL_LAYERS: LayerSpecification[] = [
   },
 ];
 
+/**
+ * Zoom at which the full analytical network is drawn.
+ *
+ * Below this the map generalises. At an all-New-Zealand extent the national
+ * snapshot holds 375,485 graph links, and drawing every driveway and cul-de-sac
+ * produces an unreadable grey mesh in which the state highway network — the
+ * thing a resilience analyst is actually looking at — disappears.
+ *
+ * THIS IS A DRAWING RULE ONLY. Nothing is removed from the graph, from search,
+ * or from any calculation. A link that is not drawn at z6 is still routable,
+ * still searchable, still selectable once zoomed in, and still used by every
+ * detour that crosses it.
+ */
+export const ZOOM_ALL_ROADS = 12;
+export const ZOOM_SIGNIFICANT_ROADS = 9;
+
+/**
+ * Which links are drawn at the current zoom.
+ *
+ * Three tiers, chosen from attributes the tiles already carry:
+ *
+ *   below z9   state highways and lifeline routes — the strategic network
+ *   z9–z12     plus links long enough to be a through route rather than a
+ *              suburban stub; length is a crude but honest proxy for
+ *              significance when the source has no road-class hierarchy
+ *   z12+       everything
+ *
+ * AMDS publishes `model_asset_type`, but its values do not form a usable
+ * importance ranking, so length and the state-highway/lifeline flags are what
+ * is available. Stated here rather than implied, because a better attribute
+ * would make a better rule.
+ */
+const VISIBLE_AT_ZOOM: unknown[] = [
+  'any',
+  ['>=', ['zoom'], ZOOM_ALL_ROADS],
+  ['==', ['get', 'stateHighway'], 1],
+  ['==', ['get', 'lifeline'], 1],
+  [
+    'all',
+    ['>=', ['zoom'], ZOOM_SIGNIFICANT_ROADS],
+    ['>', ['get', 'lengthM'], 800],
+  ],
+];
+
 /** The network itself, plus its fat invisible hit line and hover highlight. */
 export const NETWORK_LAYERS: LayerSpecification[] = [
   {
@@ -331,6 +375,7 @@ export const NETWORK_LAYERS: LayerSpecification[] = [
     type: 'line',
     source: SRC.network,
     'source-layer': 'network',
+    filter: VISIBLE_AT_ZOOM as never,
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': [
@@ -345,6 +390,11 @@ export const NETWORK_LAYERS: LayerSpecification[] = [
         'interpolate',
         ['linear'],
         ['zoom'],
+        /* At national zoom the highways carry the picture on their own, so
+         * they are given enough weight to read as a network rather than a
+         * scatter of hairlines. */
+        5,
+        ['case', ['==', ['get', 'stateHighway'], 1], 0.7, 0.3],
         8,
         ['case', ['==', ['get', 'stateHighway'], 1], 1.2, 0.4],
         12,
@@ -365,6 +415,9 @@ export const NETWORK_LAYERS: LayerSpecification[] = [
     type: 'line',
     source: SRC.network,
     'source-layer': 'network',
+    /* Same filter as the visible line. Hovering or selecting a road that is
+     * not drawn would be indistinguishable from a misclick. */
+    filter: VISIBLE_AT_ZOOM as never,
     paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 14 },
   },
   {

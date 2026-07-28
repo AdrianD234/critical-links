@@ -1,13 +1,17 @@
 /*
- * Which snapshot the figures on screen came from.
+ * Which snapshot the figures on screen came from, and what it covers.
  *
- * This is permanently visible rather than buried under methodology because
- * every number in the inspector is only meaningful relative to a snapshot, and
- * the current one is an explicitly pre-hardening pilot. The short hash is the
- * last segment of the snapshot id, shown in monospace because it is an
- * identifier.
+ * Permanently visible, because every number in the inspector is only meaningful
+ * relative to a snapshot — and because a national tool serving a regional
+ * extract must never be able to look national.
+ *
+ * The coverage name comes from the backend, which records it at ingest. This
+ * component used to translate `clippedExtract === true` into the literal string
+ * "Wellington pilot", which would have announced an Auckland or custom extract
+ * under Wellington's name.
  */
 
+import { coverageOf } from '../api/coverage.js';
 import type { NetworkMetadata } from '../api/types.js';
 
 export default function SnapshotIndicator({
@@ -24,24 +28,40 @@ export default function SnapshotIndicator({
     );
   }
 
+  const coverage = coverageOf(meta);
   const short = meta.snapshotId.split('-').pop() ?? meta.snapshotId;
-  const clipped = meta.clippedExtract;
 
   return (
     <div
       className="snapshot"
+      data-coverage={coverage.kind}
       title={[
+        coverage.caveat,
         meta.snapshotId,
         meta.sourceDataset,
         `Retrieved ${meta.retrievedAtUtc}`,
-        clipped
-          ? 'Clipped extract — not national coverage'
-          : 'Full extract',
-      ].join('\n')}
+        `${meta.graph.links.toLocaleString('en-NZ')} links, ` +
+          `${meta.graph.arcs.toLocaleString('en-NZ')} arcs`,
+        meta.selectionReason ? `Selected: ${meta.selectionReason}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')}
     >
-      <span className="dot" data-state={clipped ? 'degraded' : 'ok'} />
-      <span>{clipped ? 'Wellington pilot' : 'National'} ·&nbsp;</span>
+      <span className="dot" data-state={dotState(coverage.kind)} />
+      <span>{coverage.name} ·&nbsp;</span>
       <span className="sid">{short}</span>
     </div>
   );
+}
+
+/**
+ * Green for national, amber for anything less.
+ *
+ * Amber is the product's "this is context, not the answer" colour, and a
+ * regional extract is exactly that: usable, but not what the tool is for.
+ */
+function dotState(kind: string): string {
+  if (kind === 'national') return 'ok';
+  if (kind === 'unknown') return 'unknown';
+  return 'degraded';
 }

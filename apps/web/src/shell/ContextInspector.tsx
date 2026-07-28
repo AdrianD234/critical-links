@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 
+import type { Coverage } from '../api/coverage.js';
+
 export const INSPECTOR_MIN = 340;
 export const INSPECTOR_MAX = 560;
 
@@ -117,25 +119,41 @@ export default function ContextInspector({
   );
 }
 
-/** Shown before any road is selected. */
-export function InspectorEmpty({ clipped }: { clipped: boolean }) {
+/**
+ * Shown before any road is selected.
+ *
+ * The coverage note is written from what the backend reports, not from a
+ * `clipped` boolean that a previous version turned into the words "Wellington
+ * extract" regardless of where the extract actually was.
+ */
+export function InspectorEmpty({ coverage }: { coverage: Coverage }) {
   return (
     <div className="inspector-empty">
       <h2>Select a road to close</h2>
       <p>
         Click any road on the map, or search for one above. The road you select
-        is closed and the network is re-routed around it.
+        is closed — as a model, not on the ground — and the network is re-routed
+        around it.
       </p>
       <p>
         The result is the shortest replacement path available in the represented
-        network — a structural measure, not a traffic forecast.
+        network: a structural measure, not a traffic forecast.
       </p>
       <div className="hint">
-        {clipped
-          ? 'This snapshot is a clipped Wellington extract. Roads outside the ' +
-            'extract are absent from the graph, so replacement paths that ' +
-            'would leave it cannot be found.'
-          : 'Replacement paths are computed over the full represented network.'}
+        {coverage.isNational ? (
+          <>
+            <b>{coverage.name}.</b> Replacement paths are computed over the
+            full national vehicle-road network, so a detour may leave the
+            region entirely.
+          </>
+        ) : (
+          <>
+            <b>{coverage.name}.</b> This is a clipped extract. Roads outside it
+            are absent from the graph, so a replacement path that would leave
+            the extract cannot be found and a link may look more critical than
+            it is.
+          </>
+        )}
       </div>
     </div>
   );

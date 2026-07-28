@@ -184,8 +184,12 @@ def run(
     extract: Bbox | None = None
     analysis: Bbox | None = None
 
+    # Coverage is decided here, where the extract is, and carried through to the
+    # snapshot row. Nothing downstream has to infer it from whether an extent
+    # happens to be null.
     if national:
         area = "national"
+        coverage_kind, coverage_name = "national", "New Zealand"
     elif pilot:
         if pilot not in PILOTS:
             raise SystemExit(
@@ -193,10 +197,14 @@ def run(
             )
         p = PILOTS[pilot]
         extract, analysis, area = p.extract, p.analysis, p.name
+        coverage_kind = "regional"
+        coverage_name = f"{p.name.capitalize()} pilot"
     elif bbox:
         extract = bbox
         analysis = analysis_bbox or bbox
         area = name or "custom"
+        coverage_kind = "regional"
+        coverage_name = f"{area.capitalize()} extract"
     else:
         raise SystemExit("specify --national, --pilot <name>, or --bbox")
 
@@ -494,10 +502,12 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
                   source_url, layer_id, licence, attribution, raw_sha256,
                   processing_version, source_feature_count,
                   downloaded_feature_count, extent_2193, analysis_extent_2193,
-                  where_clause, status, notes)
+                  where_clause, status, notes,
+                  coverage_kind, coverage_name, display_extent_2193)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                         ST_GeomFromText(%s,%s), ST_GeomFromText(%s,%s),
-                        %s,%s,%s)
+                        %s,%s,%s,
+                        %s,%s,ST_GeomFromText(%s,%s))
                 """,
                 (snapshot_id,
                  "NZTA AMDS Network Model (AMDS_NetworkModel_PROD)",
@@ -511,7 +521,14 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
                  source_count, downloaded,
                  extract.wkt() if extract else None, srid,
                  analysis.wkt() if analysis else None, srid,
-                 LINK_WHERE, status, notes),
+                 LINK_WHERE, status, notes,
+                 # Coverage is known exactly here, at the moment the extract is
+                 # defined. Recording it removes the guesswork that previously
+                 # labelled every clipped snapshot "Wellington pilot".
+                 coverage_kind, coverage_name,
+                 # The display extent is what the map fits with nothing
+                 # selected. National has none: it fits the country.
+                 (analysis.wkt() if analysis else None), srid),
             )
 
             # nodes

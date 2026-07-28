@@ -49,27 +49,125 @@ MAX_DRAWN_STRANDED_LINKS = 2_000
 _ACTIVE: dict[str, Any] = {}
 
 
-def _latest_snapshot() -> str | None:
+def _extent_wgs84(snapshot: str, column: str) -> dict[str, Any] | None:
+    """A snapshot extent as a WGS84 corner pair, or None if it has none.
+
+    A national snapshot has no extent - it is not clipped - and the caller is
+    expected to fall back to the country's own bounds rather than treating the
+    absence as an error.
+    """
+    if column not in {"display_extent_2193", "analysis_extent_2193", "extent_2193"}:
+        raise ValueError(f"refusing to interpolate unknown column {column!r}")
     row = db.query_one(
-        "SELECT snapshot_id FROM network_snapshots WHERE status <> 'failed' "
-        "ORDER BY retrieved_at_utc DESC LIMIT 1"
+        f"""
+        SELECT ST_XMin(w) AS lonmin, ST_YMin(w) AS latmin,
+               ST_XMax(w) AS lonmax, ST_YMax(w) AS latmax
+          FROM (SELECT ST_Transform({column}, 4326) AS w
+                  FROM network_snapshots WHERE snapshot_id = %s) q
+        """,
+        (snapshot,),
     )
-    return row["snapshot_id"] if row else None
+    if not row or row["lonmin"] is None:
+        return None
+    return {
+        "southWest": {"lat": row["latmin"], "lon": row["lonmin"]},
+        "northEast": {"lat": row["latmax"], "lon": row["lonmax"]},
+    }
+
+
+def _default_snapshot() -> tuple[str | None, str]:
+    """Choose the snapshot to serve, and say why.
+
+    "Whichever non-failed snapshot was retrieved most recently" was too
+    accidental to be a product default: a fresh pilot ingest, a partial run, or
+    a CI fixture built on a developer's machine would all silently become what
+    the application serves. That is how a national tool ended up presenting a
+    Wellington extract as its normal view.
+
+    The order is explicit instead:
+
+      1. an operator-supplied SNAPSHOT_ID, which always wins;
+      2. the newest COMPLETE national snapshot;
+      3. a regional snapshot, only when no national one exists, and only as a
+         clearly labelled fallback.
+
+    A partial or failed snapshot is never chosen automatically, and a synthetic
+    fixture never is at all - it exists for tests, and serving it to a person
+    would present a seven-link toy as the road network.
+    """
+    national = db.query_one(
+        """
+        SELECT snapshot_id FROM network_snapshots
+         WHERE status = 'complete' AND coverage_kind = 'national'
+         ORDER BY retrieved_at_utc DESC LIMIT 1
+        """
+    )
+    if national:
+        return national["snapshot_id"], "newest complete national snapshot"
+
+    regional = db.query_one(
+        """
+        SELECT snapshot_id FROM network_snapshots
+         WHERE status = 'complete' AND coverage_kind = 'regional'
+         ORDER BY retrieved_at_utc DESC LIMIT 1
+        """
+    )
+    if regional:
+        return regional["snapshot_id"], (
+            "no national snapshot available; falling back to a regional extract"
+        )
+
+    # Nothing complete. Say so rather than quietly serving a partial ingest.
+    any_snapshot = db.query_one(
+        "SELECT snapshot_id, status, coverage_kind FROM network_snapshots "
+        "WHERE status <> 'failed' ORDER BY retrieved_at_utc DESC LIMIT 1"
+    )
+    if any_snapshot:
+        return any_snapshot["snapshot_id"], (
+            f"no complete snapshot available; serving "
+            f"{any_snapshot['coverage_kind'] or 'unknown'} snapshot with status "
+            f"{any_snapshot['status']!r}"
+        )
+    return None, "no snapshots in the database"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import os
-    snap = os.environ.get("SNAPSHOT_ID") or _latest_snapshot()
+    explicit = os.environ.get("SNAPSHOT_ID")
+    if explicit:
+        snap, why = explicit, "SNAPSHOT_ID supplied explicitly"
+    else:
+        snap, why = _default_snapshot()
+
     if not snap:
         raise RuntimeError(
-            "No snapshots in the database. Run: nzcl-ingest --pilot wellington"
+            "No snapshots in the database. Run: nzcl-ingest --national "
+            "(or --pilot wellington for the fast validation extract)"
         )
+
     _ACTIVE["snapshot_id"] = snap
     meta = db.query_one(
         "SELECT * FROM network_snapshots WHERE snapshot_id=%s", (snap,))
+    if not meta:
+        raise RuntimeError(f"snapshot {snap!r} is not in the database")
     _ACTIVE["meta"] = meta
-    print(f"active snapshot: {snap} ({meta['routable_link_count']} links)")
+    _ACTIVE["selection_reason"] = why
+
+    # Say which snapshot and why, at startup. A national tool quietly serving a
+    # regional extract is the failure this line exists to make obvious.
+    print(
+        f"active snapshot: {snap} "
+        f"[{meta.get('coverage_kind') or 'unknown'}: "
+        f"{meta.get('coverage_name') or 'unnamed'}] "
+        f"({meta['routable_link_count']} links) - {why}"
+    )
+    if (meta.get("coverage_kind") or "") != "national":
+        print(
+            "  WARNING: this is not national coverage. Results are limited to "
+            "the extract, and a replacement path that would leave it cannot "
+            "be found."
+        )
     yield
     db.close_pool()
 
@@ -263,6 +361,20 @@ def metadata() -> dict[str, Any]:
         "sourceFeatureCount": m["source_feature_count"],
         "downloadedFeatureCount": m["downloaded_feature_count"],
         "tileSchemaVersion": TILE_SCHEMA_VERSION,
+        # What this snapshot covers, recorded at ingest rather than inferred.
+        #
+        # The client used to derive coverage from `clippedExtract` and label
+        # anything clipped "Wellington pilot" - which would have announced an
+        # Auckland extract as Wellington, and could not tell a national
+        # snapshot from a very large regional one.
+        "coverage": {
+            "kind": m.get("coverage_kind") or "unknown",
+            "name": m.get("coverage_name") or "Unnamed extract",
+            # Where the map should sit with nothing selected.
+            "displayExtentWgs84": _extent_wgs84(snap, "display_extent_2193"),
+            "isNational": (m.get("coverage_kind") or "") == "national",
+        },
+        "selectionReason": _ACTIVE.get("selection_reason"),
         # What this build can actually do, so the client does not have to
         # hard-code the parameter enums.
         #
@@ -314,6 +426,11 @@ def _link_summary(row: dict[str, Any]) -> dict[str, Any]:
         "assetOwnerOrganisation": row.get("rca_code"),
         "rca": row.get("rca_name") or (
             "NZTA Waka Kotahi (state highway)" if row.get("rca_code") == 1 else None),
+        # Route number and urban/rural, so a national search can distinguish
+        # the dozens of roads that share a name. "Main Road" is unhelpful;
+        # "Main Road - SH 6 - Tasman District Council" is not.
+        "roadNumber": row.get("road_number"),
+        "urbanRural": {1: "Urban", 2: "Rural"}.get(row.get("urban_rural")),
         "lengthM": _round(row["length_m"], 1),
         "oneway": row.get("oneway") == 1,
         "forwardAllowed": row["forward_allowed"],
@@ -345,9 +462,32 @@ def search(
 ) -> dict[str, Any]:
     clauses = ["l.snapshot_id = %(snap)s"]
     params: dict[str, Any] = {"snap": snapshot_id(), "limit": limit}
+    # Ranking expression. Falls back to a constant when no name was supplied,
+    # so the ORDER BY below is valid in every branch.
+    rank = "0"
     if name:
-        clauses.append("l.road_name ILIKE %(name)s")
-        params["name"] = f"%{name}%"
+        # Match the route number as well as the name: on a national snapshot
+        # "SH 1" is a far more likely query than any road name, and it lives
+        # in a different column.
+        clauses.append(
+            "(l.road_name ILIKE %(like)s OR l.road_number ILIKE %(like)s)"
+        )
+        params["like"] = f"%{name}%"
+        params["exact"] = name
+        params["prefix"] = f"{name}%"
+        # Exact, then prefix, then anywhere - and a road number match ranks
+        # with the equivalent name match rather than below every name.
+        #
+        # Lower sorts first.
+        rank = """
+            CASE
+              WHEN lower(l.road_name)   = lower(%(exact)s)  THEN 0
+              WHEN lower(l.road_number) = lower(%(exact)s)  THEN 1
+              WHEN l.road_name   ILIKE %(prefix)s           THEN 2
+              WHEN l.road_number ILIKE %(prefix)s           THEN 3
+              ELSE 4
+            END
+        """
     if amdsId:
         clauses.append("l.amds_id LIKE %(amds)s")
         params["amds"] = f"%{amdsId}%"
@@ -366,9 +506,21 @@ def search(
         params |= {"minlon": minlon, "minlat": minlat,
                    "maxlon": maxlon, "maxlat": maxlat}
 
+    # State highways and lifeline routes ahead of local roads at equal rank,
+    # then longest first. On a national snapshot the alternative is that a
+    # search for a common name returns whichever fragment the planner happened
+    # to read first.
     rows = db.query(
-        f"SELECT {_LINK_COLUMNS} FROM links l WHERE {' AND '.join(clauses)} "
-        f"ORDER BY l.length_m DESC LIMIT %(limit)s",
+        f"""
+        SELECT {_LINK_COLUMNS}
+          FROM links l
+         WHERE {' AND '.join(clauses)}
+         ORDER BY ({rank}),
+                  (l.rca_code = 1) DESC,
+                  l.lifeline_route DESC,
+                  l.length_m DESC
+         LIMIT %(limit)s
+        """,
         params,
     )
     return {
@@ -722,6 +874,22 @@ def _render_tile(
             FROM links l, bounds
             WHERE l.snapshot_id = %(snap)s
               AND l.geom_2193 && bounds.nztm
+              -- Generalisation, applied here as well as in the client style.
+              --
+              -- The client filter fixes readability; this fixes tile SIZE. A
+              -- national z6 tile covers most of an island, and encoding all
+              -- 375,485 graph links into it produces a multi-megabyte
+              -- protobuf that is slow to build, slow to ship and immediately
+              -- thrown away by a filter that was never going to draw it.
+              --
+              -- A DRAWING RULE ONLY: nothing here affects the graph, search or
+              -- any calculation. Those read `links` and `arcs` directly.
+              AND (
+                    %(z)s >= 12
+                 OR l.rca_code = 1
+                 OR l.lifeline_route
+                 OR (%(z)s >= 9 AND l.length_m > 800)
+              )
         )
         -- Aggregate ORDER BY is load-bearing, not tidiness. ST_AsMVT encodes
         -- features in the order rows arrive, so without it an identical request

@@ -16,6 +16,9 @@ export interface LinkSummary {
   surfaceTypeName: string | null;
   assetOwnerOrganisation: number | null;
   rca: string | null;
+  /** Route number, e.g. "SH 1". Distinguishes roads sharing a name. */
+  roadNumber?: string | null;
+  urbanRural?: string | null;
   lengthM: number;
   oneway: boolean;
   forwardAllowed: boolean;
@@ -130,6 +133,27 @@ export interface NetworkMetadata {
   snapshotStatus: string;
   clippedExtract: boolean;
   tileSchemaVersion?: number;
+  /**
+   * What this snapshot covers, recorded at ingest.
+   *
+   * The client used to work coverage out from `clippedExtract` and call
+   * anything clipped "Wellington pilot" — which would have announced an
+   * Auckland extract as Wellington, and could not distinguish a national
+   * snapshot from a very large regional one. Optional so the app still runs
+   * against a backend that predates it.
+   */
+  coverage?: {
+    kind: 'national' | 'regional' | 'synthetic' | 'unknown';
+    name: string;
+    /** Where the map sits with nothing selected. Null for national. */
+    displayExtentWgs84: {
+      southWest: { lat: number; lon: number };
+      northEast: { lat: number; lon: number };
+    } | null;
+    isNational: boolean;
+  };
+  /** Why the backend is serving this snapshot. Diagnostic, shown on hover. */
+  selectionReason?: string | null;
   /**
    * What this build of the backend can actually do. Optional because the
    * frontend must keep working against a backend that predates it; when it is

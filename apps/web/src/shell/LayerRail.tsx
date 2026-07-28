@@ -13,6 +13,7 @@
 import {
   BasemapIcon,
   FlagIcon,
+  HomeExtentIcon,
   InfoIcon,
   LayersIcon,
   WarningIcon,
@@ -40,13 +41,29 @@ export default function LayerRail({
   layers,
   onToggle,
   onAbout,
+  onHome,
+  homeLabel,
 }: {
   layers: MapLayerState;
   onToggle: (id: keyof MapLayerState) => void;
   onAbout: () => void;
+  onHome: () => void;
+  /** What Home fits — "New Zealand", "Wellington pilot". */
+  homeLabel: string;
 }) {
   return (
     <div className="rail" role="toolbar" aria-orientation="vertical" aria-label="Map layers">
+      {/* Named for what it actually fits, so on a regional snapshot it does
+        * not promise to show the country. */}
+      <button
+        type="button"
+        aria-label={`Zoom to full extent — ${homeLabel}`}
+        title={`Full extent — ${homeLabel}`}
+        onClick={onHome}
+      >
+        <HomeExtentIcon />
+      </button>
+
       {TOGGLES.map(({ id, label, Icon }) => (
         <button
           key={id}

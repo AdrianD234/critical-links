@@ -104,6 +104,17 @@ export const CheckIcon = ({ size = 13, className }: IconProps) =>
 export const CloseIcon = ({ size = 13, className }: IconProps) =>
   svg(size, className, <path d="m6 6 12 12M18 6 6 18" />);
 
+export const HomeExtentIcon = ({ size = 17, className }: IconProps) =>
+  svg(size, className, (
+    <>
+      {/* Corner brackets: "fit everything", not "go to a home page". */}
+      <path d="M4 9V5a1 1 0 0 1 1-1h4" />
+      <path d="M20 9V5a1 1 0 0 0-1-1h-4" />
+      <path d="M4 15v4a1 1 0 0 0 1 1h4" />
+      <path d="M20 15v4a1 1 0 0 1-1 1h-4" />
+    </>
+  ));
+
 export const ChevronIcon = ({ size = 13, className }: IconProps) =>
   svg(size, className, <path d="m8 5 7 7-7 7" />);
 

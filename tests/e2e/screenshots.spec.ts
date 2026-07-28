@@ -121,20 +121,10 @@ test.describe('review screenshots', () => {
     test.skip(true, 'no disconnected link found in the active snapshot');
   });
 
-  test('mobile sheet, collapsed and expanded', async ({ page, twoWayLink }, testInfo) => {
-    test.skip(testInfo.project.name !== 'mobile', 'mobile only');
-
-    await page.goto(exploreUrl(twoWayLink.amdsId));
-    await waitForResult(page);
-
-    const handle = page.locator('.sheet-handle');
-    /* The handle cycles collapsed -> medium -> expanded. */
-    await handle.click();
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: `${OUT}/stage2-mobile-expanded.png` });
-
-    await handle.click();
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: `${OUT}/stage2-mobile-collapsed.png` });
-  });
+  /*
+   * There is deliberately no mobile screenshot here. Mobile development is
+   * paused and mobile is out of visual acceptance; the frozen state is covered
+   * by tests/e2e/mobile-smoke.spec.ts, which checks the app is not broken
+   * rather than how it looks.
+   */
 });
