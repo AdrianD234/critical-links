@@ -19,6 +19,26 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const SRC = fileURLToPath(new URL('../../apps/web/src', import.meta.url));
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+/**
+ * Principal documentation, checked with the same rules as the interface.
+ *
+ * The application copy was corrected first and the README was not, so for a
+ * while the product said "modelled closure" while its own front page said
+ * "how far traffic must go around" and "whole-road closure". A reader arrives
+ * at the documentation before the interface.
+ *
+ * Deliberately a short, named list rather than every Markdown file in the
+ * repository: the incident records and audit notes must be able to quote the
+ * wording they exist to correct.
+ */
+const DOCS = [
+  'README.md',
+  'docs/ARCHITECTURE.md',
+  'docs/METRIC_DEFINITIONS.md',
+  'docs/KNOWN_LIMITATIONS.md',
+];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -110,6 +130,30 @@ describe('product copy', () => {
       offenders,
       'Closures are hypothetical. Wording that reads as a live incident is ' +
         'one screenshot away from being taken for one.',
+    ).toEqual([]);
+  });
+
+  it('holds documentation to the same rules as the interface', () => {
+    const offenders: string[] = [];
+    for (const rel of DOCS) {
+      let text: string;
+      try {
+        text = readFileSync(join(ROOT, rel), 'utf8');
+      } catch {
+        continue; /* a doc that does not exist cannot overclaim */
+      }
+      for (const { pattern, why } of FORBIDDEN) {
+        if (pattern.test(text)) offenders.push(`${rel} :: ${pattern} — ${why}`);
+      }
+      for (const p of LIVE_EVENT_PHRASES) {
+        if (p.test(text)) offenders.push(`${rel} :: ${p} — reads as a live event`);
+      }
+    }
+    expect(
+      offenders,
+      'Documentation must use the same terminology as the interface: ' +
+        'modelled closure, AMDS source feature, represented-network path, ' +
+        'and no claim about how traffic actually reroutes.',
     ).toEqual([]);
   });
 

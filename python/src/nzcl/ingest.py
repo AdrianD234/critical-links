@@ -171,33 +171,51 @@ def _to_4326_point(x: float, y: float) -> Point:
     return Point(lon, lat)
 
 
-# Above this many arc-to-arc movements the edge-expanded graph is refused.
+# Above this many CANDIDATE movements the edge-expanded graph is refused.
 #
-# Wellington produces 104,355 from 69,944 arcs - about 1.5 per arc. A national
-# graph of ~730,000 arcs should therefore land near 1.1 million. Ten million is
-# far beyond any plausible road network and means the node assignment has
-# collapsed unrelated arcs onto one node.
+# Ten million is far beyond any plausible road network and means node assignment
+# has collapsed unrelated arcs onto one node. Measured candidate counts:
+# Wellington 171,619, Auckland 360,759, national 1,851,262.
 #
 # DO NOT RAISE THIS TO MAKE AN INGEST PROCEED. Exceeding it is a finding about
 # the topology, not a limit to be tuned around: measured worst nodes are 12 in /
 # 12 out (Wellington), 6/6 (Auckland) and 22/22 (national). See
 # docs/audits/2026-07-28-national-ingest-incident.md.
-MAX_TRANSITIONS = 10_000_000
+MAX_CANDIDATE_TRANSITIONS = 10_000_000
 
 
-def _check_transition_cost(cur, snapshot_id: str) -> None:
+def _check_transition_cost(cur, snapshot_id: str) -> int:
     """Refuse to build the expanded graph when the node degrees say not to.
 
-    The join in `build_arc_transitions` produces, for every node, the product
-    of its in-degree and out-degree. That is well behaved on a road network -
-    an intersection joins three or four ways - and explosive the moment
-    something goes wrong upstream. A single node that has collected 20,000 arcs
-    contributes 400 million rows on its own.
+    Returns the candidate count, for logging alongside the actual row count.
 
-    Computing the exact output size first costs one aggregate scan and turns a
-    silent multi-hour hang into an immediate, specific failure that names the
-    offending node. The alternative, discovered the hard way, is a process at
-    full CPU with no rows written and no way to tell whether it is progressing.
+    WHAT THIS NUMBER IS - AND IS NOT
+
+    The join in `build_arc_transitions` visits, for every node, the product of
+    its in-degree and out-degree. That product is an UPPER BOUND on the rows
+    produced, not the row count: the builder then discards immediate U-turns
+    (`b.link_id <> a.link_id`) and pairs banned by a two-link restriction.
+
+    The accounting is exact, and was verified on all three snapshots:
+
+        candidates = built + u-turns excluded + restricted pairs
+
+        Wellington   171,619 = 104,355   + 67,264  + 0
+        Auckland     360,759 = 221,934   + 138,824 + 1
+        National   1,851,262 = 1,138,261 + 713,000 + 1
+
+    The U-turn term is close to the arc count because most arcs arrive at a node
+    where their own reverse arc also departs; the shortfall is one-way links and
+    dead ends, which have no reverse to exclude.
+
+    An earlier version of this docstring and the log line called the product the
+    exact output size. It is not, and the difference is 39% nationally.
+
+    WHY AN UPPER BOUND IS THE RIGHT THING TO CHECK
+
+    It costs one aggregate scan, whereas the exact count would need the same
+    join this guard exists to avoid running. Bounding above is sufficient: a
+    figure that is safe cannot hide an explosive one.
     """
     cur.execute(
         """
@@ -221,10 +239,10 @@ def _check_transition_cost(cur, snapshot_id: str) -> None:
     max_in = int(row["max_in"] if isinstance(row, dict) else row[1])
     max_out = int(row["max_out"] if isinstance(row, dict) else row[2])
 
-    print(f"  arc transitions: {estimate:,} expected "
+    print(f"  arc transitions: {estimate:,} candidates, upper bound "
           f"(worst node: {max_in} in, {max_out} out)")
 
-    if estimate > MAX_TRANSITIONS:
+    if estimate > MAX_CANDIDATE_TRANSITIONS:
         # Name the nodes responsible, so the next step is investigation rather
         # than guesswork.
         cur.execute(
@@ -250,13 +268,107 @@ def _check_transition_cost(cur, snapshot_id: str) -> None:
             for r in worst
         )
         raise SystemExit(
-            f"refusing to build the edge-expanded graph: {estimate:,} arc "
-            f"transitions expected, limit {MAX_TRANSITIONS:,}.\n"
+            f"refusing to build the edge-expanded graph: {estimate:,} candidate "
+            f"arc transitions, limit {MAX_CANDIDATE_TRANSITIONS:,}.\n"
             f"  Highest-degree nodes: {detail}\n"
             f"  A road intersection joins three or four ways. A node with "
             f"hundreds means unrelated arcs have been snapped together during "
-            f"node assignment - investigate before rebuilding."
+            f"node assignment - investigate before rebuilding.\n"
+            f"  Do NOT raise the limit to get past this."
         )
+
+    return estimate
+
+
+# How long the derived transition build may run before it is abandoned.
+#
+# Measured builds: Wellington 1.2 s, Auckland 1.7 s, national under a minute.
+# Twenty minutes is far beyond any of them and still terminates in an afternoon
+# rather than never. The first national attempt ran 74 minutes with no rows
+# written and no bound at all; whatever caused that was never isolated, so the
+# protection is a timeout rather than a claim about the cause.
+TRANSITION_BUILD_TIMEOUT_MS = 20 * 60 * 1000
+
+
+def _build_transitions(cur, snapshot_id: str) -> None:
+    """Build the edge-expanded graph, bounded and instrumented.
+
+    The degree guard catches an explosive graph. It does NOT explain the first
+    national attempt, which had ordinary degrees (22 in / 22 out) and still ran
+    74 minutes at full CPU without writing a row. That cause was never isolated,
+    so this stage is engineered so the same behaviour cannot recur silently:
+
+      - a statement timeout, so it fails rather than hanging indefinitely;
+      - the execution plan captured before running, so a pathological plan is
+        recorded rather than inferred afterwards;
+      - elapsed time and candidate-versus-actual row counts logged;
+      - a distinct, named failure instead of an open transaction nobody can see
+        into.
+    """
+    import time
+
+    candidates = _check_transition_cost(cur, snapshot_id)
+
+    # The plan, before committing to the work. If this stage ever misbehaves
+    # again, the plan that produced it is in the log rather than lost with the
+    # backend.
+    try:
+        cur.execute(
+            """
+            EXPLAIN (COSTS OFF, FORMAT TEXT)
+            SELECT a.arc_id, b.arc_id
+              FROM arcs a JOIN arcs b
+                ON b.snapshot_id = a.snapshot_id AND b.source = a.target
+             WHERE a.snapshot_id = %s AND b.link_id <> a.link_id
+            """,
+            (snapshot_id,),
+        )
+        rows = cur.fetchall()
+        plan = " / ".join(
+            (r["QUERY PLAN"] if isinstance(r, dict) else r[0]).strip()
+            for r in rows
+            if not (r["QUERY PLAN"] if isinstance(r, dict) else r[0]).strip()
+            .startswith(("Recheck", "Index Cond", "Filter", "Hash Cond",
+                         "Join Filter"))
+        )
+        print(f"  transition plan: {plan[:200]}")
+    except Exception as exc:  # noqa: BLE001
+        # Diagnostics must never be the reason an ingest fails.
+        print(f"  transition plan: unavailable ({exc})")
+
+    started = time.monotonic()
+    # `SET` does not accept bind parameters - `SET LOCAL statement_timeout = $1`
+    # is a syntax error. `set_config(..., is_local => true)` is the function form
+    # and does. This project has made the same mistake once before in routing.py.
+    cur.execute(
+        "SELECT set_config('statement_timeout', %s, true)",
+        (str(TRANSITION_BUILD_TIMEOUT_MS),),
+    )
+    try:
+        cur.execute("SELECT build_arc_transitions(%s) AS n", (snapshot_id,))
+    except Exception as exc:  # noqa: BLE001
+        elapsed = time.monotonic() - started
+        raise SystemExit(
+            f"the edge-expanded graph failed after {elapsed:.0f}s: {exc}\n"
+            f"  {candidates:,} candidate transitions were expected.\n"
+            f"  The core network is NOT committed - this transaction rolls "
+            f"back in full. See "
+            f"docs/audits/2026-07-28-national-ingest-incident.md for why that "
+            f"is the wrong shape and what replaces it."
+        ) from exc
+
+    row = cur.fetchone()
+    built = int(row["n"] if isinstance(row, dict) else row[0])
+    elapsed = time.monotonic() - started
+    # Both numbers, so the difference between them is visible rather than
+    # something a reader has to discover later and misinterpret.
+    print(f"  arc transitions: {built:,} built from {candidates:,} candidates "
+          f"in {elapsed:.1f}s "
+          f"({candidates - built:,} u-turns and restricted pairs excluded)")
+
+    # Scoped to this transaction, but the remaining statements in it are cheap
+    # and should not inherit a build-sized budget.
+    cur.execute("SELECT set_config('statement_timeout', '0', true)")
 
 
 def run(
@@ -734,8 +846,7 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
             # A national run spun at 99% CPU for 74 minutes and wrote nothing;
             # Wellington, whose worst node has out-degree 12, completes the
             # same function in 1.2 seconds.
-            _check_transition_cost(cur, snapshot_id)
-            cur.execute("SELECT build_arc_transitions(%s)", (snapshot_id,))
+            _build_transitions(cur, snapshot_id)
 
             cur.execute(
                 "UPDATE network_snapshots SET routable_link_count=%s, "

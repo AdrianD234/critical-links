@@ -7,10 +7,14 @@ appears, the command that produced it is given.
 
 ## 1. This is not a traffic model
 
-The tool computes the **shortest valid replacement path** when a road is closed.
-It does **not** predict how much traffic uses each alternative route.
+The tool computes the **shortest represented-network replacement path** under a
+modelled closure. It does **not** predict how much traffic uses each alternative
+route.
 
-What would be needed before any statement about vehicles affected:
+("Valid" is deliberately avoided: the engine applies mode and turn restrictions
+present in the source, and does not evaluate legality.)
+
+What would be needed before any statement about how many vehicles are affected:
 
 - an origin–destination demand matrix
 - trip purposes and time-of-day profiles

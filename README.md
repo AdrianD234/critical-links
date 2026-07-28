@@ -3,10 +3,12 @@
 Road-network criticality and detour analysis for New Zealand, built on the
 **NZTA Waka Kotahi AMDS Network Model**.
 
-Close any road link and see the shortest replacement path available in the
-represented network: how far traffic must go around, how much distance that
-adds, and — when there is no way around —
-exactly what gets cut off.
+Apply a **modelled closure** to any road link and see the shortest replacement
+path available in the represented network: how much further that path is, and —
+when the network offers none — which links lose connectivity.
+
+Nothing here observes a road being closed. You posit a closure; the engine
+answers a question about the graph.
 
 > **This is structural resilience analysis, not a traffic model.** It computes
 > replacement paths. It does **not** predict how much traffic uses each
@@ -64,13 +66,19 @@ network and reports:
 
 | Measure | Question it answers |
 | --- | --- |
-| **Endpoint detour** | How far must traffic travel from this link's start back to its end? |
-| **Network penalty** | How much longer is that than the normal shortest path? |
-| **Corridor detour** | How much longer is a *through trip*? (used where the endpoint measure is undefined, which is routine on one-way carriageways) |
-| **Isolation profile** | If nothing gets past, how much road and how many links are stranded? |
+| **Endpoint detour** | Shortest represented-network path between this link's own endpoints, with the link removed |
+| **Network penalty** | How much longer that is than the normal shortest path |
+| **Corridor detour** | The same comparison for a *through trip*, used where the endpoint measure is undefined — routine on one-way carriageways |
+| **Isolation profile** | Which links lose connectivity, and how much road that is |
 
-Toggles for distance/time, car/heavy/emergency, whole-road/single-direction
-closure, and forward/reverse. Every view is a permalink.
+None of these is a statement about traffic. The engine computes one shortest
+path between two nodes; it does not know which vehicles used the link, how trips
+redistribute, or whether anyone would take the replacement route.
+
+Toggles for distance/time and car/heavy/emergency, forward/reverse, and closure
+scope. **The default closure scope removes every graph link derived from one
+AMDS source feature**, which is not necessarily a whole physical road — a
+segment-level scope is planned but not implemented. Every view is a permalink.
 
 ---
 
