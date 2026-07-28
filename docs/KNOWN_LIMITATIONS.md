@@ -219,3 +219,44 @@ being silently dropped.
 
 Where a source feature has more than one path, the first is used and the link is
 flagged `MULTIPART_GEOMETRY_FIRST_PATH_USED`. None occurred in the pilot.
+
+---
+
+## Ingest is one all-or-nothing transaction
+
+The national ingest loads the snapshot row, nodes, links, arcs and restrictions,
+**and builds the full edge-expanded transition graph**, inside a single
+transaction. A failure in that last derived structure discards the entire
+national download and topology processing.
+
+This is not hypothetical: it happened twice on 28 July 2026, destroying 272,441
+downloaded features each time because an auxiliary table serving 43 turn
+restrictions did not build. See
+`docs/audits/2026-07-28-national-ingest-incident.md`.
+
+Planned: commit the core network first (`core_complete`), then build derived
+routing structures in a separate restartable phase.
+
+## Rebuilding re-downloads the country
+
+The Python ingest has no import path for a previously downloaded extract, so any
+processing-version rebuild re-contacts the ArcGIS service and downloads all
+272,441 features again — even when a complete, sha256-pinned copy is already on
+disk.
+
+Planned: separate raw acquisition from processing-version rebuild and database
+load, so a processing change rebuilds from the pinned source.
+
+## National detour latency
+
+Measured on `amds-national-2026-07-28-5b359d84` (375,696 links, 731,286 arcs):
+
+| Operation | National | Wellington pilot |
+| --- | --- | --- |
+| Detour (both directions) | 1.1–3.0 s | ~180 ms |
+| Search | 59–125 ms | — |
+| Metadata | 34–77 ms | — |
+| z5 tile | 1.16 MB, 228 ms | — |
+
+Interactively usable. It needs attention before a national batch, which
+multiplies it across every link.

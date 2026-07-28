@@ -177,6 +177,11 @@ def _to_4326_point(x: float, y: float) -> Point:
 # graph of ~730,000 arcs should therefore land near 1.1 million. Ten million is
 # far beyond any plausible road network and means the node assignment has
 # collapsed unrelated arcs onto one node.
+#
+# DO NOT RAISE THIS TO MAKE AN INGEST PROCEED. Exceeding it is a finding about
+# the topology, not a limit to be tuned around: measured worst nodes are 12 in /
+# 12 out (Wellington), 6/6 (Auckland) and 22/22 (national). See
+# docs/audits/2026-07-28-national-ingest-incident.md.
 MAX_TRANSITIONS = 10_000_000
 
 
