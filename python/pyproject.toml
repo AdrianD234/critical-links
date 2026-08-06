@@ -26,6 +26,7 @@ nzcl-ingest = "nzcl.cli:ingest_main"
 nzcl-qa = "nzcl.cli:qa_main"
 nzcl-detours = "nzcl.cli:batch_main"
 nzcl-export = "nzcl.cli:export_main"
+nzcl-names = "nzcl.cli:names_main"
 
 [build-system]
 requires = ["setuptools>=68"]

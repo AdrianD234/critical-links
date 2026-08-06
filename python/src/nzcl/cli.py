@@ -26,3 +26,8 @@ def batch_main() -> int:
 def export_main() -> int:
     from .export import main
     return main()
+
+
+def names_main() -> int:
+    from .names import main
+    return main()

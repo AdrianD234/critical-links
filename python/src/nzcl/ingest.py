@@ -34,6 +34,8 @@ from shapely.geometry import LineString, Point
 
 from . import db
 from .arcgis import download_by_ids, get_count, get_layer_meta, get_object_ids
+from .naming import build_candidates, select_amds_name
+from .namesources import ROUTE_JOIN_FIELDS, ROUTE_NAME_FIELDS
 from .config import (
     DEFAULT_ATTRIBUTION,
     LINK_WHERE,
@@ -450,14 +452,10 @@ def run(
 
     # --- 3. attribute tables ----------------------------------------------
     print("\n  joining attribute tables")
-    route_join = _fetch_table(s.amds_routename_table_id,
-                              ["amdsIDNetworkModel", "amdsIDRouteName", "isPrimary"],
+    route_join = _fetch_table(s.amds_routename_table_id, ROUTE_JOIN_FIELDS,
                               concurrency, "route-name join")
-    route_names = _fetch_table(
-        s.amds_routename_detail_table_id,
-        ["amdsIDRouteName", "routeNameFullASCII", "routeNumber1", "routeAlpha1",
-         "routeGroup", "status"],
-        concurrency, "route names")
+    route_names = _fetch_table(s.amds_routename_detail_table_id,
+                               ROUTE_NAME_FIELDS, concurrency, "route names")
     urban_rural = _fetch_table(s.amds_urbanrural_table_id,
                                ["amdsIDNetworkModel", "urbanRural", "isFullLength",
                                 "status"], concurrency, "urban/rural")
@@ -479,25 +477,15 @@ def run(
 
     # --- 4. build source links --------------------------------------------
     print("\n  building link records")
-    name_by_route: dict[str, str] = {}
-    number_by_route: dict[str, str] = {}
-    for r in route_names:
-        if r.get("routeNameFullASCII"):
-            name_by_route[r["amdsIDRouteName"]] = r["routeNameFullASCII"]
-        if r.get("routeNumber1") is not None:
-            number_by_route[r["amdsIDRouteName"]] = (
-                f"{r['routeNumber1']}{r.get('routeAlpha1') or ''}"
-            )
-
-    name_by_link: dict[str, str] = {}
-    number_by_link: dict[str, str] = {}
-    for j in route_join:
-        lid, rid = j.get("amdsIDNetworkModel"), j.get("amdsIDRouteName")
-        primary = j.get("isPrimary") == 1
-        if rid in name_by_route and (primary or lid not in name_by_link):
-            name_by_link[lid] = name_by_route[rid]
-        if rid in number_by_route and (primary or lid not in number_by_link):
-            number_by_link[lid] = number_by_route[rid]
+    # Naming is delegated to nzcl.naming so that the ingest and the enrichment
+    # backfill cannot drift apart: one set of rules, one place to change it.
+    # The rules themselves, and the four defects in the previous inline version
+    # they replace, are documented there.
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    name_candidates = build_candidates(route_join, route_names)
+    selection_by_link: dict[str, Any] = {}
+    for link_id, cands in name_candidates.items():
+        selection_by_link[link_id] = select_amds_name(cands, now_ms=now_ms)
 
     # urbanRural domain: 1 = Urban, 2 = Rural (verified against the layer
     # domain in the discovery report); anything else is unknown.
@@ -570,10 +558,11 @@ def run(
             asset_owner=a.get("assetOwnerOrganisation"),
             urban_rural=ur,
         )
-        road_name = name_by_link.get(amds_id)
-        number = number_by_link.get(amds_id)
-        if not road_name and number:
-            road_name = f"SH {number}"
+        selection = selection_by_link.get(amds_id)
+        road_name = selection.display_name if selection else None
+        number = selection.route_number if selection else None
+        if selection:
+            flags.extend(selection.notes)
 
         seen_amds.add(amds_id)
         sources.append(SourceLink(amds_id=amds_id, coords=coords, attrs={
