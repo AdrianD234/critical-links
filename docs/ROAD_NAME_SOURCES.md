@@ -42,27 +42,43 @@ they disagree, keep both and mark the record as a conflict.
 
 ---
 
-## B. LINZ Roads Subsections (Addressing) — preferred external source
+## B. LINZ NZ Addresses: Road Sections — authoritative names
 
-New Zealand's official record of road names and addressing. Weekly updates and
-changeset support, so enrichment can later be incremental.
+**Verified working, 6 August 2026.**
 
 | | |
 | --- | --- |
-| Access | LINZ Data Service — **requires `LINZ_LDS_API_KEY`** |
-| Distinct from | The Basemaps key already in `.env`. A different key. |
-| Status | **BLOCKED** — no LDS key available yet |
+| Layer | `layer-123109` — **"NZ Addresses: Road Sections"** |
+| Access | LDS WFS, `LINZ_LDS_API_KEY` (server-side, no `VITE_` prefix) |
+| Features | **250,409** |
+| CRS | EPSG:2193 available; WFS will reproject |
 
-Wanted from it: official name, official-unnamed indicator, road-section stable
-id, locality and territorial authority, effective dates.
+> **The layer is not called "Roads Subsections (Addressing)" any more.** It was
+> found by reading `GetCapabilities` from the live service, which lists 1,838
+> feature types. Had the documented name or a historical layer id been assumed,
+> this would have failed — the reason for the rule against assuming ids.
 
-> **Action required:** an LDS account key from
-> <https://data.linz.govt.nz/>. It must go in `.env` as `LINZ_LDS_API_KEY`
-> and must not be committed.
+Fields:
 
-Schema discovery, layer id and licence text are deferred until the key exists —
-recording a layer id now from documentation rather than from the live service
-would be the kind of assumption this project has been bitten by before.
+`road_section_id` (stable id) · `road_id` · **`full_road_name`** (canonical
+Unicode) · `full_road_name_ascii` · `road_name_label` / `_body` / `_type` /
+`_suffix` · `secondary_road_name` · `tertiary_road_name` · `suburb_locality` ·
+`town_city` · `territorial_authority` · `is_land` · ASCII variants of each
+
+**No `isunnamed` field.** This is an *addressing* layer: it carries roads that
+have names. Officially-unnamed classification must come from the NZTA Street
+names layer instead — the two sources are complementary, not alternatives.
+
+### Key scope
+
+A key created with **"Data access only"** works for WFS and is the correct
+choice. It returns `401 Invalid API key scope` on the `/services/api/v1.x/`
+catalog API, which needs a different scope. Use WFS; do not request a broader
+scope than the work needs.
+
+⚠️ WFS `DescribeFeatureType` responses embed the key in `schemaLocation` URLs.
+Any saved response must be redacted before it is committed — the copy under
+`data/source-metadata/linz-road-sections/` has been.
 
 ---
 
@@ -97,22 +113,77 @@ a governed production input, even though the service is public.
 
 ---
 
-## D. NZTA Street Names — not found where expected
+## D. NZTA Street Names — the officially-unnamed source
 
-The consultant described a national `Street names` layer with
-`fullprimaryroadname`, `linzrdsegid`, `isunnamed` and locality/TA fields — which
-would be close to ideal for both matching and the officially-unnamed
-classification.
+**Verified working, 6 August 2026.** No key required.
 
-**It is not on the NZTA ArcGIS organisation that hosts AMDS.** All 145 services
-there were enumerated on 6 August 2026; the name-related ones are
-`GEO_MASTER_GIS_Carriageway`, `National_Road_Centreline_Road_Controlling_Authority_data`
-and `PlaceNames`. No street-names service.
+```
+https://spatial.nzta.govt.nz/portal/rest/services/Hosted/Street_names/FeatureServer/0
+```
 
-It may live on a different NZTA organisation or portal. **Not yet located — do
-not assume it exists at a guessed URL.** If found, its `linzrdsegid` would make
-it valuable for corroboration, but its lineage and refresh cadence must be
-established before it is trusted over direct LINZ.
+> Initially reported as "not found". That was wrong: it is on NZTA's **Enterprise
+> Portal** (`spatial.nzta.govt.nz`), not the ArcGIS Online organisation
+> (`services.arcgis.com/CXBb7LAjgIIdcsPt`) that hosts AMDS and RAMM. Enumerating
+> one host and concluding the layer did not exist was a bad inference from an
+> incomplete search.
+
+| | |
+| --- | --- |
+| Features | **388,416** |
+| CRS | **EPSG:2193** — the analysis CRS, no reprojection needed |
+| Capabilities | `Query` only (no extract endpoint) |
+| Fields | 70 |
+| `copyrightText` | **empty** |
+| `description` | **empty** |
+
+Fields that matter here:
+
+`fullprimaryroadname` · `primaryname` · `alternateroadname` ·
+`pseudonymroadname` · **`isunnamed`** · `isstatehighway` · `isprivate` ·
+**`linzrdsegid`** · `leftlocalityname` / `rightlocalityname` · `lefttaname` /
+`righttaname` · `referencestation` · `bridgename` · `tunnelname` · `oneway` ·
+`isdualcarriageway` · `status` · `retireddate` · `changedate` · `classification`
+· `hierarchy` · `surfacetype`
+
+### `isunnamed` — the field this workstream needs most
+
+| `isunnamed` | Features |
+| --- | --- |
+| False | 309,639 |
+| **True** | **78,777** |
+
+This is the authoritative basis for classifying a road as *officially unnamed*
+rather than *unresolved*. Nothing else available supplies it.
+
+### `status`
+
+| Status | Features |
+| --- | --- |
+| In use | 368,480 |
+| Unformed surveyed | 10,969 |
+| Unsurveyed proposed | 6,337 |
+| Under construction | 2,101 |
+| Disused | 529 |
+
+`Unformed surveyed` is the paper-road category. Combined with `isunnamed`, this
+is what distinguishes an unformed legal road from a naming failure.
+
+`retireddate` uses a far-future sentinel (year 2500) for live records rather
+than null — filter on it carefully.
+
+### LINZ lineage — now evidenced, not inferred
+
+For the screenshot link, NZTA reported `linzrdsegid: "143560, 305857, 305858,
+305859"` and LINZ independently returned `road_section_id: 143560`. **The
+identifier matches**, which confirms the layer is LINZ-addressing-derived rather
+than merely resembling it.
+
+Note `linzrdsegid` can hold a **comma-separated list**, so it is a
+many-to-one join key and must be parsed, not compared as a string.
+
+Still unresolved: refresh cadence, and licence — both `copyrightText` and
+`description` are empty. Fit for proof of concept and corroboration now;
+governed-input status needs those answered.
 
 ---
 
@@ -173,9 +244,9 @@ Applies to every external source.
 | Source | Licence | Attribution | Cleared? |
 | --- | --- | --- | --- |
 | AMDS NetworkModel + RouteName | As existing AMDS terms | Already in the app footer | ✅ |
-| LINZ Roads Subsections | Expected CC BY 4.0 — **confirm from the live service** | Required, wording TBC | ⏳ no key |
-| NZTA RAMM carriageway | **`copyrightText` empty — must be confirmed** | Required, wording TBC | ⚠️ |
-| NZTA Street Names | Unknown | Unknown | ❌ not located |
+| LINZ NZ Addresses: Road Sections | Expected CC BY 4.0 — confirm on the dataset page | Required, wording TBC | ⏳ |
+| NZTA Street Names | **`copyrightText` and `description` both empty** | Required, wording TBC | ⚠️ |
+| NZTA RAMM carriageway | **`copyrightText` empty** | Required, wording TBC | ⚠️ |
 | OpenStreetMap | ODbL | Required; share-alike unassessed | 🚫 QA only |
 | LINZ Topo50 | CC BY 4.0 | Required | 🚫 QA only |
 

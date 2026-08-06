@@ -136,14 +136,29 @@ relevant to the enrichment design.
 | Dunedin City Council | 6,523 | 3,884 | 59.5% |
 
 **This is the single most important row in the audit.** LINZ is the controlling
-authority for 75,924 links — 20% of the whole network — and 99.5% are unnamed.
+authority for 75,924 links — 20% of the network, 45,980 km — and 99.5% are
+unnamed.
 
-LINZ-administered roads are predominantly **unformed legal road** (paper roads):
-legal road corridors that may have no formed carriageway. A large share are
-plausibly *genuinely* unnamed rather than missing a name.
+### This is a hypothesis, not a classification
 
-Treating those as "coverage failure" would overstate the problem by about a
-third of all unnamed links. They need classifying, not naming.
+An earlier draft of this document said these are "predominantly unformed legal
+road" and "plausibly genuinely unnamed". **That inference is not supported by
+the evidence to hand, and is withdrawn.**
+
+Controlling authority is not proof of official unnamed status. A 99.5% missing
+rate is strong evidence that this cohort is *different*, not evidence of *why*.
+
+No AMDS feature may be classified `officially_unnamed` on the basis of its RCA.
+That status requires an authoritative indicator — `isunnamed` from the NZTA
+Street names layer, or equivalent from LINZ. Until matched, this cohort is
+`unresolved`, and may be tagged with a provisional audit-only category such as
+`likely_unformed_or_unnamed_source_class`.
+
+The hypothesis is testable and should be tested: 78,777 features in the NZTA
+Street names layer carry `isunnamed = True`, and 10,969 carry
+`status = "Unformed surveyed"`. Whether those sets correspond to this cohort is
+a matching question, and the proof of concept must answer it with numbers
+rather than assume it.
 
 ### By length band
 
@@ -175,11 +190,16 @@ attribution rather than a naming-specific failure.
 
 | | Count |
 | --- | --- |
-| State-highway graph links (`rca_code = 1`) | 20,917 |
-| …unnamed | **4,577** |
-| State-highway source features | 7,123 |
-| …unnamed | **2,673** |
-| Links given an `SH …` fallback name | 12,373 |
+| State-highway **graph links** (`rca_code = 1`) | 20,917 |
+| …unnamed | **4,577 graph links** |
+| State-highway **source features** | 7,123 |
+| …unnamed | **2,673 source features** |
+| Graph links given an `SH …` fallback name | 12,373 |
+
+The two unnamed figures are the same roads counted at different levels: 2,673
+AMDS source features, which junction splitting expands into 4,577 rendered
+graph links. **Matching happens against the 2,673**; the 4,577 is what a user
+sees. Both numbers are correct and they are not interchangeable.
 
 State highways are the most tractable gap: 2,673 source features, all
 attributable to one authority with a well-maintained public asset register.
@@ -207,9 +227,25 @@ The mechanism is unambiguous: a real state highway with **no route-name
 relationship in AMDS whatsoever**. No relationship → no name → no number → no
 `SH …` fallback → "(unnamed link)".
 
-### It is resolvable
+### Resolved by all three external sources
 
-A single RAMM carriageway candidate lies within 250 m:
+**LINZ** (`layer-123109`), one candidate:
+
+```json
+{"road_section_id": 143560, "full_road_name": "State Highway 3",
+ "suburb_locality": "Te Mapara", "territorial_authority": "Waitomo District"}
+```
+
+**NZTA Street names**, one candidate:
+
+```json
+{"fullprimaryroadname": "SH 3", "isunnamed": "False", "isstatehighway": "True",
+ "linzrdsegid": "143560, 305857, 305858, 305859",
+ "leftlocalityname": "TE MAPARA", "lefttaname": "WAITOMO DISTRICT",
+ "status": "In use"}
+```
+
+**NZTA RAMM**, one candidate:
 
 ```json
 {"roadName": "003-0076", "roadID": 2806,
@@ -218,16 +254,25 @@ A single RAMM carriageway candidate lies within 250 m:
  "endName": "ERP / FRONT OF NORTHERN SH3/4 TRAFFIC ISLAND"}
 ```
 
-`003-0076` is RAMM's route-section identifier: **State Highway 3**, section
-0076, in the Hamilton–New Plymouth corridor. One candidate, no ambiguity.
+All three agree, one candidate each, no ambiguity. The NZTA `linzrdsegid`
+contains LINZ's `road_section_id` 143560, which is how the lineage between those
+two sources was confirmed rather than assumed.
 
-This link should become a named regression case: it can go from
-"(unnamed link)" to **"SH 3 — Hamilton to New Plymouth"** with an authoritative
-source, a source identifier and a confidence level attached.
+### Correct display for this link
 
-Note that RAMM's `roadName` is a *route-section code*, not a human road name.
-It supplies route designation and corridor context; it does not supply a local
-street name, and must not be presented as one.
+```
+Road name    State Highway 3     (LINZ, road_section_id 143560)
+Route        SH 3                (NZTA Street names)
+Corridor     Hamilton to New Plymouth   (RAMM, context only)
+Locality     Te Mapara, Waitomo District
+```
+
+**"Hamilton to New Plymouth" must never be shown as the road name.** It is a
+RAMM corridor designation covering hundreds of kilometres. Likewise RAMM's
+`roadName` value `003-0076` is a route-section code, not a human name.
+
+The regression test asserts this link no longer renders "(unnamed link)" and
+that the corridor never appears in the road-name position.
 
 ---
 
