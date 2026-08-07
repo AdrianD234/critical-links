@@ -16,6 +16,23 @@ import { API, test } from './fixtures.js';
 const REPORTED_AMDS_ID = '{1991823e-c175-4c71-a684-70f578b699be}';
 const OUT = 'docs/screenshots/naming';
 
+/*
+ * Opt-in, because this writes into `docs/` rather than asserting anything.
+ *
+ * It is evidence capture, not a gate: on CI it would overwrite committed
+ * screenshots with keyless renderings that have no basemap, and a test that
+ * mutates tracked files as a side effect is not a test. Run it deliberately:
+ *
+ *     NZCL_CAPTURE_SCREENSHOTS=1 npx playwright test naming-screenshot --project=desktop
+ *
+ * The behaviour it illustrates is asserted for real in naming.spec.ts, which
+ * does run everywhere.
+ */
+test.skip(
+  !process.env.NZCL_CAPTURE_SCREENSHOTS,
+  'evidence capture: set NZCL_CAPTURE_SCREENSHOTS=1 to regenerate',
+);
+
 test.describe('naming evidence', () => {
   test('the reported link, named', async ({ page, request }) => {
     const probe = await request.get(
