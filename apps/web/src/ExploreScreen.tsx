@@ -400,7 +400,15 @@ export default function ExploreScreen() {
       compare: null,
       corridor: null,
       stranded: null,
-      fitBounds: null,
+      /* Framed on the closure AND the replacement together, computed from the
+       * drawn pieces. The V2 endpoint returns no bounds of its own, and with
+       * none the map stays wherever it was - which on a national snapshot
+       * means the answer is drawn somewhere off screen. */
+      fitBounds: boundsOf([
+        boundary.geometry?.closure,
+        boundary.geometry?.selectedSegment,
+        boundary.geometry?.replacement,
+      ]),
       /* Carries the engine name, so switching engines cannot replay a V1
        * reveal over a V2 line. */
       revealKey: `v2b:${boundary.snapshotId}:${boundary.linkId}:${scenario.metric}:${scenario.vehicle}:${scenario.closureScope}`,
@@ -727,3 +735,30 @@ export default function ExploreScreen() {
 }
 
 export { INSPECTOR_MIN };
+
+/**
+ * A bounding box over several route geometries, or null if none has any.
+ *
+ * Computed from the DRAWN pieces rather than from a separate extent field, so
+ * the frame can never include ground that is not on screen — a gapped route
+ * whose pieces are far apart frames all of them, and nothing between.
+ */
+function boundsOf(
+  geoms: ({ geometry: GeoJSON.MultiLineString | null } | undefined)[],
+): [number, number, number, number] | null {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  for (const g of geoms) {
+    for (const piece of g?.geometry?.coordinates ?? []) {
+      for (const [lon, lat] of piece) {
+        if (lon < west) west = lon;
+        if (lon > east) east = lon;
+        if (lat < south) south = lat;
+        if (lat > north) north = lat;
+      }
+    }
+  }
+  return Number.isFinite(west) ? [west, south, east, north] : null;
+}
