@@ -333,11 +333,25 @@ def identify(
     out.movements = movements
     out.candidate_pairs = len(entries) * len(exits)
     kept = sum(1 for m in movements if m.included)
-    out.detail = (
-        f"{kept} of {out.candidate_pairs} candidate pair(s) traverse the "
-        f"closure in the intact network"
-        + (f"; {len(dropped_entries)} entry and {len(dropped_exits)} exit "
-           f"port(s) were beyond the candidate bound" if out.truncated else ""))
+
+    # A closure whose every crossing is at ONE node is a stub - a cul-de-sac,
+    # a spur, a service road. There was never a trip THROUGH it, only trips to
+    # and from it, and saying "0 of 4 candidate pairs traverse the closure"
+    # describes the arithmetic rather than the road. 78 of the first 500
+    # sampled links are this shape, so it is worth its own sentence.
+    crossing_nodes = {p.closure_node for p in entries + exits}
+    if kept == 0 and len(crossing_nodes) == 1:
+        out.detail = (
+            "every way in and out of this closure is at the same place, so "
+            "there was no trip through it to interrupt - only trips to and "
+            "from it")
+    else:
+        out.detail = (
+            f"{kept} of {out.candidate_pairs} candidate pair(s) traverse the "
+            f"closure in the intact network"
+            + (f"; {len(dropped_entries)} entry and {len(dropped_exits)} exit "
+               f"port(s) were beyond the candidate bound" if out.truncated
+               else ""))
     out.runtime_ms = int((time.perf_counter() - t0) * 1000)
     return out
 

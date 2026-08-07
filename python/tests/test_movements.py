@@ -471,6 +471,54 @@ class TestDisjointClosureAcrossComponents:
         assert cross, "pairs spanning the two islands must be unreachable"
 
 
+class TestDeadEndSpur:
+    """A cul-de-sac has no through traffic, and that is the answer.
+
+    78 of the first 500 sampled national links are this shape - by far the
+    commonest reason a closure has no movement - and V1 reports 74 of them as
+    "No endpoint route", which reads as a failed analysis. Nothing failed:
+    there was never a trip through a cul-de-sac.
+    """
+
+    SPUR = [
+        {"id": "THROUGH_W", "pts": [(0, 0), (100, 0)], "road_name": "Main Road"},
+        {"id": "THROUGH_E", "pts": [(100, 0), (200, 0)], "road_name": "Main Road"},
+        {"id": "SPUR", "pts": [(100, 0), (100, 150)], "road_name": "The Close"},
+    ]
+
+    def test_every_crossing_is_at_one_node(self, synthetic):
+        net = synthetic(self.SPUR)
+        _, b, _, _ = stages(net, "SPUR")
+        assert {p.closure_node for p in b.ports} == set(b.boundary_nodes)
+        assert len(b.boundary_nodes) == 1
+        # The dead end is reachable from nothing once the spur is closed.
+        assert len(b.interior_nodes) == 1
+
+    def test_no_through_movement_and_the_reason_names_the_shape(self, synthetic):
+        net = synthetic(self.SPUR)
+        _, _, ms, _ = stages(net, "SPUR")
+        assert ms.status == "OK"
+        assert ms.included == []
+        assert "same place" in ms.detail
+        assert "only trips to and from it" in ms.detail
+
+    def test_the_headline_says_so_rather_than_reporting_a_failure(
+            self, synthetic):
+        net = synthetic(self.SPUR)
+        r = analyse(net, "SPUR")
+        assert r.headline == "No through movement identified"
+        assert r.headline in impactv2.HEADLINES
+
+    def test_closing_it_strands_nothing_but_itself(self, synthetic):
+        """And the isolation block says that separately, in its own words."""
+        net = synthetic(self.SPUR)
+        r = impactv2.analyse(net.snapshot_id, net.link_id("SPUR"),
+                             with_isolation=True)
+        assert r.isolation is not None
+        assert r.isolation.separated_link_count == 0
+        assert r.isolation.physically_isolates is False
+
+
 class TestGradeSeparatedCrossing:
     """Fixture 9: an overbridge is not a junction."""
 
