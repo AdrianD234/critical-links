@@ -28,6 +28,7 @@ from .config import (
     get_settings,
 )
 from .detour import compute
+from .naming import display_label
 from .routing import Metric, Profile
 
 settings = get_settings()
@@ -523,9 +524,113 @@ def _naming_block(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _link_summary(row: dict[str, Any]) -> dict[str, Any]:
+#: Distance within which a LINZ road section is accepted as describing the
+#: locality of a graph link. Wide enough to survive the centreline offset
+#: between two independently maintained datasets, tight enough that it cannot
+#: pick up the next settlement.
+LOCALITY_SEARCH_M = 250.0
+
+
+def _locality_lookup(snap: str, link_ids: list[int]) -> dict[int, dict[str, Any]]:
+    """Locality per link, from the nearest LINZ road section.
+
+    LINZ Road Sections is the only locality source in the database whose
+    licence is confirmed for display (CC BY 4.0, recorded in
+    `name_source_licences`), so the clearance is checked here rather than
+    assumed. If it is ever withdrawn, links lose their locality and fall back
+    to an authority-based label - they do not silently keep publishing it.
+
+    A nearest-neighbour lookup per link, bounded by `LOCALITY_SEARCH_M` so the
+    GIST index does the work. This runs for a handful of links at a time - one
+    selected road, or a page of search results - never for a tile.
+
+    WHAT THE TWO LOCALITY FIELDS ACTUALLY ARE
+    -----------------------------------------
+    `locality` is LINZ's `leftlocalityname` and `locality_alt` is
+    `rightlocalityname`: the localities on either SIDE of the road section, not
+    a primary and a fallback. Where a road runs along a boundary they differ
+    legitimately - State Highway 1 south of Tokoroa has Kinleith on one side
+    and Tokoroa on the other, and neither is more correct than the other.
+
+    The label takes the left-hand value, deterministically, and both are
+    returned so the interface can show the pair. That is a defensible choice
+    rather than a good one: a road-section side locality is not the same thing
+    as "the nearest named place", which is what a reader hears. A place-point
+    gazetteer would answer the question properly and is not in this database.
+    Recorded as a limitation rather than papered over.
+
+    `ORDER BY ... <-> ..., feature_id, part` - the tiebreak is not decoration.
+    Two sections at the same distance must not be able to swap places between
+    runs and change a label.
+    """
+    if not link_ids:
+        return {}
+    cleared = db.query_one(
+        "SELECT display_cleared FROM name_source_licences WHERE source=%s",
+        ("linz_road_sections",))
+    if not cleared or not cleared["display_cleared"]:
+        return {}
+
+    rows = db.query(
+        """
+        SELECT l.link_id, e.locality, e.locality_alt, e.territorial_authority
+          FROM links l
+     CROSS JOIN LATERAL (
+              SELECT x.locality, x.locality_alt, x.territorial_authority
+                FROM ext_road_names x
+               WHERE x.source = 'linz_road_sections'
+                 AND x.locality IS NOT NULL
+                 AND ST_DWithin(x.geom_2193, l.geom_2193, %s)
+            ORDER BY x.geom_2193 <-> l.geom_2193, x.feature_id, x.part
+               LIMIT 1
+          ) e
+         WHERE l.snapshot_id = %s AND l.link_id = ANY(%s)
+        """,
+        (LOCALITY_SEARCH_M, snap, link_ids),
+    )
+    return {int(r["link_id"]): r for r in rows}
+
+
+def _label_block(row: dict[str, Any], locality: dict[str, Any] | None) -> dict[str, Any]:
+    """The one authoritative label, plus the fields it was derived from.
+
+    The client is given both. It renders `displayLabel` and never rebuilds it;
+    the separate fields exist so a provenance panel can show what is known
+    without re-deriving the decision, and so two links that both read
+    "State-highway section near Tokoroa" are still distinguishable.
+    """
+    loc = (locality or {}).get("locality") or None
+    lab = display_label(
+        road_name=(row["display_name"] if "display_name" in row
+                   else row.get("road_name")),
+        route_designation=row.get("route_designation"),
+        name_status=row.get("name_status"),
+        withheld_source=row.get("withheld_name_source"),
+        rca_code=row.get("rca_code"),
+        rca_name=row.get("rca_name"),
+        locality=loc,
+        amds_id=row.get("amds_id"),
+        link_id=row.get("link_id"),
+    )
+    return {
+        "displayLabel": lab.label,
+        "displayLabelKind": lab.kind,
+        "displayLabelBasis": lab.basis,
+        "displayLabelSecondary": lab.secondary,
+        "locality": loc,
+        "localityAlt": (locality or {}).get("locality_alt"),
+        "territorialAuthority": (locality or {}).get("territorial_authority"),
+    }
+
+
+def _link_summary(row: dict[str, Any],
+                  locality: dict[str, Any] | None = None) -> dict[str, Any]:
+    label = _label_block(row, locality)
     return {
         "linkId": row["link_id"],
+        # The authoritative label. The map chip and the inspector headline both
+        # read THIS; neither collapses a name state to "No name" any more.
+        **label,
         "amdsId": row["amds_id"],
         "sourceObjectId": row.get("source_object_id"),
         "closureGroupId": row["closure_group_id"],
@@ -664,11 +769,12 @@ def search(
         """,
         params,
     )
+    loc = _locality_lookup(snapshot_id(), [int(r["link_id"]) for r in rows])
     return {
         "snapshotId": snapshot_id(),
         "count": len(rows),
         "truncated": len(rows) >= limit,
-        "results": [_link_summary(r) for r in rows],
+        "results": [_link_summary(r, loc.get(int(r["link_id"]))) for r in rows],
     }
 
 
@@ -896,7 +1002,9 @@ def detour(
                                    if (fwd if d == "forward" else rev)]},
         "cached": False,
         "calculatedAtUtc": result.calculated_at_utc,
-        "selectedLink": _link_summary(link),
+        "selectedLink": _link_summary(
+            link, _locality_lookup(snap, [int(link["link_id"])]).get(
+                int(link["link_id"]))),
         "closure": {
             "scope": closure_scope,
             "closureGroupId": result.closure_group_id,
@@ -917,6 +1025,121 @@ def detour(
             f"&scope={closure_scope}&direction={direction}"
         ),
     }
+
+
+# ==========================================================================
+# V2 - closure analysis
+# ==========================================================================
+# New paths, never in place of the V1 ones. Every V1 response above is
+# byte-identical to what it was before this module learned about V2, and the
+# V1 route does not import anything from here.
+#
+# V2 is a development preview. It is not the default anywhere, it advertises
+# algorithmVersion 3.0.0-dev, and the client only reaches it behind a dev flag.
+
+V2_SCOPES = ("segment", "direction", "source_feature")
+
+
+@app.get("/api/v2/links/{link_ref:path}/closure-analysis")
+def closure_analysis_v2(
+    link_ref: str,
+    scope: Literal["segment", "direction", "source_feature"] = "segment",
+    direction: Literal["forward", "reverse", "both"] = "both",
+    metric: Metric = "distance",
+    vehicle: Profile = "car",
+    geometry: bool = False,
+    cache: bool = True,
+) -> dict[str, Any]:
+    """Closure impact under an explicit scope, with exact physical isolation.
+
+    Default scope is `segment`: the exact graph link selected, both directions.
+    That is a different question from the one V1 answers by default, and the
+    response says so in `comparableToV1`.
+    """
+    from . import closure as closure_mod
+    from . import detourv2
+
+    link = _resolve(link_ref)
+    snap = snapshot_id()
+
+    if scope == "direction" and direction == "both":
+        raise HTTPException(
+            422, "scope=direction needs direction=forward or direction=reverse: "
+                 "a single directed traversal has to say which one")
+
+    try:
+        result = detourv2.analyse(
+            snap, int(link["link_id"]), scope=scope, direction=direction,
+            metric=metric, profile=vehicle, use_cache=cache)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+    body = detourv2.as_dict(result)
+    body["snapshotId"] = snap
+    body["attribution"] = _ACTIVE["meta"]["attribution"]
+    body["limitations"] = LIMITATIONS
+    body["comparableToV1"] = scope == "source_feature"
+    body["selectedLink"] = _link_summary(
+        link, _locality_lookup(snap, [int(link["link_id"])]).get(
+            int(link["link_id"])))
+
+    if geometry:
+        sep = result.isolation.separated_link_ids
+        body["isolation"]["separatedGeoJson"] = (
+            _links_geojson_v2(snap, sep) if 0 < len(sep) <= MAX_DRAWN_STRANDED_LINKS
+            else None)
+    return body
+
+
+def _links_geojson_v2(snap: str, link_ids: list[int]) -> dict[str, Any] | None:
+    import json
+    rows = db.query(
+        "SELECT l.link_id, l.amds_id, l.length_m, "
+        "       ST_AsGeoJSON(l.geom_4326, 7) AS geom "
+        "  FROM links l WHERE l.snapshot_id=%s AND l.link_id = ANY(%s) "
+        " ORDER BY l.link_id",
+        (snap, link_ids))
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "geometry": json.loads(r["geom"]),
+             "properties": {"linkId": r["link_id"], "amdsId": r["amds_id"],
+                            "lengthM": _round(r["length_m"], 1)}}
+            for r in rows
+        ],
+    }
+
+
+@app.get("/api/v2/links/{link_ref:path}/shadow-comparison")
+def shadow_comparison(
+    link_ref: str,
+    scope: Literal["segment", "direction", "source_feature"] = "source_feature",
+    direction: Literal["forward", "reverse", "both"] = "both",
+    metric: Metric = "distance",
+    vehicle: Profile = "car",
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Run V1 and V2 over the same link and report every way they differ.
+
+    The default scope is `source_feature`, because that is the only scope under
+    which the two engines are answering the SAME question. Comparing V1's
+    whole-source-feature closure against V2's segment closure would produce
+    differences that are entirely explained by scope, and reporting those as
+    engine disagreement would be worthless.
+    """
+    from . import shadow
+
+    link = _resolve(link_ref)
+    try:
+        row = shadow.compare(
+            snapshot_id(), int(link["link_id"]), scope=scope,
+            direction=direction, metric=metric, profile=vehicle,
+            persist=persist)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    return row
 
 
 @app.get("/api/v1/qa/summary")

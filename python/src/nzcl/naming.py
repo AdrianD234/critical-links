@@ -537,3 +537,152 @@ def build_candidates(
             Candidate(route_name=rn, is_primary=j.get("isPrimary") == 1)
         )
     return out
+
+
+# --------------------------------------------------------------------------
+# the one authoritative label
+# --------------------------------------------------------------------------
+"""
+`display_label` replaces four separate places that each decided, differently,
+what to put in the road-name position. The map chip collapsed `unresolved`,
+`ambiguous_conflict` and a licence-withheld name to the single string
+"No name"; the inspector said "Name not recorded"; the search list said
+something else again. A reader could not tell the four states apart, and three
+of them are actionable.
+
+The rule is a strict priority. The first line that has something to say wins,
+and the caller is told WHICH line won so the interface can style provenance
+without re-deriving the decision:
+
+  1  road_name              a canonical name from a licensed source
+  2  route_designation      "State Highway 1" - the route this road carries
+  3  officially_unnamed     an authority records that it HAS no name
+  4  withheld               a name is known and may not be shown yet
+  5  contextual             what can be said from class, locality and RCA
+  6  identifier             a short stable id, as secondary context only
+
+Line 5 is the one that kills the generic "No name". A state highway near
+Tokoroa with no matched name is still a state highway near Tokoroa, and saying
+so is both true and more useful than saying nothing. Line 6 is never a headline
+on its own - it is returned as `secondary`, for the caller to show beside a
+contextual label rather than instead of one.
+
+Pure: every input is an argument. No database, no clock.
+"""
+
+
+@dataclass(frozen=True)
+class DisplayLabel:
+    """The label, and enough provenance to render it honestly."""
+
+    label: str
+    #: road_name | route_designation | officially_unnamed | withheld |
+    #: contextual | identifier
+    kind: str
+    #: Short stable identifier, offered as secondary context. Never the label
+    #: unless nothing else exists at all.
+    secondary: str | None = None
+    #: Plain-English reason this label was chosen, for the provenance panel.
+    basis: str = ""
+
+
+#: Trailing words stripped from an RCA name to get something that reads in a
+#: sentence. "Waitomo District Council" -> "Waitomo District".
+_RCA_TRIM = (" Council", " Corporation", " Limited", " Ltd")
+
+#: RCAs that are not a place and must not be rendered as one.
+_NZTA_RCA_CODE = 1
+
+
+def short_rca(rca_name: str | None) -> str | None:
+    """"Waitomo District Council" -> "Waitomo District". Idempotent."""
+    if not rca_name:
+        return None
+    out = rca_name.strip()
+    for suffix in _RCA_TRIM:
+        if out.endswith(suffix):
+            out = out[: -len(suffix)].strip()
+            break
+    return out or None
+
+
+def short_identifier(amds_id: str | None, link_id: int | None = None) -> str | None:
+    """A short, stable handle for a link.
+
+    AMDS ids are braced GUIDs with a "#n" child suffix. The full string is
+    unreadable in an interface and the bare integer link id is not durable
+    across snapshots, so this takes the leading GUID block and keeps the child
+    suffix, which is the part that distinguishes siblings.
+    """
+    if amds_id:
+        core = amds_id.strip().lstrip("{")
+        part = ""
+        if "#" in core:
+            core, part = core.split("#", 1)
+            part = f"#{part}"
+        core = core.rstrip("}").split("-")[0]
+        if core:
+            return f"{core}{part}"
+    return None if link_id is None else f"link {link_id}"
+
+
+def display_label(
+    *,
+    road_name: str | None = None,
+    route_designation: str | None = None,
+    name_status: str | None = None,
+    withheld_source: str | None = None,
+    rca_code: int | None = None,
+    rca_name: str | None = None,
+    locality: str | None = None,
+    amds_id: str | None = None,
+    link_id: int | None = None,
+) -> DisplayLabel:
+    """The single label the interface shows. Never "No name", never empty."""
+    secondary = short_identifier(amds_id, link_id)
+    rca_short = short_rca(rca_name)
+    is_state_highway = rca_code == _NZTA_RCA_CODE
+
+    if road_name and road_name.strip():
+        return DisplayLabel(road_name.strip(), "road_name", secondary,
+                            "a canonical road name from a licensed source")
+
+    if route_designation and route_designation.strip():
+        return DisplayLabel(
+            route_designation.strip(), "route_designation", secondary,
+            "no street name is recorded; this is the route the road carries")
+
+    if name_status == "officially_unnamed":
+        return DisplayLabel(
+            "Unnamed road", "officially_unnamed", secondary,
+            "an authoritative source records that this road has no name")
+
+    if withheld_source:
+        # Name the authority, not the source system: "Name withheld - LINZ Data
+        # Service" tells a reader nothing about the road, whereas the RCA does.
+        who = rca_short or "this road controlling authority"
+        if is_state_highway:
+            who = "NZTA Waka Kotahi"
+        return DisplayLabel(
+            f"Name withheld - {who}", "withheld", secondary,
+            "a name is recorded for this road but its source's licence has "
+            "not been confirmed for display")
+
+    # --- contextual -------------------------------------------------------
+    if is_state_highway:
+        label = (f"State-highway section near {locality}" if locality
+                 else "State-highway section")
+    elif locality:
+        label = f"Local-road section near {locality}"
+    elif rca_short:
+        label = f"Road section managed by {rca_short}"
+    else:
+        # Nothing at all to say. The identifier becomes the label, which is the
+        # only case where line 6 is a headline.
+        return DisplayLabel(
+            secondary or "Unidentified road section", "identifier", None,
+            "no name, route, locality or managing authority is recorded")
+
+    return DisplayLabel(label, "contextual", secondary,
+                        "no name is recorded; this describes the road from its "
+                        "classification, locality and managing authority")
