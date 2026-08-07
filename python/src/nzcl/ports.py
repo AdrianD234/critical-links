@@ -45,7 +45,7 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Literal, Sequence
 
-from . import db
+from . import db, stableid
 from .routing import Profile
 
 #: Bump when the port DERIVATION changes shape - a different boundary rule, a
@@ -94,6 +94,15 @@ class Port:
     #: route that profile may not drive.
     profiles: tuple[str, ...] = ()
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: Identity built from what the PUBLISHER chose - the AMDS feature id, the
+    #: traversal direction, and the two node positions - rather than from
+    #: `arc_id`, which the noding pass hands out in ingest order.
+    #:
+    #: `port_id` above is unchanged and stays the identity the API reports.
+    #: This is what ORDERING and TIE-BREAKS use, because a tie broken on a hash
+    #: of `arc_id` is only stable until the next ingest re-numbers the graph.
+    #: See `stableid.py` for the shuffled-input evidence.
+    stable_key: str = ""
 
     @property
     def is_entry(self) -> bool:
@@ -219,6 +228,13 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
     offsets = _distance_from_selected(snapshot_id, removed, selected_link_id,
                                       closure_nodes)
 
+    # Publisher-assigned keys for every arc and node the ports will touch, in
+    # two batched lookups rather than one per port.
+    arc_key = stableid.arc_keys(snapshot_id, [int(r["arc_id"]) for r in arc_rows])
+    node_key = stableid.node_keys(
+        snapshot_id,
+        [int(r["source"]) for r in arc_rows] + [int(r["target"]) for r in arc_rows])
+
     entries: list[Port] = []
     exits: list[Port] = []
     touched: set[int] = set()
@@ -249,14 +265,24 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
             is_state_highway=(r.get("rca_code") == 1),
             road_class=r.get("model_asset_type"),
             profiles=profiles,
+            stable_key=stableid.port_key(
+                arc_key.get(int(r["arc_id"]), str(r["arc_id"])),
+                node_key.get(outside, str(outside)),
+                node_key.get(inside, str(inside))),
         )
         (entries if inbound else exits).append(p)
 
-    # Sorted by (distance, port id): distance is what the corridor rule cares
-    # about and the id is an intrinsic tie-break, so neither depends on row
-    # order.
-    entries.sort(key=lambda p: (p.distance_from_selected_m, p.port_id))
-    exits.sort(key=lambda p: (p.distance_from_selected_m, p.port_id))
+    # Sorted by (distance, stable key). Distance is what the corridor rule
+    # cares about; the stable key breaks the tie on the AMDS feature id and the
+    # node positions.
+    #
+    # This used to tie-break on `port_id`, which is a hash of `arc_id`. That is
+    # reproducible on one database and reassigned by the next ingest, so a
+    # truncation or a corridor choice decided by it could flip without any road
+    # changing. Ordering here decides which ports survive the candidate bound,
+    # so it has to be stable against re-ingest, not merely against re-querying.
+    entries.sort(key=lambda p: (p.distance_from_selected_m, p.stable_key))
+    exits.sort(key=lambda p: (p.distance_from_selected_m, p.stable_key))
 
     boundary_nodes = sorted(touched)
     interior = [n for n in closure_nodes if n not in touched]
@@ -344,6 +370,7 @@ def as_dict(b: ClosureBoundary) -> dict:
             "roadClass": p.road_class,
             "profiles": list(p.profiles),
             "notes": list(p.notes),
+            "stableKey": p.stable_key,
         }
 
     return {

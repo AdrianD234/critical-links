@@ -80,9 +80,9 @@ MOVEMENT_MODEL_VERSION = "1.0.0"
 #: being interactive.
 #:
 #: Ports are taken in the order `ports.derive` already fixed - outward distance
-#: from the selected segment, then port id - so truncation keeps the crossings
-#: NEAREST the segment the user actually clicked, and keeps the same ones on
-#: every run.
+#: from the selected segment, then the port's STABLE key - so truncation keeps
+#: the crossings NEAREST the segment the user actually clicked, and keeps the
+#: same ones after a re-ingest that renumbers the graph.
 MAX_PORTS_PER_SIDE = 20
 MAX_CANDIDATE_PAIRS = MAX_PORTS_PER_SIDE * MAX_PORTS_PER_SIDE
 
@@ -132,6 +132,12 @@ class Movement:
     reason_code: str
     reason: str
 
+    #: Publisher-assigned keys for the two crossings. Every ordering and every
+    #: tie-break in this module uses these, never the port ids: a port id is a
+    #: hash of `arc_id`, which the next ingest reassigns. See `stableid.py`.
+    entry_stable_key: str = ""
+    exit_stable_key: str = ""
+
     #: The intact crossing: from_node to to_node. The port arcs are NOT in it.
     intact_arc_ids: list[int] = field(default_factory=list)
     intact_link_ids: list[int] = field(default_factory=list)
@@ -150,7 +156,8 @@ class Movement:
 
     @property
     def key(self) -> tuple[str, str]:
-        return (self.entry_port_id, self.exit_port_id)
+        """Ordering key. Ingest-invariant, so a shuffled reload keeps it."""
+        return (self.entry_stable_key, self.exit_stable_key)
 
 
 @dataclass
@@ -306,7 +313,7 @@ def identify(
     # Sorted on intrinsic keys only. Not on cost - two movements can cost the
     # same, and a cost-first order would then depend on which the planner
     # emitted first, which is precisely the class of bug PR 1 found.
-    movements.sort(key=lambda m: (m.entry_port_id, m.exit_port_id))
+    movements.sort(key=lambda m: m.key)
 
     out.movements = movements
     out.candidate_pairs = len(entries) * len(exits)
@@ -416,6 +423,7 @@ def _blank(snap: str, b: ClosureBoundary, e: Port, x: Port) -> Movement:
         entry_arc_id=e.arc_id, exit_arc_id=x.arc_id,
         entry_link_id=e.link_id, exit_link_id=x.link_id,
         entry_direction=e.direction, exit_direction=x.direction,
+        entry_stable_key=e.stable_key, exit_stable_key=x.stable_key,
         included=False, reason_code="", reason="", confidence="high")
 
 
@@ -429,7 +437,7 @@ def _all_excluded(snap: str, b: ClosureBoundary, entries, exits, code: str,
             m.reason = reason
             m.confidence = "low" if code == "SEARCH_UNRESOLVED" else "high"
             out.append(m)
-    out.sort(key=lambda m: (m.entry_port_id, m.exit_port_id))
+    out.sort(key=lambda m: m.key)
     return out
 
 
@@ -457,7 +465,7 @@ def _truncation_rows(snap: str, b: ClosureBoundary, dropped_entries,
             m.reason = reason
             m.confidence = "low"
             rows.append(m)
-    rows.sort(key=lambda m: (m.entry_port_id, m.exit_port_id))
+    rows.sort(key=lambda m: m.key)
     return rows
 
 
@@ -516,6 +524,8 @@ def movement_dict(m: Movement) -> dict:
         "exitLinkId": m.exit_link_id,
         "entryDirection": m.entry_direction,
         "exitDirection": m.exit_direction,
+        "entryStableKey": m.entry_stable_key,
+        "exitStableKey": m.exit_stable_key,
         "included": m.included,
         "reasonCode": m.reason_code,
         "reason": m.reason,
