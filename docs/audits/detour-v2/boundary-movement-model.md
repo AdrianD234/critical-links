@@ -223,6 +223,101 @@ Dijkstra path's arc costs directly from the `arcs` table gives 26,085.832 m. The
 same call with `heuristic => 0` is correct, so the fault is the bidirectional
 termination condition, not the graph. Nothing here uses it.
 
+## The national sample
+
+500 links from the 374,786-link frame, drawn deterministically by
+`nzcl.samplev2` under seed `detour-v2-pr2-boundary-sample-1`. Raw rows,
+summary and review pack in `national-sample/`.
+
+**This is a sample, not a national estimate.** The strata deliberately
+over-represent awkward cases, which is what makes it useful for finding defects
+and what makes any percentage from it meaningless as a description of the
+country. **No human has reviewed these results.** The review pack is a worklist.
+
+### Coverage
+
+Both islands (325 north / 175 south), 70 road-controlling authorities, 15 state
+highway / 485 local, 232 urban / 238 rural, 21 one-way / 479 two-way, 195
+bridge / 305 not, 298 short / 104 medium / 98 long source features, 250 single-
+child / 250 multi-child, 412 named / 88 unresolved. Topology confidence low on
+81 and medium on 419 — never high, as designed.
+
+The state-highway and one-way counts are the required floors plus whatever the
+round-robin top-up across 70 authorities happened to add. They are thin, and a
+question specifically about one-way behaviour needs its own sample.
+
+### Result
+
+| | count |
+| --- | --- |
+| unresolved or timed out | **0** |
+| errored | **0** |
+| geometry gaps in a replacement route | **0** |
+| movement candidate searches truncated by the bound | 10 |
+| replay digest | `bb7681d22afda98320a52630ed5314ffba6e329a099fcfbe033c549be040cab7` |
+
+Runtime per request: p50 1,543 ms, p95 2,359 ms, max 2,725 ms.
+
+### Endpoint measure versus boundary measure
+
+These measure **different quantities**. A difference is not evidence that
+either is wrong.
+
+| transition | count |
+| --- | --- |
+| DISCONNECTED → DISCONNECTED | 241 |
+| OK → OK | 152 |
+| DISCONNECTED → no movement identified | 74 |
+| **OK → DISCONNECTED** | **26** |
+| OK → no movement identified | 4 |
+| **DISCONNECTED → OK** | **3** |
+
+Where both produce a penalty (152 cases) the median difference is **0 m** —
+they agree exactly on the ordinary case, which is the compatibility property
+holding on real data rather than on a fixture. The p95 difference is 728 m and
+the maximum 12.7 km.
+
+Every one of the 26 **OK → DISCONNECTED** cases is a multi-link closure where
+`reducesToEndpoints` is false, so the two are measuring different node pairs.
+Link 375011 is the clearest: 13 links removed, the endpoint measure reports a
+108 m alternative between the selected child's own two nodes, and the boundary
+measure finds no replacement for the through movement at all — while physical
+isolation reports that something IS cut off. A reassuring 108 m is exactly the
+failure the V1 audit describes.
+
+`isolationChanged: 0` — the endpoint and boundary paths agree on physical
+isolation for all 500, as they must: both call the same exact computation.
+
+### Where the diversion starts
+
+Chosen corridor port distance from the closure, over the 168 links with a
+chosen pair: p50 **126 m**, p95 3,131 m, max 10,583 m. Half the time the
+diversion begins at the first junction outside the closure; the tail is rural
+state highway where the next junction genuinely is kilometres away.
+
+### The 78 with no through movement
+
+All are dead-end spurs: every crossing sits on ONE node, because the far end has
+no other link and becomes an interior node with no ports. There was never a trip
+through a cul-de-sac. V1 calls 74 of them "No endpoint route" and the endpoint
+measure calls 73 the same, both of which read as a failed analysis. 76 of the 78
+separate nothing, because a closure that merely detaches itself has cut nothing
+off.
+
+### The geometry-gap number was an artefact, twice over
+
+The first run of this sample reported a geometry gap on **237 of 500**. None
+were real: the closure and the selected segment were being run through the
+*route* assembler, so a fifteen-child source feature came out as "fourteen gaps,
+the widest 406 m" — the distance between links that were never adjacent. After
+`routegeom.collect` the count is **0**.
+
+So the gap machinery has fired zero times on real national data. It is not
+untested — a fixture nudges a link's geometry 3 m in the database, leaving its
+nodes alone, and asserts three pieces, two 3 m gaps, no bridging, and the
+animation disabled. But nothing in this sample exercised it, and that is worth
+knowing rather than reading 0 as proof the guard works.
+
 ## Caching
 
 **None was added.** `impactv2` computes every request from scratch. Two cache

@@ -53,51 +53,51 @@
     }
   },
   "errored": 0,
-  "geometryGapped": 237,
+  "geometryGapped": 0,
   "isNationalEstimate": false,
   "movementCandidatesTruncated": 10,
   "note": "A stratified sample chosen to span awkward cases. Every proportion below is a proportion OF THIS SAMPLE and is not an estimate of the national network. No human has reviewed these results.",
-  "replayDigest": "965a8426ec8659d5d82365b8f975d7d02a9c32b15d9d28471827bc85208636fd",
+  "replayDigest": "bb7681d22afda98320a52630ed5314ffba6e329a099fcfbe033c549be040cab7",
   "runtimeMsByStage": {
     "closure_resolution": {
-      "max": 2.0,
+      "max": 3.0,
       "p50": 1.0,
-      "p95": 1.0
+      "p95": 2.0
     },
     "corridor_expansion": {
-      "max": 1266.0,
-      "p50": 490.0,
-      "p95": 1129.0
+      "max": 1182.0,
+      "p50": 484.0,
+      "p95": 1123.0
     },
     "geometry_assembly": {
-      "max": 24.0,
+      "max": 4.0,
       "p50": 1.0,
-      "p95": 3.0
+      "p95": 2.0
     },
     "intact_movements": {
-      "max": 595.0,
-      "p50": 452.0,
-      "p95": 488.0
+      "max": 557.0,
+      "p50": 450.0,
+      "p95": 482.0
     },
     "isolation": {
-      "max": 782.0,
-      "p50": 110.0,
-      "p95": 297.0
+      "max": 777.0,
+      "p50": 111.0,
+      "p95": 306.0
     },
     "port_generation": {
-      "max": 13.0,
+      "max": 5.0,
       "p50": 1.0,
-      "p95": 5.0
+      "p95": 2.0
     },
     "replacement_paths": {
-      "max": 771.0,
-      "p50": 484.0,
-      "p95": 607.0
+      "max": 789.0,
+      "p50": 477.0,
+      "p95": 594.0
     },
     "total": {
-      "max": 2753.0,
-      "p50": 1562.0,
-      "p95": 2390.0
+      "max": 2725.0,
+      "p50": 1543.0,
+      "p95": 2359.0
     }
   },
   "sampleSeed": "detour-v2-pr2-boundary-sample-1",
