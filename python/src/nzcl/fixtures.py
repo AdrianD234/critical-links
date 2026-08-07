@@ -37,10 +37,32 @@ class SyntheticNetwork:
         return self.pairs[self.by_id[amds_id]]
 
 
+#: How far beyond the fixture's own extent the display envelope reaches, in
+#: metres. Enough that the whole network sits inside the viewport with margin
+#: rather than touching the edges.
+EXTENT_PAD_M = 300.0
+
+#: Attribution and licence for a synthetic snapshot.
+#:
+#: These were both the literal string "test", which meant the map credit read
+#: "Basemap (c) LINZ, CC BY 4.0 - test" and the browser test asserting that the
+#: AMDS credit is displayed - a licence condition, not decoration - had nothing
+#: to find. It names AMDS because the fixture stands in for AMDS-derived data
+#: and must exercise that assertion, and it says "synthetic" first so nobody
+#: reading a screenshot mistakes it for real provenance.
+SYNTHETIC_ATTRIBUTION = (
+    "Synthetic test network. Structured as, and attributed like, data sourced "
+    "from the NZTA Waka Kotahi AMDS Network Model."
+)
+SYNTHETIC_LICENCE = "Synthetic fixture: not real data, no licence applies."
+
+
 def load_synthetic(
     spec: Iterable[dict],
     restrictions: Iterable[dict] = (),
     snapshot_id: str | None = None,
+    coverage_name: str = "Synthetic fixture",
+    require_nz: bool = False,
 ) -> SyntheticNetwork:
     """
     Load a synthetic network under a fresh snapshot id, or a caller-supplied one.
@@ -49,6 +71,13 @@ def load_synthetic(
     at. Renaming afterwards is not an option: `nodes`, `links` and `arcs` all
     carry a foreign key to `network_snapshots`, so an UPDATE on the parent is
     rejected while any child row still references it.
+
+    The snapshot row this writes is a miniature of a real one, not merely
+    enough columns to satisfy the foreign keys. That distinction had teeth: the
+    row used to carry no coverage metadata and no extents, so the application
+    had nothing to fit the map to, opened at the national fallback around zoom
+    4.5, and drew none of the seven links - which is why every browser test
+    that waits for the map timed out while the routing tests passed.
     """
     snapshot_id = snapshot_id or f"test-{uuid.uuid4().hex[:12]}"
     sources = []
@@ -84,18 +113,27 @@ def load_synthetic(
                 INSERT INTO network_snapshots (snapshot_id, source_dataset,
                   retrieved_at_utc, source_url, layer_id, licence, attribution,
                   raw_sha256, processing_version, source_feature_count,
-                  downloaded_feature_count, where_clause, status)
-                VALUES (%s,'synthetic',now(),'test',1,'test','test','0'::text,
-                        'test',0,0,'test','complete')
+                  downloaded_feature_count, where_clause, status,
+                  coverage_kind, coverage_name)
+                VALUES (%s,'synthetic',now(),'test',1,%s,%s,'0'::text,
+                        'test',%s,%s,'test','complete','synthetic',%s)
                 """,
-                (snapshot_id,),
+                (snapshot_id, SYNTHETIC_LICENCE, SYNTHETIC_ATTRIBUTION,
+                 len(sources), len(sources), coverage_name),
             )
             for nid, (x, y) in enumerate(node_coords):
+                # geom_4326 is TRANSFORMED, not relabelled. It used to be
+                # POINT(0 0) - a placeholder in the Gulf of Guinea - and the
+                # links below carried their NZTM easting and northing under an
+                # EPSG:4326 label, which is a longitude of 1,749,100 degrees.
+                # Nothing in the routing tests reads geom_4326, so it went
+                # unnoticed; every browser test does, because it is what the
+                # map draws.
                 cur.execute(
                     "INSERT INTO nodes (snapshot_id, node_id, geom_2193, geom_4326, "
                     "component_id) VALUES (%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),2193),"
-                    "ST_SetSRID(ST_MakePoint(0,0),4326),0)",
-                    (snapshot_id, nid, x, y),
+                    "ST_Transform(ST_SetSRID(ST_MakePoint(%s,%s),2193),4326),0)",
+                    (snapshot_id, nid, x, y, x, y),
                 )
             for lid, link in enumerate(split.links):
                 a = link.attrs
@@ -108,7 +146,7 @@ def load_synthetic(
                       mode_vehicle, mode_vehicle_heavy, mode_emergency,
                       oneway, speed_kph, speed_source, road_name)
                     VALUES (%s,%s,%s,%s, ST_GeomFromText(%s,2193),
-                            ST_SetSRID(ST_GeomFromText(%s),4326),
+                            ST_Transform(ST_GeomFromText(%s,2193),4326),
                             %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (snapshot_id, lid, link.amds_id, link.closure_group_id,
@@ -181,12 +219,138 @@ def load_synthetic(
             # either way. See docs/audits/2026-07-28-national-ingest-incident.md.
             cur.execute("ANALYZE arcs")
             cur.execute("SELECT build_arc_transitions(%s)", (snapshot_id,))
+
+            # Counts and extents, derived from what was actually written.
+            #
+            # These were left at their zero defaults, so /health and the About
+            # panel reported a snapshot with no links while seven sat in the
+            # table. Deriving them here rather than passing them in means the
+            # row cannot disagree with its own children.
+            cur.execute(
+                """
+                UPDATE network_snapshots s SET
+                    routable_link_count = c.links,
+                    arc_count           = c.arcs,
+                    node_count          = c.nodes,
+                    extent_2193         = c.env,
+                    analysis_extent_2193 = c.env,
+                    display_extent_2193  = c.padded
+                FROM (
+                    SELECT
+                      (SELECT count(*) FROM links WHERE snapshot_id=%(s)s) AS links,
+                      (SELECT count(*) FROM arcs  WHERE snapshot_id=%(s)s) AS arcs,
+                      (SELECT count(*) FROM nodes WHERE snapshot_id=%(s)s) AS nodes,
+                      -- Buffered before the envelope is taken, in BOTH cases.
+                      -- A network whose links are collinear - which several
+                      -- known-answer fixtures are - has a zero-area extent, and
+                      -- ST_Envelope returns a LineString for it. The columns
+                      -- are geometry(Polygon), so the insert is rejected
+                      -- outright rather than storing something odd.
+                      (SELECT ST_Envelope(
+                                ST_Buffer(ST_Extent(geom_2193)::geometry, 1.0))
+                         FROM links WHERE snapshot_id=%(s)s) AS env,
+                      (SELECT ST_Envelope(
+                                ST_Buffer(ST_Extent(geom_2193)::geometry, %(pad)s))
+                         FROM links WHERE snapshot_id=%(s)s) AS padded
+                ) c
+                WHERE s.snapshot_id = %(s)s
+                """,
+                {"s": snapshot_id, "pad": EXTENT_PAD_M},
+            )
         conn.commit()
 
     # Proper weak components (the SQL above is a placeholder that would lump
     # everything together; correctness here matters for DISCONNECTED results).
     label_components(snapshot_id, pairs, len(node_coords))
+    assert_fixture_contract(snapshot_id, require_nz=require_nz)
     return SyntheticNetwork(snapshot_id, split.links, pairs, node_coords, by_id)
+
+
+class FixtureContractError(AssertionError):
+    """A synthetic snapshot that would not behave like a real one."""
+
+
+def assert_fixture_contract(snapshot_id: str, *, require_nz: bool = False) -> dict:
+    """Fail loudly if the fixture is not a faithful miniature snapshot.
+
+    Checked here rather than in a test so that every caller gets it - the
+    known-answer suite, CI, and a developer building one by hand. The defects
+    this catches were all invisible to the routing tests and fatal to the
+    browser suite, which is precisely the gap that let them survive.
+
+    `require_nz` is off by default. Valid WGS84 is demanded of every fixture,
+    because a longitude of 1,749,100 degrees is a defect wherever it appears.
+    Landing inside New Zealand is not: the known-answer networks are abstract
+    coordinate grids - a 100 m square at the NZTM origin - chosen so their
+    distances are trivial to verify by hand, and they are not meant to be
+    anywhere. Only the fixture the browser suite draws has to be a real place.
+    """
+    row = db.query_one(
+        """
+        SELECT s.coverage_kind, s.coverage_name, s.status, s.attribution,
+               s.routable_link_count, s.arc_count, s.node_count,
+               s.display_extent_2193 IS NOT NULL AS has_display_extent,
+               s.analysis_extent_2193 IS NOT NULL AS has_analysis_extent,
+               (SELECT count(*) FROM links WHERE snapshot_id=s.snapshot_id) AS links,
+               (SELECT count(*) FROM arcs  WHERE snapshot_id=s.snapshot_id) AS arcs,
+               (SELECT count(*) FROM nodes WHERE snapshot_id=s.snapshot_id) AS nodes,
+               -- Every coordinate the map will draw must be a real one.
+               (SELECT count(*) FROM links WHERE snapshot_id=s.snapshot_id
+                  AND NOT ST_Within(geom_4326,
+                        ST_MakeEnvelope(-180,-90,180,90,4326))) AS bad_link_geom,
+               (SELECT count(*) FROM nodes WHERE snapshot_id=s.snapshot_id
+                  AND NOT ST_Within(geom_4326,
+                        ST_MakeEnvelope(-180,-90,180,90,4326))) AS bad_node_geom,
+               -- And a New Zealand fixture belongs in New Zealand, not at
+               -- (0, 0) in the Gulf of Guinea.
+               (SELECT count(*) FROM links WHERE snapshot_id=s.snapshot_id
+                  AND NOT ST_Within(geom_4326,
+                        ST_MakeEnvelope(166,-48,179,-34,4326))) AS outside_nz
+          FROM network_snapshots s WHERE s.snapshot_id = %s
+        """,
+        (snapshot_id,),
+    )
+    if row is None:
+        raise FixtureContractError(f"snapshot {snapshot_id!r} was not written")
+
+    problems: list[str] = []
+    if row["coverage_kind"] != "synthetic":
+        problems.append(f"coverage_kind is {row['coverage_kind']!r}, not 'synthetic'")
+    if not row["coverage_name"]:
+        problems.append("coverage_name is empty")
+    if row["status"] != "complete":
+        problems.append(f"status is {row['status']!r}, not 'complete'")
+    # Attribution is a licence condition the interface must display, so a
+    # fixture with a placeholder cannot exercise the test that checks it.
+    if "AMDS" not in (row["attribution"] or ""):
+        problems.append(
+            f"attribution is {row['attribution']!r}: the map credit the browser "
+            "suite asserts on would have nothing to find")
+    if not row["has_display_extent"]:
+        problems.append("display_extent_2193 is NULL: the map has nothing to fit")
+    if not row["has_analysis_extent"]:
+        problems.append("analysis_extent_2193 is NULL")
+    for column, actual in (("routable_link_count", "links"),
+                           ("arc_count", "arcs"),
+                           ("node_count", "nodes")):
+        if row[column] != row[actual]:
+            problems.append(
+                f"{column} says {row[column]} but {row[actual]} rows exist")
+    if row["links"] < 1:
+        problems.append("the fixture has no links")
+    if row["bad_link_geom"] or row["bad_node_geom"]:
+        problems.append(
+            f"{row['bad_link_geom']} link and {row['bad_node_geom']} node "
+            "geometries are outside valid WGS84 bounds - NZTM coordinates were "
+            "probably labelled EPSG:4326 rather than transformed")
+    if require_nz and row["outside_nz"]:
+        problems.append(f"{row['outside_nz']} link geometries fall outside NZ")
+
+    if problems:
+        raise FixtureContractError(
+            f"synthetic snapshot {snapshot_id!r} is not a faithful miniature:\n  - "
+            + "\n  - ".join(problems))
+    return dict(row)
 
 
 def label_components(snapshot_id: str, pairs, node_count: int) -> None:
@@ -224,6 +388,7 @@ def label_components(snapshot_id: str, pairs, node_count: int) -> None:
 WGTN_X, WGTN_Y = 1749100.0, 5428100.0
 
 CI_SNAPSHOT_ID = "ci-fixture-wellington"
+CI_COVERAGE_NAME = "CI fixture"
 
 
 def ci_network_spec() -> list[dict]:
@@ -283,19 +448,21 @@ def build_ci_snapshot(snapshot_id: str = CI_SNAPSHOT_ID) -> str:
     # Rebuildable: CI runs this on a fresh database, but a developer may run it
     # repeatedly against a local one. The cascade removes the children.
     db.execute("DELETE FROM network_snapshots WHERE snapshot_id=%s", (snapshot_id,))
-    net = load_synthetic(ci_network_spec(), snapshot_id=snapshot_id)
+    net = load_synthetic(ci_network_spec(), snapshot_id=snapshot_id,
+                         coverage_name=CI_COVERAGE_NAME, require_nz=True)
     return net.snapshot_id
 
 
 def _main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[1] == "build-ci-snapshot":
         snap = build_ci_snapshot()
-        counts = db.query_one(
-            "SELECT (SELECT count(*) FROM links WHERE snapshot_id=%(s)s) AS links,"
-            "       (SELECT count(*) FROM arcs  WHERE snapshot_id=%(s)s) AS arcs",
-            {"s": snap},
-        )
-        print(f"built {snap}: {counts['links']} links, {counts['arcs']} arcs")
+        # Report what the contract check verified, so a CI log shows the
+        # snapshot is usable rather than merely that a command exited zero.
+        c = assert_fixture_contract(snap, require_nz=True)
+        print(f"built {snap}: {c['links']} links, {c['arcs']} arcs, "
+              f"{c['nodes']} nodes")
+        print(f"  coverage: {c['coverage_kind']} / {c['coverage_name']}")
+        print("  display extent: set, geometry verified within NZ in WGS84")
         return 0
     print("usage: python -m nzcl.fixtures build-ci-snapshot", flush=True)
     return 2

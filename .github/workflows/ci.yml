@@ -8,18 +8,25 @@ name: CI
 # slower and has more ways to fail. Keeping them apart means a type error is
 # reported in a minute rather than behind a database build.
 
+# A branch push and its pull request are the same code, and each was starting
+# its own 36-minute browser job. `concurrency` did not collapse them because a
+# push and a pull_request have different refs and so land in different groups.
+# Running the heavy job once per PR is the fix; main still gets a run of its own
+# on merge.
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  # 24, not 20: the install already warns that a dependency wants Node >= 22,
+  # and 20 is out of support.
+  NODE_VERSION: '24'
 
 jobs:
   checks:
@@ -93,7 +100,7 @@ jobs:
           POSTGRES_DB: nzcl
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U nzcl -d nzcl"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
