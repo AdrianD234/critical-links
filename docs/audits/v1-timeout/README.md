@@ -245,6 +245,14 @@ Every ordinary response is unchanged, and shown to be rather than asserted. See
 snapshots, captured from the running API before and after, `diff -r` clean and
 sha256-identical.
 
+What is committed is the proof, not the bulk: the two full SHA-256 manifests
+([`SHA256SUMS.before`](identity/SHA256SUMS.before),
+[`SHA256SUMS.after`](identity/SHA256SUMS.after) — identical hash-for-hash), a
+four-file deterministic sample per side (the distance/physical capture of one
+link per behaviour class; the rule is stated in RESULT.txt), and
+[`capture.mjs`](identity/capture.mjs), which regenerates the full sets against
+a running API.
+
 ## Reproducing the browser capture
 
 ```
