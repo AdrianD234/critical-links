@@ -21,7 +21,7 @@
 
 import { mkdirSync } from 'node:fs';
 
-import { API, exploreUrl, panel, test, waitForResult } from './fixtures.js';
+import { API, exploreUrl, expect, panel, test, waitForResult } from './fixtures.js';
 
 const TOKOROA_AMDS_ID = '{1073a927-4c97-4c9a-b41a-bf6f5edf0cad}#12';
 const LABEL = process.env.NZCL_SHOT_LABEL ?? 'after';
@@ -57,5 +57,36 @@ test.describe('reported Tokoroa case', () => {
 
     await page.screenshot({ path: `${OUT}/${LABEL}-full.png` });
     await panel(page).screenshot({ path: `${OUT}/${LABEL}-inspector.png` });
+  });
+});
+
+test.describe('reported Tokoroa case under V2', () => {
+  test.beforeAll(() => mkdirSync(OUT, { recursive: true }));
+
+  test('the same link, analysed by the V2 engine', async ({ page, request }) => {
+    const probe = await request.get(
+      `${API}/api/v2/links/${encodeURIComponent(TOKOROA_AMDS_ID)}/closure-analysis?scope=segment`,
+    );
+    test.skip(!probe.ok(), 'V2 is not available against the active snapshot');
+
+    await page.goto(exploreUrl(TOKOROA_AMDS_ID, { focus: 'reverse' }));
+    await waitForResult(page);
+
+    /*
+     * The engine switch is dev-only, so this capture only works against a dev
+     * server. That is the point: V2 must not be reachable from a production
+     * build, and a screenshot that could be taken from one would mean the gate
+     * had failed.
+     */
+    const v2 = page.getByRole('button', { name: 'V2 closure analysis' });
+    test.skip(
+      (await v2.count()) === 0,
+      'engine switch absent: not a development build',
+    );
+    await v2.click();
+
+    await expect(page.getByText('V2 closure analysis —', { exact: false }).first()).toBeVisible({ timeout: 60_000 });
+    await page.waitForTimeout(2500);
+    await panel(page).screenshot({ path: `${OUT}/after-v2-inspector.png` });
   });
 });
