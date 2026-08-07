@@ -230,3 +230,17 @@ bash   docs/audits/v1-timeout/start-api.sh 5               # squeeze; "none" for
 API_PORT=8010 npm run dev --workspace apps/web -- --port 5174
 node   docs/audits/v1-timeout/capture-ui.mjs before-fix
 ```
+
+## Gates, run locally before the branch was pushed
+
+| gate | command | exit | result |
+|---|---|---|---|
+| Types | `npm run typecheck` | `0` | — |
+| Unit | `npx vitest run` | `0` | 150 passed, 16 skipped (the integration suite, which needs a running API) |
+| Build | `npm run build` | `0` | `dist/index.html`, `dist/assets`, 15 bundled `.woff2` |
+| Python, PostGIS-backed | [`run-python-suite.sh`](run-python-suite.sh) with `NZCL_REQUIRE_NO_SKIPS=1` | `0` | **329 passed, 0 skipped** |
+| Executed-contracts gate | CI's own script against that run | `0` | [`python-suite-gate.txt`](python-suite-gate.txt) — `test_corridor_timeout` contributed 11 executed tests |
+| Browser + accessibility | `npx playwright test` | `0` | [`playwright.txt`](playwright.txt) — 67 passed across desktop, laptop, mobile-smoke and the axe scan |
+
+No test command was piped anywhere that could substitute a consumer's exit
+status for the runner's; every exit code above is the runner's own.
