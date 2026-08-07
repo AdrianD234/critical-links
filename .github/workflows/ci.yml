@@ -313,6 +313,12 @@ jobs:
               "test_closure_v2", "test_closure_v2_identity",
               "test_closure_v2_components", "test_routing", "test_tiles",
               "test_fixture_contract",
+              # The corridor timeout contract. Its database-backed half forces
+              # real PostgreSQL cancellations, so it can only run in this job -
+              # and a timeout guard that runs nowhere is the exact failure this
+              # list exists to catch. Its status-mapping half needs no database
+              # and so also runs in the fast Python job.
+              "test_corridor_timeout",
           )
 
           root = ET.parse("/tmp/db-tests.xml").getroot()

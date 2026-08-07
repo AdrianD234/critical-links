@@ -456,13 +456,24 @@ def _corridor(snapshot_id: str, u: int, v: int, excluded: Sequence[int],
                         True, exit_reachable,
                         "corridor endpoints collapse to the same node")
 
-    costs = route_many(
+    found = route_many(
         snapshot_id,
         sorted({e[0] for _, e, _ in candidates}),
         sorted({x[0] for _, _, x in candidates}),
         metric=metric, profile=profile, excluded_arcs=excluded,
         statement_timeout_ms=timeout_ms,
     )
+    # A search that did not finish says nothing about the corridor. Reading an
+    # absent pair as "no route" here is what turned a statement timeout into
+    # DISCONNECTED, which the interface then presented as a finding about the
+    # network rather than as an unanswered question. No single pair is
+    # implicated, so the widest probe is reported; `truncated` stays False
+    # because the walk was not exhausted - the answer is simply unknown.
+    if not found.resolved:
+        return Corridor(found.status, up[-1][0], down[-1][0], len(up) - 1,
+                        len(down) - 1, None, None, None, None, None, None,
+                        False, exit_reachable, found.detail)
+    costs = found.costs
 
     last_detail = "no corridor endpoints could be reached"
     for k, entry, exit_ in candidates:
