@@ -60,7 +60,6 @@ from __future__ import annotations
 import statistics
 import sys
 import time
-from typing import Callable
 
 from . import db, impactv2
 from .routing import _edge_sql

@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import statistics
 import sys
 import time
 from collections import Counter, defaultdict
