@@ -29,6 +29,7 @@ import type {
   V2BoundaryAnalysis,
   V2Corridor,
   V2CorridorPort,
+  V2ReplacementPath,
   V2RouteGeometry,
 } from '../api/types.js';
 
@@ -152,13 +153,27 @@ export default function V2BoundaryFindings({
               {m.evidence.length > 0 && ` — ${m.evidence.join(', ')}`}
             </dd>
           </dl>
-          {movements.truncated && (
-            <p className="muted">
-              The candidate search was bounded at{' '}
-              {count(movements.candidateBound)} pairs and did not evaluate every
-              crossing. The pairs it declined are listed in the response.
-            </p>
+          {!movements.exhaustive && (
+            <div className="notice notice--warning" role="status">
+              <div className="notice-title">
+                This search did not evaluate every crossing
+              </div>
+              <p>
+                {count(movements.omittedPairCount)} candidate pair
+                {movements.omittedPairCount === 1 ? ' was' : 's were'} left
+                unevaluated
+                {movements.closureComponents > 1 &&
+                  `, including every pair spanning the ${count(
+                    movements.closureComponents,
+                  )} disconnected pieces of this closure`}
+                . The figures above describe what WAS evaluated. An unevaluated
+                pair could hold a longer detour, or the only movement with no
+                replacement at all, so nothing here is offered as the whole
+                picture.
+              </p>
+            </div>
           )}
+          <TurnCheck path={principal} />
         </>
       )}
 
@@ -321,5 +336,41 @@ function Flags({ analysis }: { analysis: V2BoundaryAnalysis }) {
         ))}
       </ul>
     </>
+  );
+}
+
+/*
+ * Banned manoeuvres.
+ *
+ * The multi-target searches run on the plain arc graph, which knows nothing
+ * about turns, so this is a post-route check. A route that uses a prohibited
+ * turn is not offered as the detour — but the reader still has to be told that
+ * NO route from this system is road-legal, which is a different and larger
+ * caveat than any one restriction.
+ */
+function TurnCheck({ path }: { path: V2ReplacementPath | null }) {
+  const tc = path?.turnCheck;
+  if (!tc || !tc.checked) return null;
+  if (tc.ok) {
+    return (
+      <p className="muted">
+        No banned manoeuvre on this route ({count(tc.applicableRestrictions)}{' '}
+        published restriction
+        {tc.applicableRestrictions === 1 ? '' : 's'} apply to this vehicle
+        nationally). Banned-turn coverage in the source data is negligible, so
+        this is not a claim that the route is road-legal.
+      </p>
+    );
+  }
+  return (
+    <div className="notice notice--warning" role="status">
+      <div className="notice-title">This route uses a prohibited turn</div>
+      <p>
+        {count(tc.violationCount)} banned manoeuvre
+        {tc.violationCount === 1 ? '' : 's'} on the route, so it is not offered
+        as the replacement. That is not the same as there being no way round:
+        this engine did not find a legal one.
+      </p>
+    </div>
   );
 }

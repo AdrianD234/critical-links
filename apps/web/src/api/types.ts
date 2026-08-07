@@ -580,6 +580,12 @@ export type V2BoundaryHeadline =
   | 'Through movement has no represented replacement'
   | 'Through movement diverts'
   | 'No through movement identified'
+  /**
+   * The search was BOUNDED and did not evaluate every candidate pair. The
+   * sub-results it did establish stay visible; what is withheld is any
+   * sentence that would imply it had looked at everything.
+   */
+  | 'Partial analysis'
   | 'Analysis unresolved';
 
 /**
@@ -659,6 +665,18 @@ export interface V2ReplacementPath {
   /** True would be a stop condition: a replacement using the road it replaces. */
   traversesOwnClosure: boolean;
   topologyConfidence: string;
+  /**
+   * The route checked against the restricted-turn table. `ok: false` means the
+   * route uses a prohibited turn and is NOT offered as the replacement.
+   */
+  turnCheck: {
+    checked: boolean;
+    ok: boolean;
+    applicableRestrictions: number;
+    violationCount: number;
+    violations: number[][];
+    detail: string;
+  } | null;
   qualityFlags: string[];
   movement?: V2Movement | null;
 }
@@ -678,6 +696,8 @@ export interface V2CorridorPort {
   nodeDegree: number;
   /** Three or more open links meet here, so a driver has a choice to make. */
   isDecisionPoint: boolean;
+  /** Further from the closure than the walk expands. Only a seed can be. */
+  beyondSearchBound: boolean;
   included: boolean;
   reasonCode: string;
   reason: string;
@@ -716,6 +736,30 @@ export interface V2Corridor {
   chosenPair: V2CorridorPair | null;
   /** `decision_points` or `all_candidates` — which tier the choice came from. */
   admissibilityLevel: string;
+  /**
+   * `low` when the chosen pair reaches further from the closure than the walk
+   * was allowed to expand. The corridor is real; it is just not the near,
+   * recognisable place the rule aims for.
+   */
+  confidence: string;
+  seedBeyondSearchBound: boolean;
+  /**
+   * The INTACT trip the chosen pair is built on. Without it a pair can have a
+   * good post-closure route while the cheapest intact route between those two
+   * nodes never used the closure — a diversion nobody needs to make.
+   */
+  witness: {
+    arcIds: number[];
+    fromNode: number;
+    toNode: number;
+    continuous: boolean;
+    connectsChosenNodes: boolean;
+    traversesClosure: boolean;
+    closureArcsUsed: number[];
+    valid: boolean;
+    detail: string;
+  } | null;
+  witnessRejections: { pairId: string; detail: string }[];
   explanation: string;
   continuityEvidenceUsed: string[];
   continuityEvidenceExcluded: { evidence: string; reason: string }[];
@@ -742,6 +786,9 @@ export interface V2BoundaryAnalysis {
     exitPortCount: number;
     /** True when the port measure and the endpoint measure coincide. */
     reducesToEndpoints: boolean;
+    selectedComponentId: number;
+    closureComponentCount: number;
+    closureIsDisjoint: boolean;
     detail: string;
   };
   movements: {
@@ -751,6 +798,27 @@ export interface V2BoundaryAnalysis {
     candidatePairs: number;
     candidateBound: number;
     truncated: boolean;
+    /**
+     * True only when every candidate pair was actually evaluated. When false,
+     * no headline may imply the search looked at everything.
+     */
+    exhaustive: boolean;
+    /** Disconnected pieces of the closure. Pairs form WITHIN a piece. */
+    closureComponents: number;
+    componentsConsidered: number;
+    omittedPairCount: number;
+    omittedEntryPorts: number;
+    omittedExitPorts: number;
+    crossComponentPairCount: number;
+    /** Bounded worked examples, never the whole omitted cross-product. */
+    omittedPairSampleLimit: number;
+    omittedPairSample: {
+      entryStableKey: string;
+      exitStableKey: string;
+      entryComponent: number;
+      exitComponent: number;
+      reason: string;
+    }[];
     includedCount: number;
     movements: V2Movement[];
   };

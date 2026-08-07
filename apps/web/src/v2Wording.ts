@@ -76,6 +76,7 @@ const BOUNDARY_HEADLINE_SET: Record<V2BoundaryHeadline, true> = {
   'Through movement has no represented replacement': true,
   'Through movement diverts': true,
   'No through movement identified': true,
+  'Partial analysis': true,
   'Analysis unresolved': true,
 };
 
@@ -83,6 +84,21 @@ const BOUNDARY_HEADLINE_SET: Record<V2BoundaryHeadline, true> = {
 export const V2_BOUNDARY_HEADLINES = Object.keys(
   BOUNDARY_HEADLINE_SET,
 ) as V2BoundaryHeadline[];
+
+/**
+ * Headlines that assert something about the ROAD.
+ *
+ * None may appear when the candidate search was bounded, because each reads as
+ * a statement about EVERY movement the closure interrupts, and an unevaluated
+ * pair could hold the worst detour or the only disconnected movement.
+ * "Partial analysis" and "Analysis unresolved" are deliberately absent: they
+ * are what a bounded or a failed search says instead.
+ */
+export const V2_BOUNDARY_DEFINITIVE_HEADLINES: V2BoundaryHeadline[] = [
+  'Through movement has no represented replacement',
+  'Through movement diverts',
+  'No through movement identified',
+];
 
 /**
  * Why a boundary figure and an endpoint figure may differ without either

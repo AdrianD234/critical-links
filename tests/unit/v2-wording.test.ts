@@ -26,6 +26,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BOUNDARY_VS_ENDPOINT,
+  V2_BOUNDARY_DEFINITIVE_HEADLINES,
   MUTUAL_REACHABILITY_UNKNOWN,
   V2_BOUNDARY_HEADLINES,
   V2_HEADLINES,
@@ -175,20 +176,38 @@ describe('boundary headlines', () => {
       [
         'Analysis unresolved',
         'No through movement identified',
+        'Partial analysis',
         'Through movement diverts',
         'Through movement has no represented replacement',
       ].sort(),
     );
   });
 
-  it('share only "Analysis unresolved" with the endpoint vocabulary', () => {
+  /*
+   * A bounded search may report what it found; it may not imply it found
+   * everything. The national sample recorded 10 truncated analyses that still
+   * carried a definitive sentence, which is why the two lists are separate.
+   */
+  it('separate the sentences that assert something about the road', () => {
+    for (const h of V2_BOUNDARY_DEFINITIVE_HEADLINES) {
+      expect(V2_BOUNDARY_HEADLINES).toContain(h);
+    }
+    expect(V2_BOUNDARY_DEFINITIVE_HEADLINES).not.toContain('Partial analysis');
+    expect(V2_BOUNDARY_DEFINITIVE_HEADLINES).not.toContain(
+      'Analysis unresolved',
+    );
+  });
+
+  it('share only the two non-findings with the endpoint vocabulary', () => {
     const shared = V2_BOUNDARY_HEADLINES.filter((h) =>
       (V2_HEADLINES as string[]).includes(h),
     );
-    /* Both engines may fail to resolve, and both must say so in the same
-     * words. Everything else is a claim only one of them is entitled to
-     * make. */
-    expect(shared).toEqual(['Analysis unresolved']);
+    /* Both engines may fail to resolve or run out of budget, and both must say
+     * so in the same words. Everything else is a claim only one of them is
+     * entitled to make. */
+    expect([...shared].sort()).toEqual(
+      ['Analysis unresolved', 'Partial analysis'].sort(),
+    );
   });
 
   it('never describe a movement result as a road losing access', () => {
