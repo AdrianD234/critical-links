@@ -87,10 +87,17 @@ quantity anyone asked about.
 | V1 | 263 ms | 302 ms | 482 ms |
 | V2 | **174 ms** | **188 ms** | **292 ms** |
 
-V2 is faster despite computing an exact answer rather than a bounded one,
-because the commonest case is resolved from the precompute without a graph
-walk at all. These figures exclude the Gu build, which is paid once per
-snapshot and profile (Wellington 52 ms, national 1.35 s) and is persisted.
+V2 is faster despite computing an exact partition rather than a bounded walk,
+because the commonest case - one link that is not a bridge - is answered from
+the precompute with no traversal at all. A bridge closure does walk, but only
+the separated side; the principal side is derived by subtraction from the
+precomputed component aggregates and is never visited. These figures exclude
+the Gu build, which is paid once per snapshot and profile (Wellington 52 ms,
+national 1.35 s) and is persisted.
+
+Note that "exact" here means the partition of the represented graph, not a
+claim that the graph models the real network. Those are reported separately as
+`calculationExact` and `graphExact`; the second is always false.
 
 ## What this does not show
 

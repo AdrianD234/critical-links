@@ -243,12 +243,26 @@ pull request, because re-running enrichment is out of scope here.
 1. **Closure scope must default to the selected segment.** The headline number,
    the status and the stranded set were all wrong for the question asked, purely
    because of scope. (Phase 2)
-2. **Isolation must be exact and undirected.** V1 asserts `exact: true` on a
-   directed bounded walk and picks the smaller side by `min()`. Here that
-   happened to land on the right set; it is not guaranteed to, and the concept
-   is wrong regardless. (Phase 3)
+2. **Isolation must be undirected, and "exact" must say what it is exact
+   about.** V1 asserts `exact: true` on a directed bounded walk and picks the
+   smaller side by `min()`. Here that happened to land on the right set; it is
+   not guaranteed to, and the concept is wrong regardless.
+
+   V2 splits the claim in two, because one boolean cannot carry both. The
+   partition of the represented graph is computed exactly
+   (`calculationExact`). Whether that graph models the real road network is a
+   different question and the answer is no (`graphExact: false`): junctions are
+   inferred, there is no z-level field, and the national snapshot records
+   50,000 near-miss endpoints that are close together and deliberately not
+   joined. **Three of those lie within 25 m of this very closure**, so V2
+   returns `topologyConfidence: low` for it - the strongest available statement
+   that the connectivity result here may be an artefact of the ingest tolerance
+   rather than a fact about the road. (Phase 3)
 3. **"Road cut off" must be gated on a real bridge test.** Link 375057 is not a
-   bridge. No single-segment closure of it can cut anything off. (Phase 3)
+   bridge. No single-segment closure of it can cut anything off. And which side
+   of a genuine cut is "off" is a policy, not a theorem: V2 reports the rule it
+   used and refuses to name a stranded side when no side carries a decisive
+   anchor. (Phase 3)
 4. **The map must never render a bare "No name"** for a road that the database
    can describe as State Highway 1, or failing that as a state-highway section
-   near Tokoroa managed by NZTA. (Phase 4)
+   between Kinleith and Tokoroa managed by NZTA. (Phase 4)
