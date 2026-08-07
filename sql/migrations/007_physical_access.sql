@@ -123,8 +123,14 @@ CREATE TABLE IF NOT EXISTS physical_access_components (
 
 -- ------------------------------------------------------------ V2 results
 -- Keyed by the deterministic closure fingerprint, not by link id: two requests
--- that remove the same arcs under the same profile and metric ARE the same
--- computation, however they were addressed.
+-- that remove the same arcs under the same profile ARE the same closure,
+-- however they were addressed.
+--
+-- The fingerprint identifies the CLOSURE. Metric and requested direction change
+-- the computation without changing what is closed, so they are part of the
+-- primary key rather than folded into the hash - which keeps the fingerprint
+-- meaningful as an identity for the closure itself, and keeps a distance
+-- request from evicting the time request for the same closed road.
 CREATE TABLE IF NOT EXISTS closure_analysis_v2 (
     snapshot_id         text NOT NULL REFERENCES network_snapshots ON DELETE CASCADE,
     closure_fingerprint text NOT NULL,
@@ -140,7 +146,8 @@ CREATE TABLE IF NOT EXISTS closure_analysis_v2 (
     result              jsonb NOT NULL,
     runtime_ms          integer,
     computed_at_utc     timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (snapshot_id, closure_fingerprint, algorithm_version)
+    PRIMARY KEY (snapshot_id, closure_fingerprint, algorithm_version,
+                 metric, direction)
 );
 
 CREATE INDEX IF NOT EXISTS closure_analysis_v2_link_idx
