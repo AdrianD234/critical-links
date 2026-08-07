@@ -45,6 +45,21 @@ gives, because on a simple two-way segment the ports sit on the segment's own
 endpoints. That is the compatibility property, and it holds by construction
 rather than by coincidence.
 
+THE ONE PLACE THE TEST IS AMBIGUOUS
+-----------------------------------
+"The cheapest intact route traverses the closure" is decided on a path, and
+where two routes cost EXACTLY the same - one through the closure, one round it
+- which route comes back is the router's choice among equals. So a pair sitting
+on such a tie could be included or excluded depending on nothing that matters.
+
+It is left ambiguous here rather than papered over, because the ambiguity is
+harmless and detecting it properly costs a second search. A pair in that
+position has an equal-cost alternative by definition, so its network penalty is
+exactly zero: closing the road costs that trip nothing either way.
+`replacement.py` detects the case where both costs are known and flags it
+CLOSURE_NOT_NECESSARY_EQUAL_COST_ALTERNATIVE. The independent oracle asserts
+only the strict case, for the same reason.
+
 WHAT IS RETURNED
 ----------------
 Every considered pair, included or not, with the reason. An excluded pair is
@@ -344,6 +359,22 @@ def _evaluate(snap: str, b: ClosureBoundary, e: Port, x: Port,
         m.reason = ("entry and exit are the two directions of the same boundary "
                     "link at the same node: a U-turn at the cordon, not a trip "
                     "through the closure")
+        return m
+
+    # --- the crossing that is not a crossing -----------------------------
+    # Both ports meet the closure at the SAME node: a turning movement from one
+    # boundary road onto another, passing the closure rather than through it.
+    # Its crossing has zero length and uses no closed arc.
+    #
+    # Handled here explicitly because pgRouting returns NO ROW for a
+    # source-equals-target pair, so falling through to the lookup below
+    # reported it as NO_INTACT_ROUTE - "these two places cannot be reached from
+    # one another" - about a pair that is the same place. Found by the
+    # independent oracle, which computes a distance of zero and said so.
+    if e.closure_node == x.closure_node:
+        m.reason_code = "DOES_NOT_TRAVERSE_CLOSURE"
+        m.reason = ("both ports meet the closure at the same node, so this is a "
+                    "turn past the closure rather than a trip through it")
         return m
 
     key = (e.closure_node, x.closure_node)

@@ -325,10 +325,23 @@ def _one(snap: str, m: Movement, routed, removed: frozenset[int],
     if time_s is None:
         p.quality_flags.append("TIME_UNAVAILABLE")
     if p.network_penalty_m is not None and p.network_penalty_m < 0:
-        # Legitimate: the intact movement is forced through the closure by
-        # construction, and once the closure is gone a cheaper way round can
-        # exist. Flagged because it reads as a negative detour.
+        # Should not arise now that both legs are measured between the same two
+        # nodes: the intact leg is the cheapest crossing and the replacement is
+        # the cheapest crossing from a strictly smaller edge set, so it cannot
+        # be cheaper. Flagged rather than assumed away.
         p.quality_flags.append("REPLACEMENT_SHORTER_THAN_INTACT")
+    elif p.network_penalty_m is not None and p.network_penalty_m == 0:
+        # An equal-cost route exists that does not use the closure, so the
+        # closure was not NECESSARY for this crossing - the cheapest intact
+        # path merely happened to use it.
+        #
+        # This is where the movement test has a genuine tie ambiguity: whether
+        # `movements.identify` includes such a pair depends on which of several
+        # equal-cost paths the router returned. Rather than pretend otherwise,
+        # the tie is detected here, where both costs are known, and said out
+        # loud. The penalty is zero either way, so nothing a reader acts on
+        # turns on it.
+        p.quality_flags.append("CLOSURE_NOT_NECESSARY_EQUAL_COST_ALTERNATIVE")
     if m.confidence != "high":
         p.quality_flags.append(f"MOVEMENT_CONFIDENCE_{m.confidence.upper()}")
 
