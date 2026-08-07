@@ -82,7 +82,28 @@ class Port:
     #: this port's closure-side node. Zero when the port sits on the selected
     #: segment itself. Used by the corridor rule to prefer near ports, so that
     #: "the detour starts here" means somewhere a driver would recognise.
-    distance_from_selected_m: float
+    #:
+    #: NONE when this port sits on a piece of the closure the selected segment
+    #: cannot reach ALONG THE CLOSURE - a disjoint source feature. There is no
+    #: along-closure distance to report, and reporting zero says the opposite
+    #: of the truth.
+    #:
+    #: This was `offsets.get(inside, 0.0)`. The Dijkstra that builds `offsets`
+    #: is seeded only from the selected segment's own two nodes, so every node
+    #: in another closure component fell through that default. A source feature
+    #: with two pieces 50 km apart reported all four of the far piece's ports
+    #: as 0.0 m from the selection - and they sorted FIRST, ahead of the ports
+    #: on the segment the user actually clicked, taking the candidate allowance
+    #: and changing which movements were evaluated.
+    distance_from_selected_m: float | None
+    #: Which connected piece of the CLOSURE this port is on. Components are
+    #: numbered by their smallest stable node key, so the numbering survives a
+    #: re-ingest. 0 is not special; `in_selected_component` is the flag that
+    #: matters.
+    closure_component_id: int = 0
+    #: True when this port is on the same piece of the closure as the selected
+    #: segment. Only these have a finite `distance_from_selected_m`.
+    in_selected_component: bool = True
     #: Continuity evidence, carried rather than collapsed to a score, so the
     #: interface can say WHY a port was preferred.
     road_name: str | None = None
@@ -161,7 +182,17 @@ class ClosureBoundary:
     #: perfectly. Counting ports instead of locating them would have declared
     #: the simplest case in the network irreducible.
     reduces_to_endpoints: bool = False
+    #: Which piece of the closure the selected segment is on, and how many
+    #: pieces there are. More than one means a disjoint closure: the pieces
+    #: have no along-closure distance between them, and movements are
+    #: identified within each piece separately rather than across all of them.
+    selected_component_id: int = 0
+    closure_component_count: int = 1
     detail: str = ""
+
+    @property
+    def is_disjoint(self) -> bool:
+        return self.closure_component_count > 1
 
     @property
     def ports(self) -> list[Port]:
@@ -225,8 +256,8 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
         (snapshot_id, removed, closure_nodes, closure_nodes,
          closure_nodes, closure_nodes))
 
-    offsets = _distance_from_selected(snapshot_id, removed, selected_link_id,
-                                      closure_nodes)
+    offsets, component_of, selected_component = _closure_shape(
+        snapshot_id, removed, selected_link_id, closure_nodes)
 
     # Publisher-assigned keys for every arc and node the ports will touch, in
     # two batched lookups rather than one per port.
@@ -259,7 +290,12 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
             kind=kind, outside_node=outside, closure_node=inside,
             arc_id=int(r["arc_id"]), link_id=int(r["link_id"]),
             direction=r["direction"],
-            distance_from_selected_m=offsets.get(inside, 0.0),
+            # `.get(inside)` with NO default: a node on another piece of the
+            # closure has no along-closure distance, and None says so.
+            distance_from_selected_m=offsets.get(inside),
+            closure_component_id=component_of.get(inside, -1),
+            in_selected_component=(component_of.get(inside, -1)
+                                   == selected_component),
             road_name=r.get("road_name"),
             route_designation=r.get("route_designation"),
             is_state_highway=(r.get("rca_code") == 1),
@@ -272,17 +308,18 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
         )
         (entries if inbound else exits).append(p)
 
-    # Sorted by (distance, stable key). Distance is what the corridor rule
-    # cares about; the stable key breaks the tie on the AMDS feature id and the
-    # node positions.
+    # Ordered: the selected segment's own piece of the closure first, nearest
+    # first within it, then the other pieces by component id. The stable key
+    # breaks every remaining tie on the AMDS feature id and the node positions.
     #
-    # This used to tie-break on `port_id`, which is a hash of `arc_id`. That is
-    # reproducible on one database and reassigned by the next ingest, so a
-    # truncation or a corridor choice decided by it could flip without any road
-    # changing. Ordering here decides which ports survive the candidate bound,
-    # so it has to be stable against re-ingest, not merely against re-querying.
-    entries.sort(key=lambda p: (p.distance_from_selected_m, p.stable_key))
-    exits.sort(key=lambda p: (p.distance_from_selected_m, p.stable_key))
+    # Two things this ordering has to survive. It used to tie-break on
+    # `port_id`, a hash of `arc_id`, which the next ingest reassigns. And it
+    # used to sort ports from a disjoint piece of the closure to the FRONT,
+    # because their missing distance defaulted to 0.0. Ordering here decides
+    # which ports survive the candidate bound, so it must be stable against
+    # re-ingest and must never rank a 50 km-away piece as adjacent.
+    entries.sort(key=_port_order)
+    exits.sort(key=_port_order)
 
     boundary_nodes = sorted(touched)
     interior = [n for n in closure_nodes if n not in touched]
@@ -301,44 +338,104 @@ def derive(snapshot_id: str, removed_link_ids: Sequence[int],
         boundary_nodes=boundary_nodes,
         entry_ports=entries, exit_ports=exits, shape=shape,
         reduces_to_endpoints=reduces,
+        selected_component_id=selected_component,
+        closure_component_count=len(set(component_of.values())),
         detail=(
             f"{len(entries)} entry and {len(exits)} exit port(s) on "
             f"{len(boundary_nodes)} boundary node(s); "
             f"{len(interior)} interior node(s) are unreachable from outside"
+            + (f"; the closure is in {len(set(component_of.values()))} "
+               f"disconnected piece(s) and the selected segment is on one of "
+               f"them, so ports on the others have no along-closure distance"
+               if len(set(component_of.values())) > 1 else "")
         ),
     )
 
 
-def _distance_from_selected(snapshot_id: str, removed_link_ids: list[int],
-                            selected_link_id: int,
-                            closure_nodes: Sequence[int]) -> dict[int, float]:
-    """Metres from the selected segment to each closure node, ALONG the closure.
+def _port_order(p: Port):
+    """Ordering key for ports. Never depends on a value that could be absent.
 
-    A hop count would treat a 2 m stub and a 5 km leg as equally far, which is
-    exactly wrong on the Tokoroa parent where the children range from 1.99 m to
-    5,201 m. This walks the closure subgraph only, so "outward distance" means
-    distance a driver would travel inside the closed stretch, not straight-line
-    proximity.
+    A port with no along-closure distance sorts AFTER every port that has one,
+    rather than sorting as though it were zero.
+    """
+    return (
+        0 if p.in_selected_component else 1,
+        p.closure_component_id,
+        float("inf") if p.distance_from_selected_m is None
+        else p.distance_from_selected_m,
+        p.stable_key,
+    )
+
+
+def _closure_shape(snapshot_id: str, removed_link_ids: list[int],
+                   selected_link_id: int, closure_nodes: Sequence[int]
+                   ) -> tuple[dict[int, float], dict[int, int], int]:
+    """Along-closure distance, closure-component label, and which one is ours.
+
+    Distance is metres, not hops. A hop count would treat a 2 m stub and a 5 km
+    leg as equally far, which is exactly wrong on the Tokoroa parent where the
+    children run 1.99 m to 5,201 m. The walk stays inside the closure subgraph,
+    so "outward distance" means distance a driver would travel inside the
+    closed stretch, not straight-line proximity.
+
+    Distance is returned ONLY for nodes in the selected segment's own piece of
+    the closure. A closure can be disjoint - a source feature split across a
+    gap - and there is no along-closure distance between its pieces. The caller
+    reports `None` for the rest rather than a default, because the default was
+    zero and zero is the most misleading answer available.
+
+    Components are numbered by their smallest STABLE node key, so the numbering
+    is the same after a re-ingest renumbers the graph.
     """
     rows = db.query(
         "SELECT link_id, source_node, target_node, length_m FROM links "
         " WHERE snapshot_id=%s AND link_id = ANY(%s) ORDER BY link_id",
         (snapshot_id, sorted(removed_link_ids)))
     adj: dict[int, list[tuple[int, float]]] = {}
+    for n in closure_nodes:
+        adj.setdefault(int(n), [])
     for r in rows:
         s, t, w = int(r["source_node"]), int(r["target_node"]), float(r["length_m"])
         adj.setdefault(s, []).append((t, w))
         adj.setdefault(t, []).append((s, w))
 
+    # --- connected pieces of the closure --------------------------------
+    raw: dict[int, int] = {}
+    for start in sorted(adj):
+        if start in raw:
+            continue
+        label = start
+        stack = [start]
+        raw[start] = label
+        while stack:
+            u = stack.pop()
+            for v, _w in adj.get(u, ()):
+                if v not in raw:
+                    raw[v] = label
+                    stack.append(v)
+
+    # Renumber by smallest stable node key so the ids survive a re-ingest.
+    node_key = stableid.node_keys(snapshot_id, list(adj))
+    smallest: dict[int, str] = {}
+    for node, label in raw.items():
+        key = node_key.get(node, str(node))
+        if label not in smallest or key < smallest[label]:
+            smallest[label] = key
+    order = sorted(smallest, key=lambda lbl: smallest[lbl])
+    renumber = {lbl: i for i, lbl in enumerate(order)}
+    component_of = {node: renumber[label] for node, label in raw.items()}
+
     sel = db.query_one(
         "SELECT source_node, target_node FROM links "
         " WHERE snapshot_id=%s AND link_id=%s", (snapshot_id, selected_link_id))
     if sel is None:
-        return {}
+        return {}, component_of, -1
+    su, sv = int(sel["source_node"]), int(sel["target_node"])
+    selected_component = component_of.get(su, component_of.get(sv, -1))
 
     import heapq
     dist: dict[int, float] = {}
-    heap = [(0.0, int(sel["source_node"])), (0.0, int(sel["target_node"]))]
+    heap = [(0.0, su), (0.0, sv)]
     while heap:
         d, u = heapq.heappop(heap)
         if u in dist and dist[u] <= d:
@@ -348,7 +445,12 @@ def _distance_from_selected(snapshot_id: str, removed_link_ids: list[int],
             nd = d + w
             if v not in dist or nd < dist[v]:
                 heapq.heappush(heap, (nd, v))
-    return {n: dist.get(n, 0.0) for n in closure_nodes}
+
+    # Only the selected piece gets a distance. Everything else is absent, and
+    # the caller turns absence into None rather than into zero.
+    offsets = {n: dist[n] for n in dist
+               if component_of.get(n) == selected_component}
+    return offsets, component_of, selected_component
 
 
 def as_dict(b: ClosureBoundary) -> dict:
@@ -363,7 +465,13 @@ def as_dict(b: ClosureBoundary) -> dict:
             "arcId": p.arc_id,
             "linkId": p.link_id,
             "direction": p.direction,
-            "distanceFromSelectedM": round(p.distance_from_selected_m, 1),
+            # None, never 0.0, when the port is on another piece of the
+            # closure. The field docstring records what 0.0 cost.
+            "distanceFromSelectedM": (
+                None if p.distance_from_selected_m is None
+                else round(p.distance_from_selected_m, 1)),
+            "closureComponentId": p.closure_component_id,
+            "inSelectedComponent": p.in_selected_component,
             "roadName": p.road_name,
             "routeDesignation": p.route_designation,
             "isStateHighway": p.is_state_highway,
@@ -387,5 +495,8 @@ def as_dict(b: ClosureBoundary) -> dict:
         "entryPortCount": len(b.entry_ports),
         "exitPortCount": len(b.exit_ports),
         "reducesToEndpoints": b.reduces_to_endpoints,
+        "selectedComponentId": b.selected_component_id,
+        "closureComponentCount": b.closure_component_count,
+        "closureIsDisjoint": b.is_disjoint,
         "detail": b.detail,
     }

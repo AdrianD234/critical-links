@@ -140,6 +140,18 @@ TWO_ISLANDS = [
     {"id": "I2B", "pts": [(100, 5000), (200, 5000)], "road_name": "Island Two Road"},
 ]
 
+#: ONE AMDS source feature represented by two pieces 50 km apart, each with its
+#: own side roads. The realistic form of a disjoint closure, and the fixture
+#: that reproduced the 0.0 m defect.
+SPLIT_FEATURE = [
+    {"id": "SPLIT", "pts": [(0, 0), (300, 0)], "road_name": "Split Road"},
+    {"id": "NEAR_W", "pts": [(0, 0), (0, 200)], "road_name": "Near West"},
+    {"id": "NEAR_E", "pts": [(300, 0), (300, 200)], "road_name": "Near East"},
+    {"id": "SPLIT", "pts": [(50000, 0), (50300, 0)], "road_name": "Split Road"},
+    {"id": "FAR_W", "pts": [(50000, 0), (50000, 200)], "road_name": "Far West"},
+    {"id": "FAR_E", "pts": [(50300, 0), (50300, 200)], "road_name": "Far East"},
+]
+
 #: An overbridge. The two roads cross where each is INTERIOR, so AMDS does not
 #: node them and neither does this system - which is what preserves grade
 #: separation. Closing one must not touch the other.
@@ -462,13 +474,74 @@ class TestDisjointClosureAcrossComponents:
                          shape="disjoint")
         ms = movements.identify(b, removed_arcs)
         assert ms.status == "OK"
+        assert b.closure_component_count == 2
+        assert b.is_disjoint is True
+
+        # Pairs are formed WITHIN a piece, so a cross-island pair is never
+        # routed at all. It is counted, and the count is reported.
+        assert ms.closure_components == 2
+        assert ms.cross_component_pair_count > 0
+        for m in ms.movements:
+            e = next(p for p in b.entry_ports if p.port_id == m.entry_port_id)
+            x = next(p for p in b.exit_ports if p.port_id == m.exit_port_id)
+            assert e.closure_component_id == x.closure_component_id
         for m in ms.included:
-            # Any included movement must stay on one island: it used a closed
-            # arc, and no route joins the two.
             assert m.removed_arc_ids_used
-        cross = [m for m in ms.movements
-                 if m.reason_code == "NO_INTACT_ROUTE"]
-        assert cross, "pairs spanning the two islands must be unreachable"
+
+    def test_the_far_piece_has_no_along_closure_distance(self, synthetic):
+        """It is not zero. Zero says it is right beside the selection.
+
+        The Dijkstra that measures along-closure distance is seeded from the
+        selected segment's own two nodes, so a node on another piece is never
+        reached. It used to fall through to a 0.0 default and sort to the FRONT
+        of the port list - a piece 50 km away taking the candidate allowance
+        from the one the user actually clicked.
+        """
+        net = synthetic(TWO_ISLANDS)
+        lid = net.link_id("I1A")
+        c = closure_mod.resolve(net.snapshot_id, lid)
+        removed_links = sorted([net.link_id("I1A"), net.link_id("I2A")])
+        b = ports.derive(net.snapshot_id, removed_links, lid, c.fingerprint,
+                         shape="disjoint")
+
+        near = [p for p in b.ports if p.in_selected_component]
+        far = [p for p in b.ports if not p.in_selected_component]
+        assert near and far
+        assert all(p.distance_from_selected_m is not None for p in near)
+        assert all(p.distance_from_selected_m is None for p in far)
+        # And the selected piece's ports come first, so truncation keeps them.
+        assert b.entry_ports[0].in_selected_component is True
+        assert b.exit_ports[0].in_selected_component is True
+
+    def test_a_split_source_feature_keeps_the_clicked_piece_first(
+            self, synthetic):
+        """The realistic shape: ONE source feature, two pieces 50 km apart.
+
+        Reproduced before the fix: all four ports on the far piece reported
+        0.0 m and sorted ahead of every port on the piece that was clicked.
+        """
+        net = synthetic(SPLIT_FEATURE)
+        near = db.query_one(
+            "SELECT link_id FROM links WHERE snapshot_id=%s "
+            "  AND closure_group_id='SPLIT' AND ST_X(ST_StartPoint(geom_2193)) < 1000",
+            (net.snapshot_id,))
+        lid = int(near["link_id"])
+        c = closure_mod.resolve(net.snapshot_id, lid, scope="source_feature")
+        assert c.removed_link_count == 2
+        b = ports.derive(net.snapshot_id, c.removed_link_ids, lid,
+                         c.fingerprint, shape=c.shape)
+
+        assert b.closure_component_count == 2
+        far = [p for p in b.ports if not p.in_selected_component]
+        assert len(far) == 4
+        assert {p.distance_from_selected_m for p in far} == {None}
+        # Two ports of each kind on each piece, and within EACH list the
+        # clicked piece comes first. (`b.ports` concatenates the two lists, so
+        # a slice of it spans both kinds and proves nothing about ordering.)
+        for side in (b.entry_ports, b.exit_ports):
+            assert [p.in_selected_component for p in side] == \
+                [True, True, False, False]
+        assert "disconnected piece" in b.detail
 
 
 class TestDeadEndSpur:
@@ -931,11 +1004,42 @@ class TestBoundedCandidates:
         ms = movements.identify(b, [0], max_ports_per_side=1)
         assert ms.candidate_pairs == 1
         assert ms.truncated is True
-        assert ms.candidate_bound == 1
-        dropped = [m for m in ms.movements
-                   if m.reason_code == "NOT_EVALUATED_TRUNCATED"]
-        assert dropped, "pairs the bound refused must still appear, with a reason"
-        assert all(m.included is False for m in dropped)
+        assert ms.exhaustive is False
+
+    def test_omitted_pairs_are_counted_exactly_and_sampled_boundedly(
+            self, synthetic):
+        """Counts are exact; the LIST is a worked example, not a manifest.
+
+        Returning a row per omitted pair made the audit payload the whole
+        dropped cross-product - a bounded computation with an unbounded report,
+        which is still unbounded.
+        """
+        net = synthetic(TEE)
+        _, b, _, _ = stages(net, "STEM")
+        ms = movements.identify(b, [0], max_ports_per_side=1)
+
+        # 4 entry x 4 exit = 16 pairs; one evaluated, fifteen not.
+        assert ms.omitted_pair_count == 15
+        assert ms.omitted_entry_ports == 3
+        assert ms.omitted_exit_ports == 3
+        assert 0 < len(ms.omitted_pair_sample) <= movements.OMITTED_SAMPLE_LIMIT
+        assert all("reason" in d for d in ms.omitted_pair_sample)
+
+    def test_the_omitted_sample_is_the_same_on_every_run(self, synthetic):
+        net = synthetic(TEE)
+        _, b, _, _ = stages(net, "STEM")
+        seen = {tuple((d["entryStableKey"], d["exitStableKey"])
+                      for d in movements.identify(
+                          b, [0], max_ports_per_side=1).omitted_pair_sample)
+                for _ in range(4)}
+        assert len(seen) == 1
+
+    def test_an_exhaustive_search_says_so(self, synthetic):
+        net = synthetic(SQUARE)
+        _, _, ms, _ = stages(net, "S")
+        assert ms.truncated is False
+        assert ms.omitted_pair_count == 0
+        assert ms.exhaustive is True
 
     def test_corridor_bounds_are_declared(self, synthetic):
         net = synthetic(FRONTAGE)

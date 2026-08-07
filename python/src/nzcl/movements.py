@@ -101,6 +101,17 @@ MOVEMENT_MODEL_VERSION = "1.0.0"
 MAX_PORTS_PER_SIDE = 20
 MAX_CANDIDATE_PAIRS = MAX_PORTS_PER_SIDE * MAX_PORTS_PER_SIDE
 
+#: Disconnected pieces of one closure that are analysed. A source feature split
+#: across a gap is normally two; more than a handful means the scope is doing
+#: something nobody asked for, and the bound is reported either way.
+MAX_CLOSURE_COMPONENTS = 8
+
+#: Omitted pairs listed individually. Counts are exact and unbounded-safe; the
+#: list is a worked example, not a manifest. Returning every omitted pair made
+#: the audit payload the full dropped cross-product - a bounded computation
+#: with an unbounded report.
+OMITTED_SAMPLE_LIMIT = 100
+
 Confidence = Literal["high", "medium", "low"]
 
 #: Why a candidate pair was included or excluded. One code per outcome, chosen
@@ -200,6 +211,30 @@ class MovementSet:
     truncated: bool = False
     candidate_bound: int = MAX_CANDIDATE_PAIRS
 
+    #: Disconnected pieces of the closure, and how many were analysed. Pairs
+    #: are formed WITHIN a piece: a trip through the closure crosses one
+    #: contiguous closed stretch.
+    closure_components: int = 1
+    components_considered: int = 1
+    #: Exact counts for everything not evaluated. Counts, not rows - see
+    #: `_omitted_sample`.
+    omitted_pair_count: int = 0
+    omitted_entry_ports: int = 0
+    omitted_exit_ports: int = 0
+    cross_component_pair_count: int = 0
+    #: At most OMITTED_SAMPLE_LIMIT worked examples, deterministically chosen.
+    omitted_pair_sample: list[dict] = field(default_factory=list)
+
+    @property
+    def exhaustive(self) -> bool:
+        """True only when every candidate pair was actually evaluated.
+
+        Anything else means a pair nobody looked at could hold the worst
+        detour, the only disconnected movement, or the movement the reader
+        cares about - so no headline derived from this may imply completeness.
+        """
+        return not self.truncated and self.omitted_pair_count == 0
+
     runtime_ms: int = 0
     route_runtime_ms: int = 0
     model_version: str = MOVEMENT_MODEL_VERSION
@@ -258,26 +293,68 @@ def identify(
         candidate_bound=max_ports_per_side * max_ports_per_side,
     )
 
-    entries = list(boundary.entry_ports)[:max_ports_per_side]
-    exits = list(boundary.exit_ports)[:max_ports_per_side]
+    # --- one group per PIECE of the closure -------------------------------
+    # A trip through the closure crosses ONE contiguous closed stretch. Pairing
+    # an entry on one disjoint piece with an exit on another describes a trip
+    # that leaves the closure and meets it again somewhere else, which is two
+    # interruptions and not one movement.
+    #
+    # Pairing across pieces was also how a 50 km-distant piece could take the
+    # candidate allowance from the segment the user clicked - see the
+    # `distance_from_selected_m` docstring in `ports.py`.
+    groups: list[tuple[int, list[Port], list[Port]]] = []
+    component_ids = sorted({p.closure_component_id
+                            for p in boundary.entry_ports + boundary.exit_ports})
+    out.closure_components = len(component_ids)
+    kept_entries: list[Port] = []
+    kept_exits: list[Port] = []
+    omitted_entries = omitted_exits = 0
+
+    for comp in component_ids[:MAX_CLOSURE_COMPONENTS]:
+        all_e = [p for p in boundary.entry_ports if p.closure_component_id == comp]
+        all_x = [p for p in boundary.exit_ports if p.closure_component_id == comp]
+        e_c, x_c = all_e[:max_ports_per_side], all_x[:max_ports_per_side]
+        omitted_entries += len(all_e) - len(e_c)
+        omitted_exits += len(all_x) - len(x_c)
+        if e_c and x_c:
+            groups.append((comp, e_c, x_c))
+        kept_entries += e_c
+        kept_exits += x_c
+
+    for comp in component_ids[MAX_CLOSURE_COMPONENTS:]:
+        omitted_entries += sum(1 for p in boundary.entry_ports
+                               if p.closure_component_id == comp)
+        omitted_exits += sum(1 for p in boundary.exit_ports
+                             if p.closure_component_id == comp)
+
+    entries, exits = kept_entries, kept_exits
     out.entry_ports_considered = len(entries)
     out.exit_ports_considered = len(exits)
-    out.truncated = (len(entries) < len(boundary.entry_ports)
-                     or len(exits) < len(boundary.exit_ports))
+    out.components_considered = len(component_ids[:MAX_CLOSURE_COMPONENTS])
+    out.omitted_entry_ports = omitted_entries
+    out.omitted_exit_ports = omitted_exits
 
-    # Ports dropped by the bound are still REPORTED, as explicitly
-    # not-evaluated pairs. A candidate that vanished without a row is
-    # indistinguishable from one the engine decided against, and the difference
-    # is the whole audit trail.
-    dropped_entries = list(boundary.entry_ports)[max_ports_per_side:]
-    dropped_exits = list(boundary.exit_ports)[max_ports_per_side:]
+    # Every pair that is NOT evaluated, counted rather than enumerated. The
+    # routing is bounded at max_ports_per_side squared per piece; the AUDIT
+    # PAYLOAD was not, because the old `_truncation_rows` built the whole
+    # dropped cross-product as JSON. A bounded computation with an unbounded
+    # report is still unbounded.
+    evaluated = sum(len(e) * len(x) for _c, e, x in groups)
+    all_pairs = len(boundary.entry_ports) * len(boundary.exit_ports)
+    out.omitted_pair_count = max(0, all_pairs - evaluated)
+    out.cross_component_pair_count = sum(
+        len([p for p in boundary.entry_ports if p.closure_component_id == a])
+        * len([p for p in boundary.exit_ports if p.closure_component_id == b])
+        for a in component_ids for b in component_ids if a != b)
+    out.truncated = (omitted_entries > 0 or omitted_exits > 0
+                     or len(component_ids) > MAX_CLOSURE_COMPONENTS)
+    out.omitted_pair_sample = _omitted_sample(snap, boundary, groups)
 
-    if not entries or not exits:
+    if not groups:
         out.detail = (
             f"{len(boundary.entry_ports)} entry and {len(boundary.exit_ports)} "
-            "exit port(s): a through movement needs at least one of each")
-        out.movements = _truncation_rows(
-            snap, boundary, dropped_entries, dropped_exits, entries, exits)
+            "exit port(s): a through movement needs at least one of each on the "
+            "same piece of the closure")
         out.candidate_pairs = 0
         out.runtime_ms = int((time.perf_counter() - t0) * 1000)
         return out
@@ -285,9 +362,9 @@ def identify(
     if not removed:
         out.detail = ("the closure removes no arcs, so no trip can traverse it")
         out.movements = _all_excluded(
-            snap, boundary, entries, exits, "DOES_NOT_TRAVERSE_CLOSURE",
+            snap, boundary, groups, "DOES_NOT_TRAVERSE_CLOSURE",
             "the closure removes no arcs")
-        out.candidate_pairs = len(entries) * len(exits)
+        out.candidate_pairs = len(out.movements)
         out.runtime_ms = int((time.perf_counter() - t0) * 1000)
         return out
 
@@ -308,22 +385,19 @@ def identify(
         out.status = routed.status
         out.detail = routed.detail or "the intact multi-target search did not resolve"
         out.movements = _all_excluded(
-            snap, boundary, entries, exits, "SEARCH_UNRESOLVED",
-            out.detail) + _truncation_rows(
-                snap, boundary, dropped_entries, dropped_exits, entries, exits)
-        out.candidate_pairs = len(entries) * len(exits)
+            snap, boundary, groups, "SEARCH_UNRESOLVED", out.detail)
+        out.candidate_pairs = len(out.movements)
         out.runtime_ms = int((time.perf_counter() - t0) * 1000)
         return out
 
     arc_meta = _arc_costs(snap, _arcs_to_describe(routed.paths, entries, exits))
 
     movements: list[Movement] = []
-    for e in entries:
-        for x in exits:
-            movements.append(_evaluate(snap, boundary, e, x, routed, removed,
-                                       arc_meta, metric))
-    movements += _truncation_rows(
-        snap, boundary, dropped_entries, dropped_exits, entries, exits)
+    for _comp, e_c, x_c in groups:
+        for e in e_c:
+            for x in x_c:
+                movements.append(_evaluate(snap, boundary, e, x, routed, removed,
+                                           arc_meta, metric))
 
     # Sorted on intrinsic keys only. Not on cost - two movements can cost the
     # same, and a cost-first order would then depend on which the planner
@@ -331,7 +405,7 @@ def identify(
     movements.sort(key=lambda m: m.key)
 
     out.movements = movements
-    out.candidate_pairs = len(entries) * len(exits)
+    out.candidate_pairs = len(movements)
     kept = sum(1 for m in movements if m.included)
 
     # A closure whose every crossing is at ONE node is a stub - a cul-de-sac,
@@ -472,46 +546,64 @@ def _blank(snap: str, b: ClosureBoundary, e: Port, x: Port) -> Movement:
         included=False, reason_code="", reason="", confidence="high")
 
 
-def _all_excluded(snap: str, b: ClosureBoundary, entries, exits, code: str,
+def _all_excluded(snap: str, b: ClosureBoundary, groups, code: str,
                   reason: str) -> list[Movement]:
     out = []
-    for e in entries:
-        for x in exits:
-            m = _blank(snap, b, e, x)
-            m.reason_code = code
-            m.reason = reason
-            m.confidence = "low" if code == "SEARCH_UNRESOLVED" else "high"
-            out.append(m)
+    for _comp, entries, exits in groups:
+        for e in entries:
+            for x in exits:
+                m = _blank(snap, b, e, x)
+                m.reason_code = code
+                m.reason = reason
+                m.confidence = "low" if code == "SEARCH_UNRESOLVED" else "high"
+                out.append(m)
     out.sort(key=lambda m: m.key)
     return out
 
 
-def _truncation_rows(snap: str, b: ClosureBoundary, dropped_entries,
-                     dropped_exits, entries, exits) -> list[Movement]:
-    """Rows for the pairs the bound refused to evaluate.
+def _omitted_sample(snap: str, b: ClosureBoundary, groups
+                    ) -> list[dict]:
+    """A BOUNDED, deterministic sample of the pairs that were not evaluated.
 
-    Reported, not omitted. `candidateCount grows without a defensible bound` is
-    a stop condition; so is a candidate quietly disappearing. Both are avoided
-    by making the bound visible in the output it truncated.
+    The previous version returned a row for every omitted pair, which on a
+    dense urban closure is the whole dropped cross-product - a bounded
+    computation with an unbounded report, which is still unbounded. Counts live
+    on the result; this is the worked example a reader can spot-check, capped
+    at `OMITTED_SAMPLE_LIMIT` and taken in stable-key order so it is the same
+    sample on every run.
     """
-    rows: list[Movement] = []
-    reason = (f"beyond the candidate bound of {MAX_PORTS_PER_SIDE} port(s) per "
-              "side; this pair was not evaluated and no claim is made about it")
-    seen: set[tuple[str, str]] = set()
-    for e in list(dropped_entries) + list(entries):
-        for x in list(dropped_exits) + list(exits):
-            if e in entries and x in exits:
+    evaluated = {(e.port_id, x.port_id)
+                 for _c, es, xs in groups for e in es for x in xs}
+    considered_entries = {p.port_id for _c, es, _x in groups for p in es}
+    considered_exits = {p.port_id for _c, _e, xs in groups for p in xs}
+
+    out: list[dict] = []
+    for e in b.entry_ports:
+        for x in b.exit_ports:
+            if (e.port_id, x.port_id) in evaluated:
                 continue
-            if (e.port_id, x.port_id) in seen:
-                continue
-            seen.add((e.port_id, x.port_id))
-            m = _blank(snap, b, e, x)
-            m.reason_code = "NOT_EVALUATED_TRUNCATED"
-            m.reason = reason
-            m.confidence = "low"
-            rows.append(m)
-    rows.sort(key=lambda m: m.key)
-    return rows
+            if e.closure_component_id != x.closure_component_id:
+                why = ("the two ports are on different disconnected pieces of "
+                       "the closure, so no single crossing joins them")
+            elif (e.port_id not in considered_entries
+                  or x.port_id not in considered_exits):
+                why = (f"beyond the bound of {MAX_PORTS_PER_SIDE} port(s) per "
+                       "side per piece of the closure")
+            else:
+                why = "not evaluated"
+            out.append({
+                "entryStableKey": e.stable_key,
+                "exitStableKey": x.stable_key,
+                "entryComponent": e.closure_component_id,
+                "exitComponent": x.closure_component_id,
+                "reason": why,
+            })
+            if len(out) >= OMITTED_SAMPLE_LIMIT * 4:
+                break
+        if len(out) >= OMITTED_SAMPLE_LIMIT * 4:
+            break
+    out.sort(key=lambda d: (d["entryStableKey"], d["exitStableKey"]))
+    return out[:OMITTED_SAMPLE_LIMIT]
 
 
 def _arcs_to_describe(paths, entries, exits) -> list[int]:
@@ -602,6 +694,15 @@ def as_dict(s: MovementSet) -> dict:
         "candidatePairs": s.candidate_pairs,
         "candidateBound": s.candidate_bound,
         "truncated": s.truncated,
+        "exhaustive": s.exhaustive,
+        "closureComponents": s.closure_components,
+        "componentsConsidered": s.components_considered,
+        "omittedPairCount": s.omitted_pair_count,
+        "omittedEntryPorts": s.omitted_entry_ports,
+        "omittedExitPorts": s.omitted_exit_ports,
+        "crossComponentPairCount": s.cross_component_pair_count,
+        "omittedPairSampleLimit": OMITTED_SAMPLE_LIMIT,
+        "omittedPairSample": s.omitted_pair_sample,
         "includedCount": len(s.included),
         "movements": [movement_dict(m) for m in s.movements],
         "runtimeMs": s.runtime_ms,
