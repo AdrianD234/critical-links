@@ -215,6 +215,29 @@ The seven that pass under *both* are the point of the other half: the
 genuinely-no-route cases still report `DISCONNECTED`, so this is not a
 relabelling of every negative result.
 
+### The headline ordering, guarded
+
+`tests/unit/unresolved-headline.test.ts` is a source-level check, in the same
+spirit as `tests/unit/product-copy.test.ts`. It cannot prove the component
+renders — Playwright and the screenshots above do that — but it does prove that
+the branch which must come first still does. Reordering the hero while tidying
+it compiles, reads as housekeeping in a diff, and silently restores the false
+claim for every closure whose corridor search does not finish.
+
+Mutation-verified the same way:
+[`mutation/reorder-hero.mjs`](mutation/reorder-hero.mjs) moves the unresolved
+branch below "Road cut off".
+
+| | vitest exit | result |
+|---|---|---|
+| [branches reordered](mutation/ui-with-branches-reordered.txt) | `1` | 1 failed, 3 passed |
+| [with the fix](mutation/ui-with-the-fix.txt) | `0` | 4 passed |
+
+```
+AssertionError: "Road cut off" would be reached for a corridor search that
+never finished: expected 12840 to be less than 12452
+```
+
 ## Byte-identity
 
 Every ordinary response is unchanged, and shown to be rather than asserted. See
@@ -236,7 +259,7 @@ node   docs/audits/v1-timeout/capture-ui.mjs before-fix
 | gate | command | exit | result |
 |---|---|---|---|
 | Types | `npm run typecheck` | `0` | — |
-| Unit | `npx vitest run` | `0` | 150 passed, 16 skipped (the integration suite, which needs a running API) |
+| Unit | `npx vitest run` | `0` | 154 passed, 16 skipped (the integration suite, which needs a running API) |
 | Build | `npm run build` | `0` | `dist/index.html`, `dist/assets`, 15 bundled `.woff2` |
 | Python, PostGIS-backed | [`run-python-suite.sh`](run-python-suite.sh) with `NZCL_REQUIRE_NO_SKIPS=1` | `0` | **329 passed, 0 skipped** |
 | Executed-contracts gate | CI's own script against that run | `0` | [`python-suite-gate.txt`](python-suite-gate.txt) — `test_corridor_timeout` contributed 11 executed tests |
