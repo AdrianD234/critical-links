@@ -1036,17 +1036,42 @@ class TestTruncationWithholdsADefinitiveHeadline:
         assert "MOVEMENT_CANDIDATES_TRUNCATED" in flags
         assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in flags
 
-    def test_a_truncated_corridor_also_downgrades(self, synthetic):
+    def test_an_evaluation_truncated_corridor_also_downgrades(self, synthetic):
         net = synthetic(FRONTAGE)
         c, b, ms, rs = stages(net, "M3")
 
-        class _Truncated:
+        class _EvalTruncated:
             truncated = True
+            evaluation_truncated = True
             confidence = "high"
 
-        headline, flags = impactv2._classify(ms, rs, rs.paths[0], _Truncated())
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0],
+                                             _EvalTruncated())
         assert headline == "Partial analysis"
         assert "CORRIDOR_CANDIDATES_TRUNCATED" in flags
+
+    def test_a_merely_bounded_corridor_does_not_downgrade(self, synthetic):
+        """Beam pruning is the search working, not the search failing.
+
+        Gating the headline on the corridor's `truncated` flag made 382 of 500
+        sampled national links read "Partial analysis", almost all from routine
+        beam pruning. A warning firing on 77% of the network teaches people to
+        ignore it - the geometry-gap lesson again. Only candidates GENERATED
+        and never evaluated withhold the headline, because only such a
+        candidate could have been the better answer nobody looked at.
+        """
+        net = synthetic(FRONTAGE)
+        c, b, ms, rs = stages(net, "M3")
+
+        class _MerelyBounded:
+            truncated = True              # the beam pruned somewhere
+            evaluation_truncated = False  # but everything found was evaluated
+            confidence = "high"
+
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0],
+                                             _MerelyBounded())
+        assert headline in impactv2.DEFINITIVE_HEADLINES
+        assert "CORRIDOR_CANDIDATES_TRUNCATED" not in flags
 
     def test_the_resolved_sub_results_stay_visible(self, synthetic):
         """Downgrading the headline must not hide what WAS established.
