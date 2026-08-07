@@ -335,6 +335,105 @@ def route_many(
     return {(int(r["start_vid"]), int(r["end_vid"])): float(r["cost"]) for r in rows}
 
 
+@dataclass
+class ManyRouteResult:
+    """Every requested pair's path, from ONE edge-set load.
+
+    `status` is about the SEARCH, not about any pair. `paths` holds only the
+    pairs that were reached; a pair absent from `paths` means "no path" if and
+    only if `status == "OK"`.
+
+    That distinction is the whole reason this type exists rather than a bare
+    dict. `route_many` above returns `{}` on any exception, so a caller cannot
+    tell a statement timeout from a graph with no route - and a caller that
+    reads an absent pair as "no route" turns a timeout into DISCONNECTED. V1's
+    corridor search does exactly that (`detour._corridor` falls through to
+    `Corridor("DISCONNECTED", ...)` when `route_many` swallows a timeout). V1
+    is frozen, so that behaviour is left alone and recorded; nothing in V2 is
+    allowed to inherit it.
+    """
+
+    status: Status
+    paths: dict[tuple[int, int], list[int]] = field(default_factory=dict)
+    costs: dict[tuple[int, int], float] = field(default_factory=dict)
+    runtime_ms: int = 0
+    detail: str | None = None
+
+    @property
+    def resolved(self) -> bool:
+        """True when an absent pair may be read as 'no route'."""
+        return self.status == "OK"
+
+
+def route_many_paths(
+    snapshot_id: str,
+    sources: Sequence[int],
+    targets: Sequence[int],
+    *,
+    metric: Metric = "distance",
+    profile: Profile = "car",
+    excluded_arcs: Sequence[int] = (),
+    statement_timeout_ms: int = 20_000,
+) -> ManyRouteResult:
+    """Full arc paths for every (source, target) pair, in ONE pgRouting call.
+
+    `route_many` returns costs only, which is enough to rank candidates but not
+    enough to ask what a route TRAVERSED - and "does this route use a removed
+    arc" is the question the movement model is built on. So this keeps the
+    edges as well as the aggregate.
+
+    Ordering is `start_vid, end_vid, seq`, so the arc sequence of each pair is
+    the path order and not the order the planner happened to emit rows in.
+    """
+    started = time.perf_counter()
+
+    def elapsed() -> int:
+        return int((time.perf_counter() - started) * 1000)
+
+    if not sources or not targets:
+        return ManyRouteResult("OK", runtime_ms=elapsed(),
+                               detail="no source or no target was requested")
+
+    sql = _edge_sql(snapshot_id, profile, metric, excluded_arcs)
+    try:
+        with db.connection() as conn:
+            with conn.transaction():
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        (str(statement_timeout_ms),),
+                    )
+                    cur.execute(
+                        "SELECT start_vid, end_vid, edge, agg_cost "
+                        "FROM pgr_dijkstra(%s, %s::bigint[], %s::bigint[], "
+                        "directed => true) ORDER BY start_vid, end_vid, seq",
+                        (sql, sorted(set(int(s) for s in sources)),
+                         sorted(set(int(t) for t in targets))),
+                    )
+                    rows = cur.fetchall()
+    except Exception as exc:  # noqa: BLE001
+        if "statement timeout" in str(exc).lower() or "canceling" in str(exc).lower():
+            return ManyRouteResult(
+                "UNRESOLVED_TIMEOUT", runtime_ms=elapsed(),
+                detail=f"statement timeout after {statement_timeout_ms} ms")
+        return ManyRouteResult("API_ERROR", runtime_ms=elapsed(), detail=str(exc))
+
+    paths: dict[tuple[int, int], list[int]] = {}
+    costs: dict[tuple[int, int], float] = {}
+    for r in rows:
+        key = (int(r["start_vid"]), int(r["end_vid"]))
+        edge = r["edge"]
+        costs[key] = float(r["agg_cost"])
+        if edge is not None and int(edge) != -1:
+            paths.setdefault(key, []).append(int(edge))
+    # A pair whose source IS its target produces a single row with edge = -1.
+    # It has a zero-length path, which is a real answer, so it stays in `costs`
+    # and legitimately has no arcs.
+    for key in costs:
+        paths.setdefault(key, [])
+    return ManyRouteResult("OK", paths=paths, costs=costs, runtime_ms=elapsed())
+
+
 def _run_expanded(snapshot_id: str, u: int, v: int, metric: Metric,
                   profile: Profile, excluded: Sequence[int],
                   timeout_ms: int) -> RouteResult:
