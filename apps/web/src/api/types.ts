@@ -68,6 +68,13 @@ export interface DisplayLabelFields {
   displayLabelBasis?: string;
   /** A short stable id such as "1073a927#12". Context, never the headline. */
   displayLabelSecondary?: string | null;
+  /**
+   * LINZ's left and right locality for the road section — the two sides of the
+   * road, not a value and a fallback. Where they differ the backend composes
+   * both into `displayLabel` ("State-highway section between Kinleith and
+   * Tokoroa"), so anything showing them apart has to label them as two sides
+   * rather than demote the second.
+   */
   locality?: string | null;
   localityAlt?: string | null;
   territorialAuthority?: string | null;
@@ -292,19 +299,50 @@ export interface SearchResponse {
 /** The wire vocabulary. See ./scenario.ts for the product's own. */
 export type V2ClosureScope = 'segment' | 'direction' | 'source_feature';
 
+/**
+ * The closed set of findings the engine may report.
+ *
+ * Spelled out as a union rather than `string` so a headline that does not
+ * exist cannot compile. The wording is the backend's and is shown verbatim;
+ * nothing in the client composes one.
+ *
+ * "No physical isolation" is deliberately absent. It made a claim about roads,
+ * when the only thing the analysis can support is a claim about the graph it
+ * was run on — Gu is inferred topology, so the honest statement is "No
+ * isolation in the represented physical-access graph".
+ *
+ * "Network split into two represented components" is the case where a closure
+ * does separate the graph but no side carries a decisive anchor. Calling
+ * either side "cut off" would assert a direction the data does not support.
+ *
+ * "Partial analysis" is the case where some requested directions resolved and
+ * others did not. Reporting the surviving half as the whole answer is how a
+ * timeout turns into a finding about a road.
+ */
 export type V2Headline =
   | 'Road cut off'
+  | 'Network split into two represented components'
   | 'Through route found'
   | 'No endpoint route'
   | 'Directional access loss'
-  | 'No physical isolation'
+  | 'No isolation in the represented physical-access graph'
+  | 'Partial analysis'
   | 'Analysis unresolved';
 
-/** The isolation question alone, with the routing question stripped out. */
-export type V2IsolationStatement =
+/**
+ * The isolation question alone, with the routing question stripped out.
+ *
+ * Written as a selection from `V2Headline` rather than as its own list of
+ * strings, because it is the same closed vocabulary: two words for one finding
+ * would leave a reader reconciling them.
+ */
+export type V2IsolationStatement = Extract<
+  V2Headline,
   | 'Road cut off'
-  | 'No physical isolation'
-  | 'Analysis unresolved';
+  | 'Network split into two represented components'
+  | 'No isolation in the represented physical-access graph'
+  | 'Analysis unresolved'
+>;
 
 export interface V2Capabilities {
   snapshotId: string;
@@ -392,14 +430,63 @@ export interface V2IsolationComponent {
   linkIds: number[];
 }
 
+/**
+ * How well the undirected graph is believed to model the roads it stands for.
+ *
+ * Never `high` while endpoints are matched with an ingest tolerance: two ends
+ * that were merged because they were close enough are a connection the road
+ * may not have. `low` says such a near-miss sits at the closure itself, which
+ * is the one place it can change the answer.
+ */
+export type V2TopologyConfidence = 'medium' | 'low';
+
+/** Whether a side could be named principal on more than a tie-break. */
+export type V2PrincipalSideConfidence = 'high' | 'low';
+
+/** How the partition was reached. Reported so the cost of the answer is legible. */
+export type V2IsolationMethod =
+  | 'precomputed-not-a-bridge'
+  | 'bridge-subtree-and-subtraction'
+  | 'restricted-bfs'
+  | 'empty-closure';
+
 export interface V2Isolation {
-  exact: boolean;
+  /**
+   * The partition was computed exactly, with no search bound involved.
+   *
+   * Says nothing about whether the graph is right. A single `exact` flag used
+   * to conflate the two, and it could only be read as the stronger claim.
+   */
+  calculationExact: boolean;
+  /**
+   * Whether the graph models the real road network. Always false: Gu is
+   * inferred topology, so an exact result on it is still a result about a
+   * model.
+   */
+  graphExact: boolean;
+  /** The partition itself, independent of which side is called principal. */
+  partitionExact: boolean;
+  topologyConfidence: V2TopologyConfidence;
+  /** Plain-English reason for the confidence above. Shown verbatim. */
+  topologyConfidenceReason: string;
+  /**
+   * Which side was called principal, and on what basis — for example "most
+   * state-highway links, then most nodes". A bridge yields two components and
+   * mathematics alone does not privilege either, so this is a stated policy
+   * rather than a derived fact.
+   */
+  principalSideRule: string;
+  principalSideConfidence: V2PrincipalSideConfidence;
+  /** True when no side carries a decisive anchor, so none is named cut off. */
+  principalSideAmbiguous: boolean;
   physicallyIsolates: boolean;
-  method: string;
+  method: V2IsolationMethod;
   closureIsBridge: boolean;
   separatedLinkCount: number;
   separatedLengthM: number;
   separatedLinkIds: number[];
+  /** True when the id list above was capped. The counts stay exact. */
+  separatedTruncated: boolean;
   componentCount: number;
   componentsTruncated: boolean;
   components: V2IsolationComponent[];
@@ -416,8 +503,13 @@ export interface V2DirectedAccess {
   /**
    * Mutual reachability for this one node pair, decided by running the search
    * both ways. Not a lookup into a precomputed partition of the graph.
+   *
+   * Null when no conclusion was reached — either the link carries only one
+   * direction, so there was no return traversal to test, or a search did not
+   * resolve. False would assert that a return path was tested and failed, and
+   * that is a different fact about the road.
    */
-  same_scc_after_closure: boolean;
+  same_scc_after_closure: boolean | null;
   asymmetric: boolean;
   detail: string;
 }
