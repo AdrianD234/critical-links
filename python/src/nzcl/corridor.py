@@ -399,8 +399,11 @@ def select(
     removed_arc_ids: Sequence[int],
     *,
     entry_ports: Sequence[Port] | None = None,
-    witness_arcs: Sequence[int] = (),
     exit_ports: Sequence[Port] | None = None,
+    #: The intact movement's own arcs. Without them no candidate pair can be
+    #: shown to describe a trip that ever went through the closure, so the
+    #: witness check is skipped and `chosen` is not safe to act on.
+    witness_arcs: Sequence[int] = (),
     profile: Profile = "car",
     beam_width: int = BEAM_WIDTH,
     max_hops: int = MAX_HOPS,
