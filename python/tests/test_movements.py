@@ -207,8 +207,11 @@ def analyse(net, name, **kw):
 
 
 def stages(net, name, *, scope="segment", profile="car"):
-    """closure -> boundary -> movements -> replacements, without the extras."""
-    lid = net.link_id(name)
+    """closure -> boundary -> movements -> replacements, without the extras.
+
+    `name` is an AMDS id, or a link id the caller has already resolved.
+    """
+    lid = net.link_id(name) if isinstance(name, str) else int(name)
     c = closure_mod.resolve(net.snapshot_id, lid, scope=scope, profile=profile)
     b = ports.derive(net.snapshot_id, c.removed_link_ids, lid, c.fingerprint,
                      profile=profile, shape=c.shape)
@@ -545,6 +548,87 @@ class TestDisjointClosureAcrossComponents:
             assert [p.in_selected_component for p in side] == \
                 [True, True, False, False]
         assert "disconnected piece" in b.detail
+
+
+#: The shape of national link 375011 (Lyon Street, rural, NZTA-managed).
+#:
+#: A 13-link source feature. The clicked child has a SHORT local loop between
+#: its own two nodes, so the endpoint measure finds a reassuring 108 m
+#: alternative - while the through movement across the whole 1.4 km closure has
+#: no replacement at all and 26 links (5.1 km) are cut off.
+#:
+#: Here: a trunk of three children, a loop bypassing only the middle one, and
+#: open network at each end that nothing else joins.
+LYON_STREET_SHAPE = [
+    {"id": "TRUNK", "pts": [(0, 0), (100, 0), (200, 0), (1200, 0)],
+     "road_name": "Lyon Street"},
+    {"id": "LOOP", "pts": [(100, 0), (150, 50), (200, 0)],
+     "road_name": "Short Loop"},
+    {"id": "WEST", "pts": [(0, 0), (-200, 0)], "road_name": "West Road"},
+    {"id": "EAST", "pts": [(1200, 0), (1400, 0)], "road_name": "East Road"},
+]
+
+
+class TestTheReassuringHundredMetres:
+    """The endpoint measure's failure mode, pinned as a fixture.
+
+    National link 375011 is the named real-data case: the endpoint measure
+    reports a 108 m alternative between the clicked child's own two nodes,
+    while the through movement across the 13-link closure has no replacement
+    and 26 links (5.1 km) are cut off. An independent networkx oracle confirms
+    both figures exactly - see docs/audits/detour-v2/disagreement-review.
+
+    This is the synthetic form, so the mandatory suite covers the shape without
+    a national snapshot. `test_realdata_boundary.py` pins the real link.
+    """
+
+    @staticmethod
+    def _middle_child(net):
+        row = db.query_one(
+            "SELECT link_id FROM links WHERE snapshot_id=%s "
+            "  AND closure_group_id='TRUNK' "
+            "  AND ST_X(ST_StartPoint(geom_2193)) = 100", (net.snapshot_id,))
+        return int(row["link_id"])
+
+    def test_the_endpoint_measure_finds_a_short_reassuring_hop(self, synthetic):
+        net = synthetic(LYON_STREET_SHAPE)
+        lid = self._middle_child(net)
+        u, v = net.pairs[lid]
+        c = closure_mod.resolve(net.snapshot_id, lid, scope="source_feature")
+        after = routing.route(net.snapshot_id, u, v,
+                              excluded_arcs=c.removed_arc_ids)
+        assert after.status == "OK"
+        # Round the loop: 2 x sqrt(50^2 + 50^2) = 141.42 m.
+        assert after.distance_m == pytest.approx(141.42, abs=0.01)
+
+    def test_the_through_movement_has_no_replacement_at_all(self, synthetic):
+        net = synthetic(LYON_STREET_SHAPE)
+        lid = self._middle_child(net)
+        _c, _b, ms, rs = stages(net, lid, scope="source_feature")
+        assert ms.included, "there is a through movement across the closure"
+        assert rs.status == "OK"
+        assert any(p.status == "DISCONNECTED" for p in rs.paths), (
+            "no replacement exists for the trip across the whole closure")
+
+    def test_the_two_measures_use_different_node_pairs(self, synthetic):
+        """Which is the whole explanation, and why neither is 'wrong'."""
+        net = synthetic(LYON_STREET_SHAPE)
+        lid = self._middle_child(net)
+        u, v = net.pairs[lid]
+        _c, _b, ms, _rs = stages(net, lid, scope="source_feature")
+        for m in ms.included:
+            assert {m.from_node, m.to_node} != {u, v}
+
+    def test_the_headline_does_not_inherit_the_reassuring_number(
+            self, synthetic):
+        net = synthetic(LYON_STREET_SHAPE)
+        lid = self._middle_child(net)
+        r = impactv2.analyse(net.snapshot_id, lid, scope="source_feature",
+                             with_isolation=False)
+        assert r.headline in ("Through movement has no represented replacement",
+                              "Partial analysis")
+        assert r.principal is not None
+        assert r.principal.replacement_distance_m is None
 
 
 class TestDeadEndSpur:
@@ -1153,14 +1237,33 @@ class TestBannedManoeuvres:
         for p in rs.paths:
             assert p.status != "DISCONNECTED"
 
-    def test_the_headline_does_not_present_a_banned_route_as_a_detour(
-            self, synthetic):
+    def test_a_legal_route_is_preferred_over_the_banned_one(self, synthetic):
+        """Only the westbound replacement runs W->N->E; the eastbound one runs
+        E->N->W and is untouched. The engine should lead with the legal one.
+        """
         net = self._net(synthetic)
+        r = impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_isolation=False)
+        assert r.principal is not None
+        assert r.principal.status == "OK", (
+            "a movement WITH a legal replacement must outrank one without")
+        assert "TURN_RESTRICTION_VIOLATED" not in r.principal.quality_flags
+
+    def test_when_every_route_is_banned_the_headline_is_unresolved(
+            self, synthetic):
+        """Both directions banned: there is no legal detour to offer."""
+        net = synthetic(SQUARE, restrictions=[
+            {"seq": ["W", "N", "E"], "vehicle": True, "heavy": True},
+            {"seq": ["E", "N", "W"], "vehicle": True, "heavy": True},
+        ])
         c, b, ms, rs = stages(net, "S")
-        principal = sorted(rs.paths, key=lambda p: p.movement_id)[0]
-        headline, _flags = impactv2._classify(ms, rs, principal)
-        assert headline == "Analysis unresolved"
-        assert headline not in impactv2.DEFINITIVE_HEADLINES
+        assert rs.paths
+        assert all(p.status == "TURN_RESTRICTION_UNSUPPORTED"
+                   for p in rs.paths)
+        r = impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_isolation=False)
+        assert r.headline == "Analysis unresolved"
+        assert r.headline not in impactv2.DEFINITIVE_HEADLINES
 
     def test_only_restrictions_that_apply_to_the_profile_count(self, synthetic):
         """43 records nationally; 42 restrict nothing that is routed.
