@@ -259,6 +259,50 @@
   color: var(--shell-fg);
 }
 
+/* ------------------------------------------------- dev engine switch */
+
+/* Present only in a development build; see shell/EngineSwitch.tsx. Styled to
+ * sit quietly beside the snapshot indicator rather than compete with it — it
+ * is a developer's control, not part of the product's own vocabulary. */
+.engine-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--control-h);
+  padding: 0 3px 0 7px;
+  background: var(--shell-raised);
+  border: var(--rule-shell);
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+
+.engine-switch .engine-tag {
+  margin-right: 5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--shell-fg-faint);
+}
+
+.engine-switch button {
+  height: calc(var(--control-h) - 8px);
+  padding: 0 8px;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 10.5px;
+  color: var(--shell-fg-muted);
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.engine-switch button:hover {
+  background: var(--shell-chip);
+}
+
+.engine-switch button[aria-pressed='true'] {
+  background: var(--shell-chip);
+  color: var(--shell-fg);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

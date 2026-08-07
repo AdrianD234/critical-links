@@ -18,8 +18,14 @@
 import { QueryClient, useQuery } from '@tanstack/react-query';
 
 import { ApiError, api, searchParamsFor } from '../api/client.js';
-import type { Scenario } from '../api/scenario.js';
-import type { DetourResponse, NetworkMetadata, SearchResponse } from '../api/types.js';
+import type { DirectionKey, Scenario } from '../api/scenario.js';
+import type {
+  DetourResponse,
+  NetworkMetadata,
+  SearchResponse,
+  V2Capabilities,
+  V2ClosureAnalysis,
+} from '../api/types.js';
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -104,7 +110,7 @@ export function detourQueryKey({ link, scenario, version }: DetourKeyParts) {
   ] as const;
 }
 
-export function useDetour(parts: DetourKeyParts) {
+export function useDetour(parts: DetourKeyParts, enabled = true) {
   const { link, scenario } = parts;
   return useQuery<DetourResponse>({
     queryKey: detourQueryKey(parts),
@@ -123,6 +129,87 @@ export function useDetour(parts: DetourKeyParts) {
         },
         signal,
       ),
-    enabled: link !== null && parts.version !== 'unknown',
+    enabled: enabled && link !== null && parts.version !== 'unknown',
   });
+}
+
+/* ------------------------------------------------------------------- V2 */
+
+/**
+ * What the V2 engine can do, for the snapshot the backend is serving.
+ *
+ * Its own endpoint rather than a key on the V1 metadata, so a client that
+ * wants V2 asks V2 and the V1 contract stays as published. Only fetched when
+ * the V2 engine is actually selected — under V1 nothing reads it, and an
+ * unconditional request would put a V2 call in every production session.
+ */
+export function useV2Capabilities(enabled: boolean) {
+  return useQuery<V2Capabilities>({
+    queryKey: ['v2-capabilities'],
+    queryFn: ({ signal }) => api.v2Capabilities(signal),
+    enabled,
+    staleTime: Infinity,
+  });
+}
+
+export interface ClosureAnalysisKeyParts {
+  link: string | number | null;
+  scenario: Scenario;
+  /** Which direction to analyse. `direction` scope cannot take both. */
+  direction: DirectionKey;
+  /** Snapshot, algorithm and derivation, as one string. */
+  version: string;
+}
+
+export function closureAnalysisQueryKey({
+  link,
+  scenario,
+  direction,
+  version,
+}: ClosureAnalysisKeyParts) {
+  return [
+    'closure-analysis-v2',
+    version,
+    link,
+    scenario.metric,
+    scenario.vehicle,
+    scenario.closureScope,
+    direction,
+  ] as const;
+}
+
+export function useClosureAnalysisV2(
+  parts: ClosureAnalysisKeyParts,
+  enabled: boolean,
+) {
+  const { link, scenario, direction } = parts;
+  return useQuery<V2ClosureAnalysis>({
+    queryKey: closureAnalysisQueryKey(parts),
+    queryFn: ({ signal }) =>
+      api.closureAnalysisV2(
+        {
+          link: link!,
+          metric: scenario.metric,
+          vehicle: scenario.vehicle,
+          closureScope: scenario.closureScope,
+          /* Both directions except under `direction` scope, which is a single
+           * directed traversal and has to name the one it means. */
+          direction: scenario.closureScope === 'direction' ? direction : 'both',
+        },
+        signal,
+      ),
+    enabled: enabled && link !== null && parts.version !== 'unknown',
+  });
+}
+
+/**
+ * The V2 version fingerprint.
+ *
+ * Built from the V2 capabilities rather than the V1 metadata block: the two
+ * engines version independently, and a V2 algorithm change against an
+ * unchanged snapshot must still invalidate every V2 figure in the cache.
+ */
+export function v2ResultVersion(caps: V2Capabilities | undefined): string {
+  if (!caps) return 'unknown';
+  return `${caps.snapshotId}|${caps.algorithmVersion}|${caps.derivationVersion}`;
 }

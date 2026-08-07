@@ -15,6 +15,7 @@
 
 import {
   closureScopeToWire,
+  closureScopeToWireV2,
   type ClosureScope,
   type Metric,
   type Vehicle,
@@ -23,9 +24,24 @@ import type {
   DetourResponse,
   NetworkMetadata,
   SearchResponse,
+  V2Capabilities,
+  V2ClosureAnalysis,
 } from './types.js';
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+
+/**
+ * Always ask V1 for the label block.
+ *
+ * The seven label fields are opt-in on the V1 routes so that a V1 response
+ * without the flag stays byte-identical to the published contract. This client
+ * is not a contract consumer that needs that guarantee — it is the interface
+ * the fix was made for, and the naming fix has to hold under V1, which is the
+ * default engine, and not only behind the development V2 switch.
+ *
+ * V2 always sends them, so no flag is passed there.
+ */
+const LABELS = 'true';
 
 /**
  * An API failure that carries enough structure for the caller to decide
@@ -101,6 +117,18 @@ export interface DetourRequest {
   direction: 'forward' | 'reverse' | 'both';
 }
 
+export interface ClosureAnalysisRequest {
+  link: string | number;
+  metric: Metric;
+  vehicle: Vehicle;
+  closureScope: ClosureScope;
+  /**
+   * V2 rejects `both` for `direction` scope: a single directed traversal has
+   * to say which one. The caller passes the direction actually in focus.
+   */
+  direction: 'forward' | 'reverse' | 'both';
+}
+
 export const api = {
   base: BASE,
 
@@ -115,6 +143,7 @@ export const api = {
     if (params.name) q.set('name', params.name);
     if (params.amdsId) q.set('amdsId', params.amdsId);
     q.set('limit', String(params.limit ?? 25));
+    q.set('labels', LABELS);
     return get<SearchResponse>(`/api/v1/links/search?${q}`, signal);
   },
 
@@ -128,9 +157,36 @@ export const api = {
       vehicle: req.vehicle,
       closure_scope: wireScope,
       direction: req.direction,
+      labels: LABELS,
     });
     return get<DetourResponse>(
       `/api/v1/links/${encodeURIComponent(String(req.link))}/detour?${q}`,
+      signal,
+    );
+  },
+
+  /* ------------------------------------------------------------ V2 */
+
+  v2Capabilities: (signal?: AbortSignal) =>
+    get<V2Capabilities>('/api/v2/capabilities', signal),
+
+  /**
+   * V2 asks for geometry explicitly and this client does not.
+   *
+   * The V2 preview reports the closure and the isolation as figures; nothing
+   * in it draws. Requesting geometry would ship a separated-link collection
+   * that no layer consumes, on every scenario change.
+   */
+  closureAnalysisV2: (req: ClosureAnalysisRequest, signal?: AbortSignal) => {
+    const q = new URLSearchParams({
+      scope: closureScopeToWireV2(req.closureScope),
+      direction: req.direction,
+      metric: req.metric,
+      vehicle: req.vehicle,
+      geometry: 'false',
+    });
+    return get<V2ClosureAnalysis>(
+      `/api/v2/links/${encodeURIComponent(String(req.link))}/closure-analysis?${q}`,
       signal,
     );
   },

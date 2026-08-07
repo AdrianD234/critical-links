@@ -180,7 +180,7 @@ export default function GlobalRoadSearch({
               }}
             >
               <span className="r-name">
-                {displayName(r.roadName, r.naming?.status)}
+                {displayName(r)}
                 {/* The route number sits with the name, not in the metadata
                   * line: on a national snapshot it is often the only thing
                   * distinguishing two identically named roads. */}
@@ -191,8 +191,9 @@ export default function GlobalRoadSearch({
                   /* Locality first — it is what a reader scans for when a
                    * dozen "Main Road" results come back from all over the
                    * country. The RCA is a territorial authority, so it names
-                   * the district even though it is an ownership field. */
-                  r.rca,
+                   * the district even though it is an ownership field, and it
+                   * stands in where the backend reports no locality. */
+                  r.locality ?? r.rca,
                   r.urbanRural,
                   formatMetres(r.lengthM),
                   r.oneway ? 'one-way' : 'two-way',

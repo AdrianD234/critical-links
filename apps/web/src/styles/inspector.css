@@ -505,6 +505,14 @@
   font-weight: 620;
 }
 
+/* Marks a scope that is correct but rarely meant. Quiet on purpose: it is a
+ * caveat on the option, not a second label competing with it. */
+.ctl .seg button .opt-advanced {
+  opacity: 0.6;
+  font-variant: all-small-caps;
+  letter-spacing: 0.03em;
+}
+
 .ctl .seg button:disabled {
   opacity: 0.42;
   cursor: not-allowed;
