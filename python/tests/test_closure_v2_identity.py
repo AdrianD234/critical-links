@@ -8,6 +8,8 @@ error, which is why each one gets a test rather than a fix and a promise.
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from nzcl import closure as closure_mod
@@ -276,3 +278,70 @@ class TestPartialAnalysis:
         access = detourv2._directed_access(results, 1, 2)
         assert access.same_scc_after_closure is True
         assert access.asymmetric is False
+
+
+# --------------------------------------------------------------------------
+# tie-break determinism - pinned directly, not left to the oracle
+# --------------------------------------------------------------------------
+class TestPrincipalSideTieBreakIsDeterministic:
+    """Row order must not decide which side is called "cut off".
+
+    This defect was found inside the fix for a different item, and it is
+    exactly the class of bug the V2 work exists to remove: on an exact tie the
+    principal choice followed the BFS start order, which follows node ordering,
+    which follows the order rows came back from the database. The side called
+    "cut off" could therefore swap between two runs over identical data.
+
+    The oracle caught it, but only incidentally and only once an unrelated test
+    framing changed. That is not a guard. These pin the rule itself.
+    """
+
+    def test_the_rule_consults_node_id_only_after_the_first_two_terms(self):
+        """The tie-break is a property of the data, not of iteration order."""
+        # Equal anchors and equal size: only the node id can separate them.
+        assert physical._rank_key(0, 10, 1000) < physical._rank_key(0, 10, 1001)
+        assert physical._rank_key(0, 10, 1001) > physical._rank_key(0, 10, 1000)
+        # ...and it is never consulted before them.
+        assert physical._rank_key(1, 10, 9999) < physical._rank_key(0, 10, 1000)
+        assert physical._rank_key(0, 11, 9999) < physical._rank_key(0, 10, 1000)
+
+    def test_the_side_called_cut_off_does_not_move_with_row_order(
+            self, synthetic):
+        """The end-to-end version of the above, through analyse_closure.
+
+        SYMMETRIC_SPLIT gives two sides with equal node counts and no state
+        highway on either, so the first two terms of the rule cannot separate
+        them and only the tie-break decides.
+        """
+        net = synthetic(SYMMETRIC_SPLIT)
+        rows = physical._load_edges(net.snapshot_id, "car")
+        closure = [net.link_id("BR")]
+
+        baseline = None
+        for seed in range(8):
+            shuffled = list(rows)
+            random.Random(seed).shuffle(shuffled)
+            g = physical.from_edges(net.snapshot_id, "car", shuffled)
+            result = physical.analyse_closure(g, closure)
+            separated = sorted(
+                tuple(c.node_ids) for c in result.components
+                if not c.retains_principal_connection)
+            if baseline is None:
+                baseline = separated
+            assert separated == baseline, (
+                f"seed={seed}: the side called cut off moved with row order")
+
+    def test_a_tie_is_reported_as_ambiguous_even_though_it_resolves(
+            self, synthetic):
+        """Deterministic is not the same as decisive.
+
+        The tie-break makes the answer stable. It does not make it meaningful,
+        and the response has to say so - otherwise a coin toss that always
+        lands the same way reads as a finding.
+        """
+        net = synthetic(SYMMETRIC_SPLIT)
+        g = physical.get(net.snapshot_id, "car")
+        result = physical.analyse_closure(g, [net.link_id("BR")])
+        assert result.physically_isolates is True
+        assert result.principal_side_ambiguous is True
+        assert result.principal_side_confidence == "low"

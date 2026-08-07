@@ -90,3 +90,57 @@ test.describe('reported Tokoroa case under V2', () => {
     await panel(page).screenshot({ path: `${OUT}/after-v2-inspector.png` });
   });
 });
+
+test.describe('reported Tokoroa case, low topology confidence', () => {
+  test.beforeAll(() => mkdirSync(OUT, { recursive: true }));
+
+  /*
+   * Three unresolved near-miss endpoints lie within 25 m of this closure, so
+   * V2 returns topologyConfidence: low for it under source-feature scope.
+   *
+   * The assertion matters more than the image. A confidence field that nothing
+   * surfaces is not a safeguard, and this one is the difference between "these
+   * roads lose access" and "these roads lose access unless the ingest joined
+   * two endpoints it decided not to join".
+   */
+  test('a low topology confidence is surfaced, not buried', async ({
+    page,
+    request,
+  }) => {
+    const probe = await request.get(
+      `${API}/api/v2/links/${encodeURIComponent(TOKOROA_AMDS_ID)}/closure-analysis?scope=source_feature`,
+    );
+    test.skip(!probe.ok(), 'V2 is not available against the active snapshot');
+    const body = await probe.json();
+    test.skip(
+      body.isolation?.topologyConfidence !== 'low',
+      'this snapshot does not report low confidence for the reported link',
+    );
+
+    await page.goto(exploreUrl(TOKOROA_AMDS_ID, { focus: 'reverse' }));
+    await waitForResult(page);
+
+    const v2 = page.getByRole('button', { name: 'V2 closure analysis' });
+    test.skip(
+      (await v2.count()) === 0,
+      'engine switch absent: not a development build',
+    );
+    await v2.click();
+
+    /* Source-feature scope is the Advanced option; segment is the default. */
+    await page.getByRole('button', { name: /AMDS source feature/i })
+      .first()
+      .click();
+
+    const warning = page
+      .locator('.notice--warn')
+      .filter({ hasText: 'Topology confidence low' })
+      .first();
+    await expect(warning).toBeVisible({ timeout: 60_000 });
+    await expect(warning).toContainText('near-miss');
+
+    await warning.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(800);
+    await warning.screenshot({ path: `${OUT}/after-v2-low-confidence.png` });
+  });
+});
