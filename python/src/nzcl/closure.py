@@ -253,19 +253,32 @@ def _describe(snapshot_id: str, rows: Sequence[dict], removed_link_ids: list[int
         shape, detail = "disjoint", "the closure has an unexpected degree profile"
 
     # Boundary nodes: closure nodes that still carry an open link.
+    #
+    # Two indexed lookups over `arcs`, UNIONed, rather than one join to `links`
+    # on (source_node = n OR target_node = n). `links` carries no index on
+    # either column, and an OR could not use one even if it did, so that form
+    # was a sequential scan of every link in the snapshot - 69 ms of a national
+    # request to answer a question about a handful of nodes. `arcs` is indexed
+    # on (snapshot_id, source) and on (snapshot_id, target).
+    #
+    # The answer is identical: every link a profile can use has at least one
+    # arc, and this asks only whether ANY open link still touches the node.
     mode = _MODE_COLUMN[profile]
+    node_list = list(nodes) or [-1]
+    removed = list(removed_link_ids)
     boundary_rows = db.query(
         f"""
-        SELECT DISTINCT n.node_id
-          FROM unnest(%s::bigint[]) AS n(node_id)
-          JOIN links l
-            ON l.snapshot_id = %s
-           AND (l.source_node = n.node_id OR l.target_node = n.node_id)
-           AND l.{mode}
-           AND NOT (l.link_id = ANY(%s))
-         ORDER BY n.node_id
+        SELECT DISTINCT node_id FROM (
+            SELECT source AS node_id FROM arcs
+             WHERE snapshot_id = %s AND source = ANY(%s)
+               AND {mode} AND NOT (link_id = ANY(%s))
+            UNION ALL
+            SELECT target AS node_id FROM arcs
+             WHERE snapshot_id = %s AND target = ANY(%s)
+               AND {mode} AND NOT (link_id = ANY(%s))
+        ) q ORDER BY node_id
         """,
-        (nodes or [-1], snapshot_id, removed_link_ids),
+        (snapshot_id, node_list, removed, snapshot_id, node_list, removed),
     )
     boundary = [int(r["node_id"]) for r in boundary_rows]
     return shape, detail, nodes, boundary

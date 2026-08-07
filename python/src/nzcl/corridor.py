@@ -99,6 +99,21 @@ MAX_HOPS = 12
 MAX_OUTWARD_M = 5_000.0
 #: Distinct decision ports kept per side, after the walk.
 MAX_CANDIDATES_PER_SIDE = 20
+#
+# NOTE ON A FIX THAT WAS NOT THE FIX. The walk looked like the expensive part
+# of a national request - 1,473 ms of 2,333 ms - so an early stop was added,
+# ending the expansion once three junctions had been found. It made the stage
+# SLOWER (1,583 ms), which is what sent someone to measure instead of reason.
+#
+# Profiling 12 national requests:
+#
+#     _annotate_degree    71 calls   10,888 ms   153.4 ms each
+#     route_many_paths    10 calls    4,921 ms   492.1 ms each
+#     _step_rows          51 calls      115 ms     2.3 ms each
+#
+# The walk was never the cost. The steps are 2.3 ms and it only ever reached
+# two to four hops anyway. The cost was ONE degree lookup, and the early stop
+# had added five more of them per request. See `_annotate_degree`.
 #: Pairs routed. The product of the two caps above would be 400; this is the
 #: ceiling actually enforced, and truncation is flagged rather than silent.
 MAX_PAIRS = MAX_CANDIDATES_PER_SIDE * MAX_CANDIDATES_PER_SIDE
@@ -815,7 +830,23 @@ def _annotate_degree(snapshot_id: str, ports: list[DecisionPort],
 
     Degree decides `is_decision_point`, which is what separates "a junction a
     driver would turn at" from "a point in the middle of a road". Counted over
-    LINKS rather than arcs so a two-way road counts once.
+    LINKS rather than arcs so a two-way road counts once - hence the DISTINCT.
+
+    Asked of `arcs` and not of `links`, and as two indexed lookups UNIONed
+    rather than one join with an OR. That is not stylistic. `links` carries no
+    index on `source_node` or `target_node`, and
+
+        (l.source_node = n.node_id OR l.target_node = n.node_id)
+
+    cannot use one even if it did, so this query was a sequential scan of
+    375,696 rows and cost 153 ms - the single largest cost in a corridor
+    search, larger than the whole beam walk. `arcs` has btree indexes on
+    (snapshot_id, source) and (snapshot_id, target), and splitting the
+    disjunction into two ANY() lookups lets both be used.
+
+    Every link the profile can use has at least one arc, and a two-way link
+    appears once as a source and once as a target, so the DISTINCT count over
+    arcs equals the link degree exactly.
     """
     if not ports:
         return
@@ -823,18 +854,20 @@ def _annotate_degree(snapshot_id: str, ports: list[DecisionPort],
 
     mode = _MODE_COLUMN[profile]
     nodes = sorted({p.node for p in ports})
+    closed = list(closed_links) or [-1]
     rows = db.query(
         f"""
-        SELECT n.node_id, count(DISTINCT l.link_id) AS degree
-          FROM unnest(%s::bigint[]) AS n(node_id)
-          LEFT JOIN links l
-            ON l.snapshot_id = %s
-           AND (l.source_node = n.node_id OR l.target_node = n.node_id)
-           AND l.{mode}
-           AND NOT (l.link_id = ANY(%s))
-         GROUP BY n.node_id ORDER BY n.node_id
+        SELECT node_id, count(DISTINCT link_id) AS degree FROM (
+            SELECT source AS node_id, link_id FROM arcs
+             WHERE snapshot_id = %s AND source = ANY(%s)
+               AND {mode} AND NOT (link_id = ANY(%s))
+            UNION ALL
+            SELECT target AS node_id, link_id FROM arcs
+             WHERE snapshot_id = %s AND target = ANY(%s)
+               AND {mode} AND NOT (link_id = ANY(%s))
+        ) q GROUP BY node_id ORDER BY node_id
         """,
-        (nodes, snapshot_id, closed_links or [-1]))
+        (snapshot_id, nodes, closed, snapshot_id, nodes, closed))
     degree = {int(r["node_id"]): int(r["degree"]) for r in rows}
     for p in ports:
         p.node_degree = degree.get(p.node, 0)
