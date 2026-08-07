@@ -1,0 +1,18 @@
+segment arcs : [730196, 730197]
+group arcs   : 34
+
+=== SEGMENT-ONLY (375057) ===
+  forward  46745->47743: OK             dist=26643.1  688ms
+  reverse  47743->46745: OK             dist=26643.1  660ms
+  isolation(u=46745,v=47743): side=none nodes=0 links=0 len=0.000 exact=False
+  isolation(u=47743,v=46745): side=none nodes=0 links=0 len=0.000 exact=False
+
+=== V1 SOURCE-FEATURE (17 links) ===
+  forward  46745->47743: DISCONNECTED   dist=None  537ms
+  reverse  47743->46745: DISCONNECTED   dist=None  568ms
+  isolation(u=46745,v=47743): side=upstream nodes=10 links=10 len=13642.527 exact=True
+  isolation(u=47743,v=46745): side=downstream nodes=10 links=10 len=13642.527 exact=True
+
+=== pocket access test: can node 46744 reach the wider network? ===
+  segment-only   : forward-reachable node count from 46744 = 5001 (terminated within bound=False)
+  source-feature : forward-reachable node count from 46744 = 10 (terminated within bound=True)
