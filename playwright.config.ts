@@ -65,7 +65,13 @@ export default defineConfig({
   webServer: process.env.NZCL_SKIP_WEBSERVER
     ? undefined
     : {
-        command: 'npm run dev --workspace apps/web',
+        /*
+         * Bind explicitly to the same IPv4 address Playwright probes. Vite's
+         * default `localhost` binding can resolve to ::1 on Linux while the
+         * readiness URL below uses 127.0.0.1, leaving a healthy dev server that
+         * Playwright waits two minutes and then declares unavailable.
+         */
+        command: 'npm run dev --workspace apps/web -- --host 127.0.0.1',
         url: 'http://127.0.0.1:5173',
         reuseExistingServer: true,
         timeout: 120_000,
