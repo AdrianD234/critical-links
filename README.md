@@ -109,7 +109,7 @@ National snapshot: **272,441 / 272,441 links downloaded**, 375,485 graph links,
 
 ---
 
-## Two findings worth reading
+## Three findings worth reading
 
 ### AMDS does not split roads at junctions
 
@@ -120,6 +120,37 @@ the largest holding 21% of links** — not a road network. Measurement showed
 
 Splitting there — and **never** where two interiors merely cross, which is what
 preserves every overbridge and tunnel — gives **268 components, largest 87.3%**.
+
+### Two thirds of links had no name, and a third still do not
+
+The reported symptom was a tooltip reading `(unnamed link)` on a section of
+State Highway 3. Two separate causes: AMDS was being read badly, and AMDS does
+not carry a name for most links in the first place.
+
+Reading it properly changed **13,633** labels and added **56** — a correctness
+change, not a coverage one. `routeNameFullASCII` turned out not to be a
+transliteration of `routeNameFull` but a separately maintained column that
+disagrees with it, sometimes completely: one record reads "Kotare Lane" in one
+and "SH 1N/458 RAMP (SH) #4 OFF" in the other, and the structured name
+components agree with the former.
+
+Coverage came from matching against LINZ NZ Addresses: Road Sections, adopted
+at high confidence only:
+
+| | Graph links | |
+| --- | ---: | ---: |
+| Named before | 139,980 | 37.3% |
+| **Named now** | **249,424** | **66.4%** |
+| Name known, licence unconfirmed | 25,997 | 6.9% |
+
+Measured two-source agreement on the adopted class is **99.24%**, using a check
+independent of the matcher's own decision. Full working, including what that
+figure does not cover, is in
+[docs/audits/road-name-enrichment.md](docs/audits/road-name-enrichment.md).
+
+Naming is a layer over the graph, not a column inside it: `links`, `nodes`,
+`arcs` and `arc_transitions` are never written by it, and 41 real detours are
+re-run before and after to prove the numbers did not move.
 
 ### Cross-validation caught a bug in both engines
 
@@ -152,6 +183,11 @@ python -m nzcl.crossvalidate --ts-url http://<windows-host>:8787
 | Benchmark | `python -m nzcl.bench <snapshotId> 60` |
 | Export CSV + XLSX | `python -m nzcl.export --snapshot <id>` |
 | Cross-validate engines | `python -m nzcl.crossvalidate` |
+| Road names: backfill from AMDS | `python -m nzcl.names backfill` |
+| Road names: load external sources | `python -m nzcl.names sources` |
+| Road names: match nationally | `python -m nzcl.names enrich` |
+| Road names: coverage report | `python -m nzcl.names report` |
+| Prove naming changed no routing | `python -m nzcl.names verify --probe 40 --baseline <file>` |
 | API | `uvicorn nzcl.api:app --port 8000` |
 | Both test suites | `.\scripts\test.ps1` |
 
@@ -200,6 +236,7 @@ tests/            70 TypeScript tests
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design, four ADRs, and the cross-validation story |
 | [METRIC_DEFINITIONS.md](docs/METRIC_DEFINITIONS.md) | What every number means |
 | [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Each one measured |
+| [ROAD_NAME_SOURCES.md](docs/ROAD_NAME_SOURCES.md) | Where road names come from, and which may be shown |
 | [VALIDATION_PLAN.md](docs/VALIDATION_PLAN.md) | Every test and its result |
 
 ---
@@ -209,3 +246,6 @@ tests/            70 TypeScript tests
 Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, maintained
 by New Zealand Road Controlling Authorities, the Department of Conservation and
 NZTA. Basemap © LINZ, CC BY 4.0.
+
+Road names where AMDS has none are sourced from the LINZ Data Service and
+licensed by Land Information New Zealand for reuse under CC BY 4.0.

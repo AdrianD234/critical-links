@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type Map as MLMap, type MapGeoJSONFeature } from 'maplibre-gl';
 
+import { shortDisplayName } from '../naming.js';
 import {
   LABEL_LAYERS,
   LYR,
@@ -325,7 +326,10 @@ export default function NetworkMap({
       hoverRef.current({
         x: e.point.x,
         y: e.point.y,
-        name: String(p.roadName || '(unnamed link)'),
+        name: shortDisplayName(
+          p.roadName ? String(p.roadName) : null,
+          p.nameStatus ? String(p.nameStatus) : null,
+        ),
         roadNumber: String(p.roadNumber || ''),
         lengthM: Number(p.lengthM ?? 0),
         oneway: Number(p.oneway) === 1,

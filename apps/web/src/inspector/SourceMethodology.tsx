@@ -21,6 +21,7 @@ export default function SourceMethodology({
   detour: DetourResponse;
   meta: NetworkMetadata | null;
 }) {
+  const naming = detour.selectedLink.naming;
   const rows: [string, string][] = [
     ['AMDS id', detour.selectedLink.amdsId],
     ['Source OBJECTID', String(detour.selectedLink.sourceObjectId)],
@@ -38,10 +39,45 @@ export default function SourceMethodology({
         ][])
       : []),
     ['Licence', detour.licence],
+    /*
+     * Where the road's NAME came from, which is not always where its geometry
+     * came from. AMDS carries a name for about a third of links; the rest are
+     * matched from an external source or have none, and a reader comparing
+     * this label against another map deserves to know which.
+     */
+    ...(naming
+      ? ([
+          ['Name state', naming.status],
+          ['Name source', naming.source ?? 'none'],
+          ...(naming.confidence
+            ? ([['Name match confidence', naming.confidence]] as [string, string][])
+            : []),
+          ...(naming.withheldSource
+            ? ([
+                [
+                  'Name withheld',
+                  `matched from ${naming.withheldSource}; licence unconfirmed`,
+                ],
+              ] as [string, string][])
+            : []),
+        ] as [string, string][])
+      : []),
   ];
 
   return (
     <>
+      {naming?.explanation && (
+        <p
+          style={{
+            margin: '0 0 12px',
+            fontSize: 'var(--text-meta)',
+            color: 'var(--panel-muted)',
+          }}
+        >
+          {naming.explanation}
+        </p>
+      )}
+
       <dl className="kv">
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'contents' }}>

@@ -34,6 +34,46 @@
   text-wrap: balance;
 }
 
+/* A road with no name is stated, not shouted. The heading keeps its size and
+ * weight so the layout does not shift between a named and an unnamed road;
+ * only the colour steps back, because "Name not recorded" is a fact about the
+ * data rather than the answer the reader came for. */
+.insp-head h2.insp-noname {
+  color: var(--panel-muted);
+  font-style: italic;
+}
+
+.insp-naming {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+/* The route a road carries, beside its name — never in place of it. */
+.insp-desig {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  font-weight: var(--weight-label);
+  color: var(--panel-muted);
+  border: var(--rule);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.insp-name-flag {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  font-weight: var(--weight-label);
+  text-transform: uppercase;
+  color: var(--compare-ink-on-tint);
+  background: var(--compare-tint);
+  border-radius: 3px;
+  padding: 1px 6px;
+  cursor: help;
+}
+
 .insp-close {
   position: absolute;
   top: 18px;

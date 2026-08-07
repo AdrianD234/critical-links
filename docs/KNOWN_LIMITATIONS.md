@@ -264,3 +264,60 @@ Measured on `amds-national-2026-07-28-5b359d84` (375,696 links, 731,286 arcs):
 
 Interactively usable. It needs attention before a national batch, which
 multiplies it across every link.
+
+## Road names: a third of the network still has none
+
+Measured on `amds-national-2026-07-28-5b359d84`. Full working in
+[`audits/road-name-enrichment.md`](audits/road-name-enrichment.md).
+
+| | Graph links | |
+| --- | ---: | ---: |
+| Named | 249,424 | 66.4% |
+| Name known but not displayed | 25,997 | 6.9% |
+| Nothing found in any source | 126,261 | 33.6% |
+
+AMDS itself names about a third of links. The rest are matched against LINZ
+NZ Addresses: Road Sections, at high confidence only, with a measured
+two-source agreement of 99.24% on the class that is adopted.
+
+Three things about that figure are worth stating rather than leaving implied:
+
+- **It is agreement, not review.** No human has checked these matches. It is
+  the rate at which two independently maintained authorities give the same
+  name for the same road, which is a real measurement of the matcher but not
+  the same thing as someone looking.
+- **36% of high-confidence matches have only one source**, so no cross-source
+  check exists for them at all. Their geometry is indistinguishable from the
+  corroborated ones, which is an argument from similarity, not evidence.
+- **23,785 medium-confidence matches are unused.** Most were held back because
+  a differently named road was too close to separate on geometry — the correct
+  treatment without a tie-breaker, and recoverable by review.
+
+### The unnamed classification cannot be shown
+
+Only one source available anywhere records that a road *has no name*: the NZTA
+street-names layer, which flags 78,777 features `isunnamed`. That layer
+publishes no licence, and its own portal item describes it as *"Street names
+for use with aerial photo base maps"* — a cartographic labelling service, not a
+dataset. It is absent from data.govt.nz, which catalogues 78 other NZTA
+datasets.
+
+So 3,245 links are classified `officially_unnamed` in the database and none of
+them say so on screen; they read "Name not recorded" like any other unresolved
+link. **Until NZTA confirms terms of use, the application cannot distinguish a
+road that has no name from a road whose name was not found.** That is the
+single largest outstanding item in this area and it is a conversation, not an
+engineering task.
+
+### Roads controlled by LINZ are mostly unnamed and it is not known why
+
+67,300 source features are controlled by Land Information New Zealand and
+almost none carry a name in any source: 76 of a 100-feature sample found
+nothing. An earlier claim that these are "predominantly unformed legal road"
+was withdrawn as unsupported and has not been replaced. A high missing rate
+shows the cohort is different, not why.
+
+### Names are matched once, against a snapshot
+
+Both external sources were read on 7 August 2026. Neither has a known refresh
+cadence, and nothing re-checks a name once matched.

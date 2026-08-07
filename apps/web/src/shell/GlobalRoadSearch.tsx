@@ -15,6 +15,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import { SearchIcon } from './icons.js';
 import type { LinkSummary } from '../api/types.js';
+import { displayName } from '../naming.js';
 
 export interface SearchState {
   results: LinkSummary[] | null;
@@ -179,7 +180,7 @@ export default function GlobalRoadSearch({
               }}
             >
               <span className="r-name">
-                {r.roadName ?? '(unnamed link)'}
+                {displayName(r.roadName, r.naming?.status)}
                 {/* The route number sits with the name, not in the metadata
                   * line: on a national snapshot it is often the only thing
                   * distinguishing two identically named roads. */}
