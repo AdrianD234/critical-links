@@ -726,7 +726,19 @@ export interface V2Corridor {
   resolved: boolean;
   detail: string;
   searchBounds: Record<string, number>;
+  /**
+   * A SEARCH BOUND acted — the beam pruned, the hop limit ended the walk. On a
+   * real network this is nearly always true, because that is what a bounded
+   * search is; the bounds themselves are declared in `searchBounds`.
+   */
   truncated: boolean;
+  /**
+   * The sharper claim, and the one that withholds a definitive headline:
+   * candidates were GENERATED and then never evaluated. Only such a candidate
+   * could have been the better corridor nobody looked at. Gating on
+   * `truncated` instead made 382 of 500 sampled links read "Partial analysis".
+   */
+  evaluationTruncated: boolean;
   truncationDetail: string;
   upstreamCandidates: V2CorridorPort[];
   downstreamCandidates: V2CorridorPort[];
