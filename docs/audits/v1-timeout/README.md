@@ -94,8 +94,10 @@ Chromium. The only thing changed is the statement-timeout budget, squeezed to
 34-source corridor search (~9.8 ms). That is exactly the shape a loaded database
 produces.
 
-Captured responses: [`api-response-adequate-budget.json`](api-response-adequate-budget.json)
-and [`api-response-corridor-timed-out.json`](api-response-corridor-timed-out.json).
+Captured responses: [`api-response-adequate-budget.json`](api-response-adequate-budget.json),
+[`api-response-corridor-timed-out.json`](api-response-corridor-timed-out.json),
+and after the fix
+[`api-response-corridor-timed-out-after-fix.json`](api-response-corridor-timed-out-after-fix.json).
 
 |  | adequate budget | corridor cancelled |
 |---|---|---|
@@ -164,11 +166,61 @@ Not changed: corridor selection, the probe schedule, closure semantics, the
 isolation measure, `SOLE_ACCESS`, or the meaning of `DISCONNECTED` anywhere it
 is reached by a search that finished.
 
+The status *pill* still reads "No replacement path in the represented network",
+because that is about the endpoint measure, which resolved and genuinely found
+none. Only the headline — the through-trip question, the one the reader actually
+has — becomes "Analysis unresolved".
+
+### After
+
+[`observed-after.txt`](observed-after.txt), same fixture, same budgets:
+
+| `statement_timeout` | corridor status | detail | penalty |
+|---|---|---|---|
+| 60 000 ms | `OK` | — | 259.69 m |
+| 20 ms | `OK` | — | 259.69 m |
+| 5 ms | `UNRESOLVED_TIMEOUT` | `statement timeout after 5 ms` | `None` |
+| 1 ms | `UNRESOLVED_TIMEOUT` | `statement timeout after 1 ms` | `None` |
+
+And in the browser ([`ui-after-fix-full.png`](ui-after-fix-full.png)), same
+5 ms squeeze, same closure:
+
+> **ANALYSIS UNRESOLVED**
+> The endpoint measure found no path from the link's start back to its own end,
+> which is routine on a one-way carriageway. The through-trip comparison that
+> would say whether traffic still gets past did not finish, so whether it does
+> is unknown. This is not a finding that the road is cut off.
+
+## Mutation verification
+
+`python/tests/test_corridor_timeout.py` has to fail on the defect, not on the
+refactor. [`mutation/mutate.mjs`](mutation/mutate.mjs) puts back the behaviour
+the fix removed — `route_many` swallowing every database failure and returning
+an empty result that still looks resolved — while leaving the type in place, so
+the tests fail on their assertions rather than on an `AttributeError`.
+
+| | pytest exit | result |
+|---|---|---|
+| [old behaviour restored](mutation/with-old-behaviour.txt) | `1` | 4 failed, 7 passed |
+| [with the fix](mutation/with-the-fix.txt) | `0` | 11 passed |
+
+The load-bearing failure:
+
+```
+>       assert cancelled.status == "UNRESOLVED_TIMEOUT"
+E       AssertionError: assert 'DISCONNECTED' == 'UNRESOLVED_TIMEOUT'
+```
+
+The seven that pass under *both* are the point of the other half: the
+genuinely-no-route cases still report `DISCONNECTED`, so this is not a
+relabelling of every negative result.
+
 ## Byte-identity
 
-Every ordinary response is unchanged. See
-[`identity/`](identity/) — the same 12 detour requests captured from the running
-API before and after, compared byte for byte.
+Every ordinary response is unchanged, and shown to be rather than asserted. See
+[`identity/RESULT.txt`](identity/RESULT.txt): 92 detour responses across two
+snapshots, captured from the running API before and after, `diff -r` clean and
+sha256-identical.
 
 ## Reproducing the browser capture
 

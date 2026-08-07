@@ -65,6 +65,19 @@ def spec() -> list[dict]:
     return links
 
 
+def search_status(result) -> str:
+    """`route_many` returned a bare mapping before the fix and a status-carrying
+    result after it. This harness has to run against both, because the whole
+    point is to run it on either side of the change and compare."""
+    if isinstance(result, dict):
+        return "(none: a bare mapping carries no status)"
+    return result.status
+
+
+def search_costs(result) -> dict:
+    return result if isinstance(result, dict) else result.costs
+
+
 def corridor_dict(c) -> dict:
     if c is None:
         return {}
@@ -128,17 +141,20 @@ def main() -> int:
         timed_out = routing.route_many(snap, nodes, nodes,
                                        excluded_arcs=excluded,
                                        statement_timeout_ms=1)
-        print(f"     -> {timed_out!r}   ({(time.perf_counter()-t0)*1000:.1f} ms)")
+        print(f"     pairs   {len(search_costs(timed_out))}")
+        print(f"     status  {search_status(timed_out)}"
+              f"   ({(time.perf_counter()-t0)*1000:.1f} ms)")
         t0 = time.perf_counter()
         completed = routing.route_many(snap, nodes, nodes,
                                        excluded_arcs=excluded,
                                        statement_timeout_ms=60_000)
-        print(f"   routing.route_many with a 60 s budget:")
-        print(f"     -> {len(completed)} pairs "
-              f"({(time.perf_counter()-t0)*1000:.1f} ms)")
-        print("\n   A search that found nothing and a search that never "
-              "finished are\n   the SAME value. There is no way for a caller "
-              "to tell them apart.")
+        print("   routing.route_many with a 60 s budget:")
+        print(f"     pairs   {len(search_costs(completed))}")
+        print(f"     status  {search_status(completed)}"
+              f"   ({(time.perf_counter()-t0)*1000:.1f} ms)")
+        print("\n   Before the fix both calls returned a bare mapping, so a "
+              "search that\n   found nothing and a search that never finished "
+              "were the same value and\n   no caller could tell them apart.")
 
         # ---------------------------------------------------------------- 2
         print()
@@ -153,9 +169,11 @@ def main() -> int:
             print(f"     detail  {c.detail!r}")
             print(f"     penalty {c.penalty_m}")
         print("\n   Same network. Same closure. Same code. The only thing that "
-              "changed\n   is how long the database was allowed to take, and "
-              "the tool moved from\n   'traffic gets past, 259.7 m further' to "
-              "'no route to target'.")
+              "changed is\n   how long the database was allowed to take.")
+        print("   Before the fix the tight budgets read DISCONNECTED, 'search "
+              "space\n   exhausted with no route to target' - a claim about the "
+              "road network.\n   After it they read UNRESOLVED_TIMEOUT, which "
+              "is a claim about the search.")
 
         # ---------------------------------------------------------------- 3
         print()
@@ -177,11 +195,11 @@ def main() -> int:
                   f"{d.isolation.pocket_length_m} m")
             print(f"     UI headline       {headline(d)}")
 
-        (out / "captured-directions.json").write_text(json.dumps({
+        (out / "captured-directions-after-fix.json").write_text(json.dumps({
             "adequateBudget": as_json(good),
             "corridorTimedOut": as_json(bad),
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        print(f"\n   written: {out / 'captured-directions.json'}")
+        print(f"\n   written: {out / 'captured-directions-after-fix.json'}")
         return 0
     finally:
         db.execute("DELETE FROM network_snapshots WHERE snapshot_id=%s", (snap,))
@@ -197,14 +215,21 @@ UNRESOLVED = {"UNRESOLVED_TIMEOUT", "API_ERROR", "INVALID_GRAPH",
 
 
 def headline(d) -> str:
-    """The headline apps/web ResultView.tsx renders for this result."""
+    """The headline `apps/web/src/inspector/ResultView.tsx` renders for this.
+
+    A transcription, and checked against the real thing rather than trusted:
+    `capture-ui.mjs` drives the built app in Chromium and prints what it
+    actually rendered. Both agree, before the fix and after it.
+    """
     if d.status in UNRESOLVED:
-        return "No result"
+        return "Analysis unresolved"
     if d.status == "DISCONNECTED":
         c, iso = d.corridor, d.isolation
         if c and c.status == "OK" and c.penalty_m is not None:
             return (f"Added distance - through trip: "
                     f"{c.penalty_m / 1000:+.2f} km")
+        if c and c.status in UNRESOLVED:
+            return "Analysis unresolved"
         if iso and (iso.pocket_link_count > 0 or iso.pocket_length_m > 0):
             return f"Road cut off: {iso.pocket_length_m / 1000:.2f} km"
         return "No replacement path"

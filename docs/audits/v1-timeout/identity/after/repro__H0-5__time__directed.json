@@ -1,0 +1,391 @@
+{
+  "algorithm": "pgr-dijkstra-arc",
+  "algorithmVersion": "2.0.0",
+  "attribution": "Synthetic test network. Structured as, and attributed like, data sourced from the NZTA Waka Kotahi AMDS Network Model.",
+  "cached": false,
+  "calculatedAtUtc": "<normalised>",
+  "clippedExtract": true,
+  "closure": {
+    "closureGroupId": "H0-5",
+    "geoJson": {
+      "features": [
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7864733,
+                -41.284688
+              ],
+              [
+                174.787667,
+                -41.2846694
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "H0-5",
+            "linkId": 5,
+            "roadName": "Grid Street",
+            "role": "closed"
+          },
+          "type": "Feature"
+        }
+      ],
+      "type": "FeatureCollection"
+    },
+    "removedAmdsIds": [
+      "H0-5"
+    ],
+    "removedArcCount": 2,
+    "removedLinkCount": 1,
+    "removedLinkIds": [
+      5
+    ],
+    "scope": "directed"
+  },
+  "fitBounds": [
+    174.78644878607255,
+    -41.28468797109642,
+    174.78766695890883,
+    -41.2837690966513
+  ],
+  "forward": {
+    "corridor": null,
+    "direction": "forward",
+    "errorDetail": null,
+    "isolation": null,
+    "metrics": {
+      "addedDistanceVsLinkM": 200,
+      "addedTimeS": 14.4,
+      "alternativeDistanceM": 300,
+      "alternativeTimeS": 21.6,
+      "detourRatioVsLink": 3,
+      "networkPenaltyM": 200,
+      "normalPathDistanceM": 100,
+      "normalPathTimeS": 7.2,
+      "selectedLinkLengthM": 100,
+      "units": {
+        "distance": "metres",
+        "time": "seconds"
+      }
+    },
+    "qualityFlags": [
+      "SPEED_ESTIMATED",
+      "TIME_ESTIMATED",
+      "CLIPPED_EXTRACT"
+    ],
+    "removedArcIds": [
+      10
+    ],
+    "routeArcIds": [
+      630,
+      40,
+      661
+    ],
+    "routeGeoJson": {
+      "features": [
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7864733,
+                -41.284688
+              ],
+              [
+                174.7864488,
+                -41.2837876
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "V0-5",
+            "arcId": 630,
+            "direction": "forward",
+            "lengthM": 100,
+            "linkId": 315,
+            "nameStatus": "amds_named",
+            "order": 0,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        },
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7864488,
+                -41.2837876
+              ],
+              [
+                174.7876424,
+                -41.2837691
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "H1-5",
+            "arcId": 40,
+            "direction": "forward",
+            "lengthM": 100,
+            "linkId": 20,
+            "nameStatus": "amds_named",
+            "order": 1,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        },
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7876424,
+                -41.2837691
+              ],
+              [
+                174.787667,
+                -41.2846694
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "V0-6",
+            "arcId": 661,
+            "direction": "reverse",
+            "lengthM": 100,
+            "linkId": 330,
+            "nameStatus": "amds_named",
+            "order": 2,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        }
+      ],
+      "type": "FeatureCollection"
+    },
+    "routeLinkIds": [
+      20,
+      315,
+      330
+    ],
+    "runtimeMs": "<normalised>",
+    "sourceNode": 5,
+    "status": "OK",
+    "statusMeaning": "A valid replacement path was found.",
+    "targetNode": 6,
+    "usedExpandedGraph": false
+  },
+  "licence": "Synthetic fixture: not real data, no licence applies.",
+  "limitations": [
+    "Structural analysis only. This is a shortest replacement path, NOT a traffic assignment: it does not predict how much traffic uses each alternative route, and no origin-destination demand, capacity or congestion model is involved.",
+    "AMDS publishes no speed attribute. Time results are derived from estimated speeds (urban/rural classification where available, otherwise asset type and ownership) and are flagged TIME_ESTIMATED. Distance is the defensible metric.",
+    "AMDS publishes only 60 restricted turns nationally. Banned-turn coverage is effectively negligible, so routes through complex intersections must not be presented as road-legal.",
+    "Junctions are inferred where one link ends on the interior of another, because AMDS does not split through roads at side roads. Interior-to-interior crossings are never noded, which preserves grade separation.",
+    "Height, weight and other physical restrictions are recorded as link quality flags but do not yet constrain routing."
+  ],
+  "nameAttributions": [
+    {
+      "attribution": "Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, maintained by New Zealand Road Controlling Authorities, the Department of Conservation and NZTA.",
+      "licence": "As the AMDS Network Model, already in use",
+      "source": "amds_routename"
+    },
+    {
+      "attribution": "Contains road-name data sourced from the LINZ Data Service and licensed by Land Information New Zealand for reuse under CC BY 4.0.",
+      "licence": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "source": "linz_road_sections"
+    }
+  ],
+  "permalink": "http://localhost:5173/?link=H0-5&snapshot=v1-timeout-repro&metric=time&vehicle=car&scope=directed&direction=both",
+  "processingVersion": "test",
+  "request": {
+    "closureScope": "directed",
+    "directions": [
+      "forward",
+      "reverse"
+    ],
+    "metric": "time",
+    "vehicle": "car"
+  },
+  "retrievedAtUtc": "<normalised>",
+  "reverse": {
+    "corridor": null,
+    "direction": "reverse",
+    "errorDetail": null,
+    "isolation": null,
+    "metrics": {
+      "addedDistanceVsLinkM": 200,
+      "addedTimeS": 14.4,
+      "alternativeDistanceM": 300,
+      "alternativeTimeS": 21.6,
+      "detourRatioVsLink": 3,
+      "networkPenaltyM": 200,
+      "normalPathDistanceM": 100,
+      "normalPathTimeS": 7.2,
+      "selectedLinkLengthM": 100,
+      "units": {
+        "distance": "metres",
+        "time": "seconds"
+      }
+    },
+    "qualityFlags": [
+      "SPEED_ESTIMATED",
+      "TIME_ESTIMATED",
+      "CLIPPED_EXTRACT"
+    ],
+    "removedArcIds": [
+      11
+    ],
+    "routeArcIds": [
+      660,
+      41,
+      631
+    ],
+    "routeGeoJson": {
+      "features": [
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.787667,
+                -41.2846694
+              ],
+              [
+                174.7876424,
+                -41.2837691
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "V0-6",
+            "arcId": 660,
+            "direction": "forward",
+            "lengthM": 100,
+            "linkId": 330,
+            "nameStatus": "amds_named",
+            "order": 0,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        },
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7876424,
+                -41.2837691
+              ],
+              [
+                174.7864488,
+                -41.2837876
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "H1-5",
+            "arcId": 41,
+            "direction": "reverse",
+            "lengthM": 100,
+            "linkId": 20,
+            "nameStatus": "amds_named",
+            "order": 1,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        },
+        {
+          "geometry": {
+            "coordinates": [
+              [
+                174.7864488,
+                -41.2837876
+              ],
+              [
+                174.7864733,
+                -41.284688
+              ]
+            ],
+            "type": "LineString"
+          },
+          "properties": {
+            "amdsId": "V0-5",
+            "arcId": 631,
+            "direction": "reverse",
+            "lengthM": 100,
+            "linkId": 315,
+            "nameStatus": "amds_named",
+            "order": 2,
+            "roadName": "Grid Street"
+          },
+          "type": "Feature"
+        }
+      ],
+      "type": "FeatureCollection"
+    },
+    "routeLinkIds": [
+      20,
+      315,
+      330
+    ],
+    "runtimeMs": "<normalised>",
+    "sourceNode": 6,
+    "status": "OK",
+    "statusMeaning": "A valid replacement path was found.",
+    "targetNode": 5,
+    "usedExpandedGraph": false
+  },
+  "selectedLink": {
+    "amdsId": "H0-5",
+    "assetOwnerOrganisation": null,
+    "centroid": {
+      "lat": -41.2846787054072,
+      "lon": 174.78707015412462
+    },
+    "closureGroupId": "H0-5",
+    "displayLabel": "Grid Street",
+    "displayLabelBasis": "a canonical road name from a licensed source",
+    "displayLabelKind": "road_name",
+    "displayLabelSecondary": "H0",
+    "forwardAllowed": true,
+    "inAnalysisArea": true,
+    "lengthM": 100,
+    "lifeLineRoute": false,
+    "linkId": 5,
+    "locality": null,
+    "localityAlt": null,
+    "modeEmergency": true,
+    "modeVehicleHeavy": true,
+    "modelAssetTypeName": "type None",
+    "naming": {
+      "alternates": [],
+      "confidence": null,
+      "conflict": false,
+      "explanation": "Named in the AMDS Network Model.",
+      "label": null,
+      "routeDesignation": null,
+      "source": "amds_routename",
+      "status": "amds_named",
+      "withheldSource": null
+    },
+    "oneway": false,
+    "qualityFlags": [],
+    "rca": null,
+    "reverseAllowed": true,
+    "roadName": "Grid Street",
+    "roadNumber": null,
+    "sourceObjectId": null,
+    "speedKph": 50,
+    "speedSource": "estimated_asset_type",
+    "surfaceTypeName": "type None",
+    "territorialAuthority": null,
+    "urbanRural": null
+  },
+  "snapshotId": "v1-timeout-repro",
+  "snapshotStatus": "complete",
+  "sourceDataset": "synthetic",
+  "sourceUrl": "test"
+}

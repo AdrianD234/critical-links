@@ -1,0 +1,22 @@
+Byte-for-byte comparison of ordinary V1 detour responses across the fix.
+
+Captured from the running API by capture.mjs, at the product's own
+statement-timeout budget, against two snapshots:
+
+  ci-fixture-wellington   7 links   x 2 metrics x 2 closure scopes  = 28
+  v1-timeout-repro       16 links   x 2 metrics x 2 closure scopes  = 64
+
+The 16 include the bypass and both its ramps - the links whose closure
+actually reaches the corridor search - a one-way link, a dead-end case and
+twelve ordinary two-way grid streets.
+
+  $ diff -r before after
+  (no output)   exit 0
+
+  $ diff <(cd before && sha256sum * | sort -k2) <(cd after && sha256sum * | sort -k2)
+  (no output)   exit 0
+
+92 files, 92 identical. Only three fields are normalised before comparison
+- calculatedAtUtc, retrievedAtUtc and runtimeMs - each a clock or a
+stopwatch, none of them a result. Every status, metric, flag, coordinate
+and string is compared exactly as served.
