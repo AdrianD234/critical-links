@@ -75,12 +75,28 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     job runs exactly that way on purpose. Printing them keeps that visible
     instead of letting a silent 100-skip run pass for a full one.
     """
+    import os
+
     passed = len(terminalreporter.stats.get("passed", []))
     skipped = terminalreporter.stats.get("skipped", [])
 
     if skipped:
         terminalreporter.write_sep(
             "-", f"{len(skipped)} skipped - each one is a test that did not run")
+
+    # On a runner that HAS a database there is no legitimate skip, so the job
+    # that provides PostGIS sets this and turns the report into a gate. Without
+    # it a database-backed job could quietly degrade to the no-database one and
+    # still go green - which is exactly how 110 tests came to never run on CI.
+    if skipped and os.environ.get("NZCL_REQUIRE_NO_SKIPS") == "1":
+        terminalreporter.write_sep(
+            "=", f"NZCL_REQUIRE_NO_SKIPS=1 and {len(skipped)} test(s) skipped",
+            red=True)
+        for report in skipped:
+            terminalreporter.write_line(f"  skipped: {report.nodeid}")
+        session = getattr(terminalreporter, "_session", None)
+        if session is not None:
+            session.exitstatus = 1
 
     if passed == 0 and exitstatus == 0:
         terminalreporter.write_sep(

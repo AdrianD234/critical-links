@@ -214,6 +214,153 @@ jobs:
           PYTHONPATH: src
         run: python -m nzcl.fixtures build-ci-snapshot
 
+      # The database-backed Python suite. This job is the only one with PostGIS
+      # and pgRouting, and until now it went straight from building the fixture
+      # to Playwright - so every `requires_db` test skipped in the fast Python
+      # job and ran nowhere at all. 110 tests, including the whole V2 closure,
+      # isolation, cache-identity and known-answer contract, had never executed
+      # against a real database on CI.
+      #
+      # The preconditions are checked BEFORE pytest, because a green pytest run
+      # proves nothing if the tests that matter silently skipped. The gate is
+      # that these contracts EXECUTED, not that pytest returned zero.
+      - name: Verify the database-backed preconditions
+        working-directory: python
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          import sys
+          from nzcl import db
+
+          problems = []
+
+          try:
+              db.query_one("SELECT 1 AS ok")
+          except Exception as exc:
+              sys.exit(f"no database reachable, so every db-backed test would "
+                       f"skip and the job would still pass: {exc}")
+
+          # Migrations 001-007, by the objects each one is responsible for.
+          required = {
+              "001_schema": ("links", "arcs", "nodes", "network_snapshots"),
+              "002_arc_transitions": ("arc_transitions",),
+              "003_coverage": (),
+              "004_link_names": ("link_names", "road_name_candidates"),
+              "005_external_name_sources": ("ext_road_names",),
+              "006_name_source_licences": ("name_source_licences",),
+              "007_physical_access": ("physical_access_runs",
+                                      "physical_access_links",
+                                      "physical_access_nodes",
+                                      "closure_isolation_v2",
+                                      "closure_analysis_v2",
+                                      "closure_shadow_comparisons"),
+          }
+          for migration, tables in required.items():
+              for t in tables:
+                  row = db.query_one(
+                      "SELECT to_regclass(%s) AS t", (f"public.{t}",))
+                  if not row or row["t"] is None:
+                      problems.append(f"{migration}: table {t} is missing")
+
+          # migration 003 widens network_snapshots rather than adding a table.
+          row = db.query_one(
+              "SELECT column_name FROM information_schema.columns "
+              " WHERE table_name='network_snapshots' AND column_name='coverage_kind'")
+          if row is None:
+              problems.append("003_coverage: network_snapshots.coverage_kind missing")
+
+          snap = db.query_one(
+              "SELECT snapshot_id, routable_link_count FROM network_snapshots "
+              " WHERE snapshot_id='ci-fixture-wellington'")
+          if snap is None:
+              problems.append("the ci-fixture-wellington snapshot was not built")
+          elif not snap["routable_link_count"]:
+              problems.append("the ci-fixture-wellington snapshot has no links")
+
+          if problems:
+              sys.exit("database-backed preconditions failed:\n  "
+                       + "\n  ".join(problems))
+
+          print("database reachable, migrations 001-007 applied, "
+                f"fixture snapshot present with {snap['routable_link_count']} links")
+          PY
+
+      - name: Python suite against real PostGIS
+        working-directory: python
+        env:
+          PYTHONPATH: src
+          # Turns any skip into a failure. On a runner WITH a database there is
+          # no legitimate skip, so a silent degradation to the no-database path
+          # cannot pass here.
+          NZCL_REQUIRE_NO_SKIPS: '1'
+        run: |
+          set -o pipefail
+          pytest -m "not realdata" --junitxml=/tmp/db-tests.xml -q
+
+      # pytest's exit code says the assertions passed. It does not say WHICH
+      # tests ran, and the failure this job exists to prevent is the
+      # database-backed ones not running at all.
+      - name: Prove the database-backed contracts executed
+        run: |
+          python - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          #: Modules whose tests need PostGIS. If any of these contributes zero
+          #: executed tests, the database-backed gate is not gating anything.
+          DB_MODULES = (
+              "test_closure_v2", "test_closure_v2_identity",
+              "test_closure_v2_components", "test_routing", "test_tiles",
+              "test_fixture_contract",
+          )
+
+          root = ET.parse("/tmp/db-tests.xml").getroot()
+          suites = root.iter("testsuite") if root.tag == "testsuites" else [root]
+          cases = [c for s in suites for c in s.iter("testcase")]
+          if not cases:
+              sys.exit("no tests were collected at all")
+
+          def module_of(case):
+              # pytest writes "tests.test_closure_v2.TestSomething". The module
+              # is the last dotted part that still starts with "test_", which
+              # survives both the package prefix and a class-less test.
+              parts = [p for p in (case.get("classname") or "").split(".")
+                       if p.startswith("test_")]
+              return parts[-1] if parts else ""
+
+          skipped = [c for c in cases if c.find("skipped") is not None]
+          per_module = {}
+          for c in cases:
+              per_module.setdefault(module_of(c), 0)
+              per_module[module_of(c)] += 1
+
+          db_ran = {m: per_module.get(m, 0) for m in DB_MODULES}
+          missing = [m for m, n in db_ran.items() if n == 0]
+
+          total = len(cases)
+          print(f"tests executed          : {total}")
+          print(f"skipped                 : {len(skipped)}")
+          print("database-backed modules :")
+          for m, n in sorted(db_ran.items()):
+              print(f"    {m:32} {n}")
+          print(f"database-backed total   : {sum(db_ran.values())}")
+          print("realdata tests are deselected by -m 'not realdata', by design: "
+                "they need an ingested national snapshot, which CI must not "
+                "download.")
+
+          if skipped:
+              for c in skipped:
+                  print(f"  skipped: {module_of(c)}::{c.get('name')}")
+              sys.exit(f"{len(skipped)} mandatory test(s) skipped on a runner "
+                       f"that has a database")
+          if missing:
+              sys.exit("these database-backed modules contributed no executed "
+                       "tests, so the gate proves nothing: " + ", ".join(missing))
+          if sum(db_ran.values()) == 0:
+              sys.exit("no database-backed test executed")
+          PY
+
       - name: Start the API
         working-directory: python
         env:
