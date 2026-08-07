@@ -82,7 +82,11 @@ class DirectedAccess:
     reverse_status: str
     forward_distance_m: float | None
     reverse_distance_m: float | None
-    same_scc_after_closure: bool
+    #: None when only one direction was computed - which is the normal case on
+    #: a one-way link, where there is no reverse traversal to ask about.
+    #: Reporting False there would assert a return path was tested and failed,
+    #: when it was never tested at all.
+    same_scc_after_closure: bool | None
     #: True when one direction routes and the other does not.
     asymmetric: bool
     detail: str
@@ -275,23 +279,37 @@ def _directed_access(results: dict[str, DirectionResult], u: int, v: int
     r = results.get("reverse")
     fs = f.status if f else "NOT_REQUESTED"
     rs = r.status if r else "NOT_REQUESTED"
-    both_ok = fs == "OK" and rs == "OK"
-    asym = {fs, rs} == {"OK", "DISCONNECTED"}
+
+    # A one-way link has no reverse traversal, so only one direction is ever
+    # computed for it. Treating the absent one as a failure would manufacture
+    # an asymmetry out of nothing - and asymmetry is what decides whether the
+    # headline says "Directional access loss".
+    computed = [s for s in (fs, rs) if s != "NOT_REQUESTED"]
+    asym = len(computed) == 2 and set(computed) == {"OK", "DISCONNECTED"}
+    same_scc = (all(s == "OK" for s in computed) if len(computed) == 2 else None)
+
     if asym:
         detail = ("one direction still routes between the segment's endpoints "
                   "and the other does not: a directional access loss, not a "
                   "road losing physical access")
-    elif fs == rs == "DISCONNECTED":
-        detail = ("neither direction routes between the segment's own "
-                  "endpoints; whether anything is physically cut off is a "
-                  "separate question answered on the undirected graph")
+    elif computed and all(s == "DISCONNECTED" for s in computed):
+        detail = (
+            "no directed path remains between the segment's own endpoints"
+            + (" (only one direction exists on this link)"
+               if len(computed) == 1 else "")
+            + "; whether anything is physically cut off is a separate question, "
+              "answered on the undirected graph and reported separately")
+    elif computed and all(s == "OK" for s in computed):
+        detail = ("every direction that exists on this link still routes "
+                  "between the segment's endpoints")
     else:
-        detail = "both directions still route between the segment's endpoints"
+        detail = ("the directed search did not resolve; this is not a finding "
+                  "about the road")
     return DirectedAccess(
         forward_status=fs, reverse_status=rs,
         forward_distance_m=f.alternative_distance_m if f else None,
         reverse_distance_m=r.alternative_distance_m if r else None,
-        same_scc_after_closure=both_ok, asymmetric=asym, detail=detail)
+        same_scc_after_closure=same_scc, asymmetric=asym, detail=detail)
 
 
 def _classify(results: dict[str, DirectionResult], iso: IsolationResult,

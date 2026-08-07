@@ -657,6 +657,15 @@ def display_label(
             "Unnamed road", "officially_unnamed", secondary,
             "an authoritative source records that this road has no name")
 
+    if name_status == "ambiguous_conflict":
+        # Sources hold more than one name and none was chosen. Saying so is
+        # both true and actionable; falling through to a contextual label would
+        # hide that names ARE known, which is a different problem to have.
+        return DisplayLabel(
+            "Name disputed", "conflict", secondary,
+            "more than one source holds a name for this road and they "
+            "disagree; neither has been chosen over the other")
+
     if withheld_source:
         # Name the authority, not the source system: "Name withheld - LINZ Data
         # Service" tells a reader nothing about the road, whereas the RCA does.

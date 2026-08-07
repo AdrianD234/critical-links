@@ -624,13 +624,21 @@ def _label_block(row: dict[str, Any], locality: dict[str, Any] | None) -> dict[s
 
 
 def _link_summary(row: dict[str, Any],
-                  locality: dict[str, Any] | None = None) -> dict[str, Any]:
-    label = _label_block(row, locality)
+                  locality: dict[str, Any] | None = None,
+                  labels: bool = False) -> dict[str, Any]:
+    """A link, as the API describes it.
+
+    `labels` is opt-in on V1 routes and always on for V2. A V1 response is a
+    published contract, and adding seven keys to it - even keys nothing would
+    break on - is not the same as leaving it alone. Callers that want the
+    contextual label ask for it with `?labels=true`; everyone else gets exactly
+    the bytes they got before this module learned about V2.
+    """
     return {
         "linkId": row["link_id"],
         # The authoritative label. The map chip and the inspector headline both
         # read THIS; neither collapses a name state to "No name" any more.
-        **label,
+        **(_label_block(row, locality) if labels else {}),
         "amdsId": row["amds_id"],
         "sourceObjectId": row.get("source_object_id"),
         "closureGroupId": row["closure_group_id"],
@@ -699,6 +707,7 @@ def search(
     rca: int | None = None,
     bbox: str | None = None,
     limit: int = Query(50, ge=1, le=500),
+    labels: bool = False,
 ) -> dict[str, Any]:
     clauses = ["l.snapshot_id = %(snap)s"]
     params: dict[str, Any] = {"snap": snapshot_id(), "limit": limit}
@@ -769,12 +778,14 @@ def search(
         """,
         params,
     )
-    loc = _locality_lookup(snapshot_id(), [int(r["link_id"]) for r in rows])
+    loc = (_locality_lookup(snapshot_id(), [int(r["link_id"]) for r in rows])
+           if labels else {})
     return {
         "snapshotId": snapshot_id(),
         "count": len(rows),
         "truncated": len(rows) >= limit,
-        "results": [_link_summary(r, loc.get(int(r["link_id"]))) for r in rows],
+        "results": [_link_summary(r, loc.get(int(r["link_id"])), labels)
+                    for r in rows],
     }
 
 
@@ -802,6 +813,7 @@ def detour(
     closure_scope: Literal["physical", "directed"] = "physical",
     direction: Literal["forward", "reverse", "both"] = "both",
     geometry: bool = True,
+    labels: bool = False,
 ) -> dict[str, Any]:
     link = _resolve(link_ref)
     snap = snapshot_id()
@@ -1003,8 +1015,10 @@ def detour(
         "cached": False,
         "calculatedAtUtc": result.calculated_at_utc,
         "selectedLink": _link_summary(
-            link, _locality_lookup(snap, [int(link["link_id"])]).get(
-                int(link["link_id"]))),
+            link,
+            _locality_lookup(snap, [int(link["link_id"])]).get(
+                int(link["link_id"])) if labels else None,
+            labels),
         "closure": {
             "scope": closure_scope,
             "closureGroupId": result.closure_group_id,
@@ -1038,6 +1052,61 @@ def detour(
 # algorithmVersion 3.0.0-dev, and the client only reaches it behind a dev flag.
 
 V2_SCOPES = ("segment", "direction", "source_feature")
+
+
+@app.get("/api/v2/capabilities")
+def v2_capabilities() -> dict[str, Any]:
+    """What the V2 engine can do for the active snapshot.
+
+    A separate endpoint rather than a new key on `/api/v1/network/metadata`.
+    The V1 response is a published contract and this PR does not add fields to
+    it; a client that wants V2 asks V2.
+
+    `physicalAccessReady` is the one field worth reading carefully. Exact
+    isolation needs the Gu precompute for the snapshot and profile. Where it is
+    missing the engine builds it on demand, which is correct but slow, and the
+    client is told so rather than discovering it as a stalled request.
+    """
+    from . import detourv2, physical
+
+    snap = snapshot_id()
+    runs = db.query(
+        "SELECT profile, derivation_version, node_count, link_count, "
+        "       component_count, bridge_count, articulation_count, "
+        "       principal_component_id, principal_rule, build_ms, built_at_utc "
+        "  FROM physical_access_runs WHERE snapshot_id=%s AND derivation_version=%s "
+        " ORDER BY profile",
+        (snap, physical.DERIVATION_VERSION))
+    return {
+        "snapshotId": snap,
+        "engine": "v2",
+        "algorithm": detourv2.ALGORITHM,
+        "algorithmVersion": detourv2.ALGORITHM_VERSION,
+        "stability": "development preview - not a stable 3.0.0",
+        "derivationVersion": physical.DERIVATION_VERSION,
+        "closureScopes": list(V2_SCOPES),
+        "defaultClosureScope": "segment",
+        "metrics": ["distance", "time"],
+        "vehicles": ["car", "heavy", "emergency"],
+        "headlines": list(detourv2.HEADLINES),
+        "physicalAccessReady": [r["profile"] for r in runs],
+        "physicalAccess": [
+            {
+                "profile": r["profile"],
+                "nodeCount": r["node_count"],
+                "linkCount": r["link_count"],
+                "componentCount": r["component_count"],
+                "bridgeCount": r["bridge_count"],
+                "articulationCount": r["articulation_count"],
+                "principalComponentId": r["principal_component_id"],
+                "principalRule": r["principal_rule"],
+                "buildMs": r["build_ms"],
+                "builtAtUtc": r["built_at_utc"].isoformat()
+                if r["built_at_utc"] else None,
+            }
+            for r in runs
+        ],
+    }
 
 
 @app.get("/api/v2/links/{link_ref:path}/closure-analysis")
@@ -1081,9 +1150,10 @@ def closure_analysis_v2(
     body["attribution"] = _ACTIVE["meta"]["attribution"]
     body["limitations"] = LIMITATIONS
     body["comparableToV1"] = scope == "source_feature"
+    # Always on for V2: the contextual label is part of what V2 is for.
     body["selectedLink"] = _link_summary(
         link, _locality_lookup(snap, [int(link["link_id"])]).get(
-            int(link["link_id"])))
+            int(link["link_id"])), labels=True)
 
     if geometry:
         sep = result.isolation.separated_link_ids

@@ -105,35 +105,21 @@ FROM r;
 The maximum is an artefact of very short links: 2,642 links are under one
 metre, 396 under 10 cm. Excluding all sub-metre links (373,054 remaining) the
 distribution barely moves — median 1.000, 90th 11.506, 99th 165.389, max
-15,053.3, ratio >= 2 at 30.03%, ratio >= 10 at 11.07%. The tail is not driven by
-degenerate geometry; it is driven by long source features split into many
-short graph links.
+15,053.3, ratio >= 2 at 30.03%, ratio >= 10 at 11.07%. The tail is driven by
+long source features split into many short graph links, not by degenerate
+geometry.
 
 ### Aggregate closed versus reported
 
-```sql
-WITH g AS (
-  SELECT closure_group_id, sum(length_m) AS group_len
-  FROM links WHERE snapshot_id = 'amds-national-2026-07-28-5b359d84'
-  GROUP BY 1
-)
-SELECT sum(l.length_m) / 1000 AS selected_km, sum(g.group_len) / 1000 AS closed_km
-FROM links l JOIN g USING (closure_group_id)
-WHERE l.snapshot_id = 'amds-national-2026-07-28-5b359d84';
-```
+Same CTE, replacing the ratio select with
+`sum(l.length_m)/1000 AS selected_km, sum(g.group_len)/1000 AS closed_km`:
+**147,848 km reported against 457,322 km actually closed, a ratio of 3.093.**
 
-| | Kilometres |
-| --- | ---: |
-| Reported (selected child) | 147,848 |
-| Actually closed (whole group) | 457,322 |
-| Ratio | 3.093 |
-
-This is the sum across all 375,696 single-link scenarios, not a union — each
-scenario is independent and the same road is counted once per scenario that
-touches it. Read as an expectation rather than a total: **the average V1
-scenario closes 3.09 times the road length it reports.** For the 59.38% of
-links that are their own whole source feature the ratio is exactly 1, so the
-inflation is concentrated entirely in the other 40.62%.
+That is the sum across all 375,696 independent single-link scenarios, not a
+union — the same road is counted once per scenario that touches it. Read it as
+an expectation: the average V1 scenario closes 3.09 times the road length it
+reports. For the 59.38% of links that are their own whole source feature the
+ratio is exactly 1, so all of the inflation sits in the other 40.62%.
 
 ---
 
@@ -319,25 +305,23 @@ no national generalisation.
 ## What this implies for PR 2
 
 1. **Closure scope and reported length must agree.** Either default to closing
-   the selected link only, or report the group length that is actually being
-   closed. The status quo is a label that does not describe the simulation for
-   40.62% of the national network, and understates it by 2x or more for 30.48%.
+   the selected link only, or report the group length actually being closed.
+   The status quo is a label that misdescribes the simulation for 40.62% of the
+   national network and understates it by 2x or more for 30.48%.
 
 2. **Bridge status has to gate the stranding claim.** 21.94% of Wellington's
    cut-off results assert stranding behind a link that cannot strand anything.
-   `physical_access_links.is_bridge` already exists for both snapshots and is
-   validated; a result claiming isolation behind a non-bridge selected link is
-   detectably wrong before it reaches a user.
+   `physical_access_links.is_bridge` exists and is validated for both snapshots,
+   so those results are detectably wrong before they reach a user.
 
 3. **Fix the directed-reachability path first, by impact.** It is the smaller
-   cause by count and by far the larger by magnitude — 390 results carrying 96.5%
+   cause by count and far the larger by magnitude — 390 results carrying 96.5%
    of the wrongly attributed length. Over-closure produces more wrong answers;
-   directed reachability produces the wrong answers that are visibly absurd.
+   directed reachability produces the visibly absurd ones.
 
-4. **Do not lead with one-way carriageways.** The one-way state highway
-   DISCONNECTED rate of 87.90% is real and worth quoting, but two-way results
-   sit at 44.16-44.26%. The endpoint measure is broadly unfit, not
-   situationally unfit.
+4. **Do not lead with one-way carriageways.** The one-way state highway rate of
+   87.90% is real and worth quoting, but two-way sits at 44.16-44.26%. The
+   endpoint measure is broadly unfit, not situationally unfit.
 
 5. **Wellington is the evidence base and it is urban.** Before quoting any Q2
    or Q3 rate as a property of the product, a V1-equivalent batch on the
