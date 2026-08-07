@@ -220,8 +220,141 @@ more than the guided search saves.
 140873, its own two arcs excluded) it reports 28,878.857 m over 37 edges where
 the other three all report 26,085.832 m over 39 — 10.7% too long. Re-summing the
 Dijkstra path's arc costs directly from the `arcs` table gives 26,085.832 m. The
-same call with `heuristic => 0` is correct, so the fault is the bidirectional
-termination condition, not the graph. Nothing here uses it.
+same call with `heuristic => 0` is correct, so the fault is in how the
+bidirectional search terminates with a heuristic, not in the graph.
+
+Stated carefully: `pgr_bdAstar` **did not satisfy the shortest-distance
+contract in this configuration on this graph**. No standalone upstream
+reproduction has been done, so this is not a report of a general pgRouting
+defect — it is a reason not to use that function here. Nothing does.
+
+## Five defects found in review, and what each one was
+
+Every one was reproduced before it was fixed. The failing output is recorded
+because "it is fixed now" is not evidence.
+
+### 1. A closure piece 50 km away ranked as zero metres from the selection
+
+`ports.py` read the along-closure offset as `offsets.get(inside, 0.0)`. The
+Dijkstra that builds `offsets` is seeded only from the selected segment's own
+two nodes, so a node in any OTHER connected piece of the closure is never
+reached and fell through that default.
+
+Reproduced with one AMDS source feature in two pieces 50 km apart:
+
+```
+entry closure_node=5  x=50300  distance_from_selected_m=0.0  Far East
+entry closure_node=4  x=50000  distance_from_selected_m=0.0  Far West
+entry closure_node=1  x=  300  distance_from_selected_m=0.0  Near East
+entry closure_node=0  x=    0  distance_from_selected_m=0.0  Near West
+```
+
+All four far ports reported 0.0 m and sorted FIRST. Ports are ordered and
+truncated by that number, so an unrelated piece could take the candidate
+allowance, change which movements were evaluated, and change corridor
+selection.
+
+Now: every port carries `closureComponentId` and `inSelectedComponent`;
+along-closure distance exists only within the selected piece and is `null`
+elsewhere, never zero; ordering is (own piece, component, distance, stable
+key). Movements are identified WITHIN a piece — a trip through the closure
+crosses one contiguous closed stretch, and pairing across pieces describes two
+interruptions rather than one movement. Cross-piece pairs are counted, not
+routed.
+
+### 2. A truncated search still produced a definitive headline
+
+The sample recorded 10 truncated movement analyses that nonetheless said
+"Through movement diverts" or "has no represented replacement". Each reads as a
+statement about EVERY movement the closure interrupts, and an unevaluated pair
+could hold the worst detour, the only disconnected movement, or the one the
+reader cares about.
+
+Now: `MovementSet.exhaustive`, and any headline in `DEFINITIVE_HEADLINES` is
+downgraded to **Partial analysis** with `HEADLINE_WITHHELD_NOT_EXHAUSTIVE`
+whenever movement or corridor generation truncated. Resolved sub-results stay
+visible.
+
+Separately, the routing was bounded at 20×20 per side but the AUDIT PAYLOAD was
+not: `_truncation_rows` built the entire dropped cross-product as JSON. A
+bounded computation with an unbounded report is still unbounded. Now exact
+counts plus a deterministic sample capped at 100.
+
+### 3. The 5 km corridor bound was not a bound
+
+`MAX_OUTWARD_M = 5_000.0` was documented as a cap, and the sample recorded
+chosen corridor ports at 6,613 m, 7,863 m and 10,582 m. All three sit at
+`hops=0` — they are SEEDS, whose distance is the boundary arc's own length,
+inserted before a check that only ever runs on a step. On a rural state highway
+one link can be over ten kilometres.
+
+The behaviour is right: the first node outside the closure is the first place a
+driver could act on, however far away, and there is no nearer answer to give.
+The claim was wrong. It is now `MAX_EXPANSION_OUTWARD_M`, bounding the walk;
+`searchBounds.seedMayExceedExpansionBound` is reported; an over-bound candidate
+carries `beyondSearchBound`; and a corridor whose chosen pair contains one
+reports `confidence: low` and says so in its explanation.
+
+### 4. A per-path INVALID_GRAPH did not poison the request
+
+A replacement that traverses its own closure means the routing exclusion did
+not take. Every other path in that set came from the SAME edge query under the
+SAME exclusion, so none of them is trustworthy either. Previously only the
+offending path was marked, and a different movement could still become the
+principal result and carry an ordinary headline — on a request where the engine
+had just caught itself routing through a closed road.
+
+Now one broken path sets the whole `ReplacementSet` to `INVALID_GRAPH`, which is
+in `UNRESOLVED_STATUSES`, so the headline becomes "Analysis unresolved" and no
+figure from the set is reported.
+
+### 5. Corridor selection had no intact witness
+
+Every term in the choice rule is about the post-closure world. Nothing checked
+that anybody ever travelled between the two chosen decision nodes THROUGH the
+closure — so a pair could have a perfectly good replacement route while the
+cheapest intact route between those nodes never touched the closure, and the
+"corridor" would describe a diversion nobody needs to make.
+
+Now each candidate pair must produce a WITNESS — upstream trail, entry port, the
+intact crossing, exit port, downstream trail — validated as directionally
+continuous arc by arc, starting and ending at exactly the chosen decision
+nodes, and genuinely using a declared closure arc. Pairs that cannot are struck
+out BEFORE the choice.
+
+### And one the oracle found in itself
+
+`reviewv2.load_oracle_graph` stored one edge per node pair — the cheapest arc —
+then deleted edges whose stored arc was closed. Where two arcs run between the
+same nodes and only the cheaper is closed, that removed the connection
+entirely: the oracle reported "no path" for Lyon Street's endpoint pair while
+the engine correctly routed 108 m. Had it done the same on a MOVEMENT pair,
+engine and oracle would have agreed on `None` for opposite reasons and the
+agreement would have been worthless. Parallel arcs are real here — 731,286 arcs
+over 725,497 node pairs.
+
+## Turn restrictions
+
+Checked AFTER routing, because the multi-target searches run on the plain arc
+graph. A route using a banned manoeuvre is marked
+`TURN_RESTRICTION_UNSUPPORTED` — unresolved, not DISCONNECTED, because a legal
+way round may exist and this search did not find it — and is never offered as
+the canonical detour.
+
+The measured exposure is smaller than expected:
+
+| | |
+| --- | --- |
+| restricted-turn records nationally | 43 |
+| that restrict any modelled vehicle class | **1** |
+| with all three mode flags false | 42 |
+
+So for `profile='car'` the national exposure is ONE banned manoeuvre, involving
+two links. A record with every mode flag false bans nothing, and treating it as
+a ban would invent a constraint AMDS did not publish.
+
+This does not make any route road-legal, and nothing in the interface says it
+does.
 
 ## The national sample
 
