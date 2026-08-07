@@ -32,7 +32,7 @@ import pytest
 from nzcl import closure as closure_mod
 from nzcl import corridor, db, impactv2, movements, physical, ports
 from nzcl import replacement as repl_mod
-from nzcl import routegeom, routing
+from nzcl import routegeom, routing, turns
 
 from conftest import requires_db
 
@@ -1105,6 +1105,76 @@ class TestCorridorNeedsAnIntactWitness:
         assert cr.chosen is None
         assert cr.witness_rejections
         assert "no candidate pair has a demonstrable intact trip" in cr.detail
+
+
+class TestBannedManoeuvres:
+    """A route that makes a prohibited turn is not offered as the detour.
+
+    The multi-target searches run on the plain arc graph, which knows nothing
+    about turns, so this is a post-route validator rather than a constraint.
+    AMDS publishes 43 restricted-turn records nationally and exactly ONE of
+    them restricts any modelled vehicle class - small, and not zero, which is
+    precisely the case for checking rather than assuming.
+    """
+
+    #: A square whose south side is closed, with a restriction banning the
+    #: replacement's own turn sequence: west then north then east.
+    def _net(self, synthetic):
+        return synthetic(SQUARE, restrictions=[
+            {"seq": ["W", "N", "E"], "vehicle": True, "heavy": True},
+        ])
+
+    def test_a_clean_route_passes_and_says_how_many_applied(self, synthetic):
+        net = synthetic(SQUARE)
+        _, _, _, rs = stages(net, "S")
+        for p in rs.paths:
+            assert p.turn_check is not None
+            assert p.turn_check.checked is True
+            assert p.turn_check.ok is True
+            assert p.turn_check.applicable_restrictions == 0
+
+    def test_a_violating_replacement_is_not_offered_as_the_detour(
+            self, synthetic):
+        net = self._net(synthetic)
+        c, b, ms, rs = stages(net, "S")
+        violating = [p for p in rs.paths
+                     if p.status == "TURN_RESTRICTION_UNSUPPORTED"]
+        assert violating, "the replacement runs W->N->E, which is banned"
+        for p in violating:
+            assert p.resolved is False
+            assert "TURN_RESTRICTION_VIOLATED" in p.quality_flags
+            assert p.turn_check.violations
+            assert "not offered as a legal route" in p.detail
+
+    def test_it_is_unresolved_and_not_disconnected(self, synthetic):
+        """A legal way round may exist; this search simply did not find one."""
+        net = self._net(synthetic)
+        _, _, _, rs = stages(net, "S")
+        for p in rs.paths:
+            assert p.status != "DISCONNECTED"
+
+    def test_the_headline_does_not_present_a_banned_route_as_a_detour(
+            self, synthetic):
+        net = self._net(synthetic)
+        c, b, ms, rs = stages(net, "S")
+        principal = sorted(rs.paths, key=lambda p: p.movement_id)[0]
+        headline, _flags = impactv2._classify(ms, rs, principal)
+        assert headline == "Analysis unresolved"
+        assert headline not in impactv2.DEFINITIVE_HEADLINES
+
+    def test_only_restrictions_that_apply_to_the_profile_count(self, synthetic):
+        """43 records nationally; 42 restrict nothing that is routed.
+
+        A record with every mode flag false bans nothing, and treating it as a
+        ban would invent a constraint AMDS did not publish.
+        """
+        net = synthetic(SQUARE, restrictions=[
+            {"seq": ["W", "N", "E"], "vehicle": False, "heavy": False,
+             "emergency": False},
+        ])
+        assert turns.restricted_sequences(net.snapshot_id, "car") == []
+        _, _, _, rs = stages(net, "S")
+        assert all(p.status == "OK" for p in rs.paths)
 
 
 class TestTimeoutIsNeverDisconnected:

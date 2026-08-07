@@ -43,7 +43,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from . import db, routegeom
+from . import db, routegeom, turns
 from .movements import Movement, MovementSet
 from .routegeom import RouteGeometry
 from .routing import Metric, Profile, Status, route_many_paths
@@ -57,6 +57,10 @@ REPLACEMENT_MODEL_VERSION = "1.0.0"
 UNRESOLVED_STATUSES = frozenset({
     "UNRESOLVED_TIMEOUT", "API_ERROR", "INVALID_GRAPH", "SOURCE_DATA_ERROR",
     "UNSUPPORTED_PROFILE",
+    # A route that makes a banned manoeuvre is not a route this engine can
+    # offer. Unresolved rather than DISCONNECTED: a legal way round may well
+    # exist, and this search did not find it.
+    "TURN_RESTRICTION_UNSUPPORTED",
 })
 
 
@@ -102,6 +106,8 @@ class ReplacementPath:
     traverses_own_closure: bool = False
 
     topology_confidence: str = "high"
+    #: Result of checking this route against the restricted-turn table.
+    turn_check: "object | None" = None
     quality_flags: list[str] = field(default_factory=list)
     runtime_ms: int = 0
 
@@ -234,12 +240,16 @@ def compute(
     arc_meta = _arc_meta(snap, {a for arcs in routed.paths.values() for a in arcs})
     out.stage_ms["arc_metadata"] = int((time.perf_counter() - t_meta) * 1000)
 
+    # Loaded once for the whole request: a 43-row table nationally, of which
+    # one restricts any modelled vehicle class.
+    restrictions = turns.restricted_sequences(snap, profile)
+
     geometry_ms = 0
     paths: list[ReplacementPath] = []
     for m in included:
         p, gms = _one(snap, m, routed, removed, arc_meta,
                       selected_segment_length_m, with_geometry,
-                      topology_confidence)
+                      topology_confidence, profile, restrictions)
         geometry_ms += gms
         paths.append(p)
 
@@ -286,7 +296,8 @@ def compute(
 # ------------------------------------------------------------------ internals
 def _one(snap: str, m: Movement, routed, removed: frozenset[int],
          arc_meta: dict[int, dict], segment_length_m: float,
-         with_geometry: bool, confidence: str) -> tuple[ReplacementPath, int]:
+         with_geometry: bool, confidence: str, profile: Profile,
+         restrictions: list[list[int]]) -> tuple[ReplacementPath, int]:
     t0 = time.perf_counter()
     p = ReplacementPath(
         movement_id=m.movement_id, entry_port_id=m.entry_port_id,
@@ -368,6 +379,18 @@ def _one(snap: str, m: Movement, routed, removed: frozenset[int],
     if m.confidence != "high":
         p.quality_flags.append(f"MOVEMENT_CONFIDENCE_{m.confidence.upper()}")
 
+    # --- banned manoeuvres -------------------------------------------------
+    # The multi-target search runs on the plain arc graph, which knows nothing
+    # about turns. A route that makes a banned manoeuvre must not be presented
+    # as the canonical detour, so it is marked unsupported rather than quietly
+    # offered as legal.
+    tc = turns.check(snap, arcs, profile=profile, restrictions=restrictions)
+    p.turn_check = tc
+    if not tc.ok and tc.checked and tc.violations:
+        p.status = "TURN_RESTRICTION_UNSUPPORTED"
+        p.detail = tc.detail
+        p.quality_flags.append("TURN_RESTRICTION_VIOLATED")
+
     gms = 0
     if with_geometry:
         tg = time.perf_counter()
@@ -448,6 +471,8 @@ def path_dict(p: ReplacementPath) -> dict:
         "linkIds": p.link_ids,
         "traversesOwnClosure": p.traverses_own_closure,
         "topologyConfidence": p.topology_confidence,
+        "turnCheck": (None if p.turn_check is None
+                      else turns.as_dict(p.turn_check)),
         "qualityFlags": p.quality_flags,
         "runtimeMs": p.runtime_ms,
     }
