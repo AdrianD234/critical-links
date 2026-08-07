@@ -93,9 +93,16 @@ test.describe('Explore', () => {
     await waitForResult(page);
 
     await expect(page.locator('.map-badge')).toContainText(/modelled closure/i);
-    /* The legend names the scope actually closed, not a generic "segment". */
+    /*
+     * The legend names the scope actually closed, not a generic "segment".
+     *
+     * "AMDS source-feature", not "AMDS-feature": a source feature is a
+     * data-maintenance unit, and the wording says so because the scope closes
+     * every graph child of one, which is routinely much more road than the
+     * segment the reader selected.
+     */
     await expect(page.locator('.map-legend')).toContainText(
-      /modelled amds-feature closure/i,
+      /modelled amds source-feature closure/i,
     );
   });
 });

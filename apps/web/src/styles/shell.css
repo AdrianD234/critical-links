@@ -282,7 +282,13 @@
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--shell-fg-faint);
+  /*
+   * Muted, not faint. --shell-fg-faint on --shell-raised is 2.56:1, which axe
+   * fails at this size and is right to: this tag is the only thing telling a
+   * reader the panel beside it is a development preview, so it is exactly the
+   * label that must not be hard to read. --shell-fg-muted is 4.89:1.
+   */
+  color: var(--shell-fg-muted);
 }
 
 .engine-switch button {

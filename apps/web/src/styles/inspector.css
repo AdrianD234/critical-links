@@ -506,9 +506,16 @@
 }
 
 /* Marks a scope that is correct but rarely meant. Quiet on purpose: it is a
- * caveat on the option, not a second label competing with it. */
+ * caveat on the option, not a second label competing with it.
+ *
+ * 0.75, not 0.6. At 0.6 the composited colour is 4.22:1 on the selected
+ * segment's background and axe fails it. Small caps at 11.5px is exactly the
+ * text that needs the contrast, and this marker is the only thing warning a
+ * reader that the option closes more road than they selected - quietness that
+ * costs legibility would be defeating its own purpose. 0.75 measures 6.8:1 and
+ * is still visibly subordinate to the label. */
 .ctl .seg button .opt-advanced {
-  opacity: 0.6;
+  opacity: 0.75;
   font-variant: all-small-caps;
   letter-spacing: 0.03em;
 }
