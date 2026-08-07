@@ -88,6 +88,21 @@ test.describe('reported Tokoroa case under V2', () => {
     await expect(page.getByText('V2 closure analysis —', { exact: false }).first()).toBeVisible({ timeout: 60_000 });
     await page.waitForTimeout(2500);
     await panel(page).screenshot({ path: `${OUT}/after-v2-inspector.png` });
+
+    /*
+     * The endpoint figures are collapsed by default, because they are
+     * provisional and the method changes in PR 2. Captured open, because
+     * "the panel has them" is the claim being evidenced.
+     */
+    const endpoint = page
+      .locator('details')
+      .filter({ hasText: 'Provisional endpoint-route result' })
+      .first();
+    await endpoint.locator('summary').click();
+    await expect(endpoint).toContainText('26.6');
+    await endpoint.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(800);
+    await endpoint.screenshot({ path: `${OUT}/after-v2-endpoint-route.png` });
   });
 });
 

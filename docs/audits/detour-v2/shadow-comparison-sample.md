@@ -109,20 +109,31 @@ network, where it is not.
 
 ## Runtime
 
-120 comparisons - both engines, end to end - in 47.0 s.
+120 comparisons - both engines, end to end - in 49.9 s.
 
 | | median | p90 | max |
 | --- | --- | --- | --- |
-| V1 | 239 ms | 276 ms | 348 ms |
-| V2 | **147 ms** | **177 ms** | **253 ms** |
+| V1 | 253 ms | 299 ms | 472 ms |
+| V2 | **158 ms** | **189 ms** | **261 ms** |
 
 V2 is faster despite computing an exact partition rather than a bounded walk,
 because the commonest case - one link that is not a bridge - is answered from
 the precompute with no traversal at all. A bridge closure does walk, but only
-the separated side; the principal side is derived by subtraction from the
+the smaller of the two sides; the other is derived by subtraction from the
 precomputed component aggregates and is never visited. These figures exclude
 the Gu build, which is paid once per snapshot and profile (Wellington 52 ms,
 national 1.35 s) and is persisted.
+
+Measured with counters rather than a clock, on the national snapshot:
+
+| closure | method | nodes examined | edges examined |
+| --- | --- | --- | --- |
+| link 375057, not a bridge | `precomputed-not-a-bridge` | **0** | **0** |
+| link 6774, Milford Sound Highway, a bridge | `bridge-smaller-side-and-subtraction` | **24** | 49 |
+
+The bridge case separates a 24-link pocket from a component of 104,272 nodes
+and touches 24 of them. Wall-clock time would have measured the machine; these
+measure the algorithm.
 
 Note that "exact" here means the partition of the represented graph, not a
 claim that the graph models the real network. Those are reported separately as
