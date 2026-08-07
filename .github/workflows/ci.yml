@@ -75,7 +75,32 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e './python[dev]' || pip install -r python/requirements-dev.txt
+          # One install path, from the controlled definition in
+          # python/pyproject.toml. There used to be a
+          # `|| pip install -r python/requirements-dev.txt` fallback here
+          # pointing at a file that has never existed in this repository, so it
+          # could only ever turn a real pip failure into a confusing
+          # "no such file" one. A fallback that cannot succeed is not
+          # resilience, it is a swallowed error.
+          pip install -e './python[dev]'
+          # Prove the dev extra actually resolved. A missing test-only
+          # dependency otherwise surfaces as a collection error halfway through
+          # the run, which reads like a broken test rather than a broken
+          # install. networkx in particular is the independent oracle: without
+          # it the strongest check in the suite silently stops running.
+          python - <<'PY'
+          # importlib.util is a submodule and is NOT imported by `import
+          # importlib`. Getting that wrong here would fail the job with an
+          # AttributeError that looks nothing like a dependency problem.
+          import importlib.util
+          import sys
+
+          required = ("pytest", "httpx", "mapbox_vector_tile", "networkx")
+          missing = [m for m in required if importlib.util.find_spec(m) is None]
+          if missing:
+              sys.exit("dev extra did not resolve, missing: " + ", ".join(missing))
+          print("dev extra resolved:", " ".join(required))
+          PY
 
       # `realdata` is deselected: those tests need a populated snapshot, which
       # the browser job provisions and this one deliberately does not.
@@ -141,7 +166,32 @@ jobs:
       - name: Install Python package
         run: |
           python -m pip install --upgrade pip
-          pip install -e './python[dev]' || pip install -r python/requirements-dev.txt
+          # One install path, from the controlled definition in
+          # python/pyproject.toml. There used to be a
+          # `|| pip install -r python/requirements-dev.txt` fallback here
+          # pointing at a file that has never existed in this repository, so it
+          # could only ever turn a real pip failure into a confusing
+          # "no such file" one. A fallback that cannot succeed is not
+          # resilience, it is a swallowed error.
+          pip install -e './python[dev]'
+          # Prove the dev extra actually resolved. A missing test-only
+          # dependency otherwise surfaces as a collection error halfway through
+          # the run, which reads like a broken test rather than a broken
+          # install. networkx in particular is the independent oracle: without
+          # it the strongest check in the suite silently stops running.
+          python - <<'PY'
+          # importlib.util is a submodule and is NOT imported by `import
+          # importlib`. Getting that wrong here would fail the job with an
+          # AttributeError that looks nothing like a dependency problem.
+          import importlib.util
+          import sys
+
+          required = ("pytest", "httpx", "mapbox_vector_tile", "networkx")
+          missing = [m for m in required if importlib.util.find_spec(m) is None]
+          if missing:
+              sys.exit("dev extra did not resolve, missing: " + ", ".join(missing))
+          print("dev extra resolved:", " ".join(required))
+          PY
 
       - name: Apply schema
         working-directory: python

@@ -18,7 +18,19 @@ dependencies = [
 [project.optional-dependencies]
 # mapbox-vector-tile is REQUIRED, not optional: the tile-contract test is the
 # regression guard for a shipped P0 defect, and a skipped guard protects nothing.
-dev = ["pytest>=8.3", "httpx>=0.27", "mapbox-vector-tile>=2.0"]
+#
+# networkx is here for the same reason. It is the INDEPENDENT ORACLE that
+# test_physical_oracle.py checks the physical-access graph against - bridges,
+# articulation points, components, post-closure partitions. It must never be
+# imported by anything under src/: the moment the engine and its oracle share
+# code, agreement stops being evidence. It is a test dependency and only a test
+# dependency.
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+    "mapbox-vector-tile>=2.0",
+    "networkx>=3.0",
+]
 
 [project.scripts]
 nzcl-discover = "nzcl.cli:discover_main"

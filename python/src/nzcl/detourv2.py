@@ -55,14 +55,38 @@ ALGORITHM_VERSION = "3.0.0-dev"
 Direction = Literal["forward", "reverse"]
 
 #: The complete set of headlines this engine may produce.
+#:
+#: "No physical isolation" became "No isolation in the represented
+#: physical-access graph". The shorter phrase claims something about roads; the
+#: longer one claims something about the graph, and only the second is true.
+#: Gu is inferred topology and the difference is exactly where a reader would
+#: be misled.
+#:
+#: "Network split into two represented components" is for the case where a
+#: closure DOES separate the graph but no side carries a decisive anchor.
+#: Naming one of them "cut off" would assert a direction the data does not
+#: support.
+#:
+#: "Partial analysis" is for a request where some directions resolved and
+#: others did not. Reporting only the successful half as though it were the
+#: whole answer is how a timeout becomes a finding.
 HEADLINES = (
     "Road cut off",
+    "Network split into two represented components",
     "Through route found",
     "No endpoint route",
     "Directional access loss",
-    "No physical isolation",
+    "No isolation in the represented physical-access graph",
+    "Partial analysis",
     "Analysis unresolved",
 )
+
+#: Statuses that mean the search did not reach a conclusion. Never a finding
+#: about the road.
+UNRESOLVED_STATUSES = frozenset({
+    "UNRESOLVED_TIMEOUT", "API_ERROR", "INVALID_GRAPH", "SOURCE_DATA_ERROR",
+    "UNSUPPORTED_PROFILE",
+})
 
 
 @dataclass
@@ -161,7 +185,11 @@ def analyse(
                             direction=scope_direction, profile=profile)
 
     if use_cache:
-        hit = _cache_get(snapshot_id, c.fingerprint, metric, direction)
+        # link_id is part of the lookup, not just of the payload. Every child
+        # of one AMDS parent removes the same arcs and so shares
+        # `c.fingerprint`; without the link id, selecting child #8 was served
+        # child #12's segment, endpoints and metrics.
+        hit = _cache_get(snapshot_id, c.fingerprint, link_id, metric, direction)
         if hit is not None:
             return hit
 
@@ -187,9 +215,9 @@ def analyse(
     # For scope='direction' nothing is physically removed: one traversal is
     # withdrawn and the road is still there. Analysing Gu with an empty closure
     # is the correct statement of that, not an omission.
-    g = physical.get(snapshot_id, profile)
     physical_removed = [] if scope == "direction" else c.removed_link_ids
-    iso = physical.analyse_closure(g, physical_removed)
+    iso = _isolation_cached(snapshot_id, profile, physical_removed,
+                            c.closure_nodes, use_cache)
 
     # --- (2) the directed question, kept separate --------------------------
     access = _directed_access(results, u0, v0)
@@ -285,21 +313,31 @@ def _directed_access(results: dict[str, DirectionResult], u: int, v: int
     # an asymmetry out of nothing - and asymmetry is what decides whether the
     # headline says "Directional access loss".
     computed = [s for s in (fs, rs) if s != "NOT_REQUESTED"]
-    asym = len(computed) == 2 and set(computed) == {"OK", "DISCONNECTED"}
-    same_scc = (all(s == "OK" for s in computed) if len(computed) == 2 else None)
+    # Only a search that REACHED A CONCLUSION says anything about reachability.
+    # A timeout is not a "no". Previously two timed-out directions produced
+    # same_scc=False, which asserts the endpoints were shown not to be mutually
+    # reachable when in fact nothing was shown at all.
+    conclusive = [s for s in computed if s in ("OK", "DISCONNECTED")]
+    asym = len(conclusive) == 2 and set(conclusive) == {"OK", "DISCONNECTED"}
+    same_scc = (all(s == "OK" for s in conclusive)
+                if len(conclusive) == 2 else None)
 
     if asym:
         detail = ("one direction still routes between the segment's endpoints "
                   "and the other does not: a directional access loss, not a "
                   "road losing physical access")
-    elif computed and all(s == "DISCONNECTED" for s in computed):
+    elif len(conclusive) < len(computed):
+        detail = ("at least one direction did not resolve, so no conclusion "
+                  "about mutual reachability was reached; the directions that "
+                  "did resolve are reported beneath")
+    elif conclusive and all(s == "DISCONNECTED" for s in conclusive):
         detail = (
             "no directed path remains between the segment's own endpoints"
             + (" (only one direction exists on this link)"
-               if len(computed) == 1 else "")
+               if len(conclusive) == 1 else "")
             + "; whether anything is physically cut off is a separate question, "
               "answered on the undirected graph and reported separately")
-    elif computed and all(s == "OK" for s in computed):
+    elif conclusive and all(s == "OK" for s in conclusive):
         detail = ("every direction that exists on this link still routes "
                   "between the segment's endpoints")
     else:
@@ -316,28 +354,55 @@ def _classify(results: dict[str, DirectionResult], iso: IsolationResult,
               access: DirectedAccess) -> tuple[str, str]:
     """The wording gate. The only place a headline is chosen.
 
-    Order matters. An unresolved search is reported as unresolved and never
-    as a finding; isolation outranks routing because a cut-off road is the
-    stronger statement; and 'Road cut off' is unreachable unless the isolation
-    result is exact AND separated something other than the closure itself.
+    Order matters:
+
+      * an unresolved search is reported as unresolved and never as a finding.
+        ANY unresolved requested direction has to be visible at the top level -
+        previously the headline only said so when EVERY direction failed, so
+        forward=OK with reverse timing out read as "Through route found" while
+        half the requested analysis had not happened;
+      * isolation outranks routing, because a cut-off road is the stronger
+        statement;
+      * "Road cut off" needs an exact partition AND a separated non-closure
+        link AND an unambiguous principal side. Without the third it is only
+        true that the network split, and that is what it says instead.
     """
     statuses = {d.status for d in results.values()}
-    if statuses and statuses <= {"UNRESOLVED_TIMEOUT", "API_ERROR",
-                                 "INVALID_GRAPH", "SOURCE_DATA_ERROR",
-                                 "UNSUPPORTED_PROFILE"}:
+    unresolved = statuses & UNRESOLVED_STATUSES
+    resolved = statuses - UNRESOLVED_STATUSES
+
+    if unresolved and not resolved:
         return "Analysis unresolved", "Analysis unresolved"
 
-    cut_off = iso.exact and iso.physically_isolates and iso.separated_link_count > 0
-    iso_statement = "Road cut off" if cut_off else (
-        "No physical isolation" if iso.exact else "Analysis unresolved")
+    separated = (iso.calculation_exact and iso.physically_isolates
+                 and iso.separated_link_count > 0)
+    cut_off = separated and not iso.principal_side_ambiguous
+
+    if not iso.calculation_exact:
+        iso_statement = "Analysis unresolved"
+    elif cut_off:
+        iso_statement = "Road cut off"
+    elif separated:
+        iso_statement = "Network split into two represented components"
+    else:
+        iso_statement = "No isolation in the represented physical-access graph"
+
+    # A partially failed request is reported as partial whatever the surviving
+    # direction found, EXCEPT where isolation alone already settles the answer:
+    # isolation is computed on Gu and does not depend on either route search,
+    # so a timeout cannot undermine it.
+    if unresolved and not separated:
+        return "Partial analysis", iso_statement
 
     if cut_off:
         return "Road cut off", iso_statement
-    if "OK" in statuses and "DISCONNECTED" not in statuses:
+    if separated:
+        return "Network split into two represented components", iso_statement
+    if "OK" in resolved and "DISCONNECTED" not in resolved:
         return "Through route found", iso_statement
     if access.asymmetric:
         return "Directional access loss", iso_statement
-    if "DISCONNECTED" in statuses:
+    if "DISCONNECTED" in resolved:
         return "No endpoint route", iso_statement
     return "Through route found", iso_statement
 
@@ -348,21 +413,69 @@ def _direction_headline(d: DirectionResult, iso: IsolationResult,
         return "Analysis unresolved"
     if d.status == "OK":
         return "Through route found"
-    if iso.exact and iso.physically_isolates and iso.separated_link_count > 0:
-        return "Road cut off"
+    if (iso.calculation_exact and iso.physically_isolates
+            and iso.separated_link_count > 0):
+        return ("Network split into two represented components"
+                if iso.principal_side_ambiguous else "Road cut off")
     if access.asymmetric:
         return "Directional access loss"
     return "No endpoint route"
 
 
 # ------------------------------------------------------------------- cache
-def _cache_get(snapshot_id: str, fp: str, metric: str,
+# Two caches, because there are two kinds of result. See the header of
+# sql/migrations/007_physical_access.sql for the failure that made the
+# distinction necessary.
+def _isolation_cached(snapshot_id: str, profile: Profile,
+                      removed_link_ids: list[int], closure_nodes: list[int],
+                      use_cache: bool) -> IsolationResult:
+    """The closure-invariant half, shared by every sibling - correctly.
+
+    Keyed on the removed LINK set, which is exactly what Gu had taken out of
+    it. Two children of one AMDS parent under `source_feature` scope really do
+    have the same isolation result, and this is where that sharing belongs.
+    """
+    fp = closure_mod.isolation_fingerprint(
+        snapshot_id, profile, physical.DERIVATION_VERSION, removed_link_ids)
+
+    if use_cache:
+        row = db.query_one(
+            "SELECT result FROM closure_isolation_v2 "
+            " WHERE snapshot_id=%s AND isolation_fingerprint=%s "
+            "   AND derivation_version=%s",
+            (snapshot_id, fp, physical.DERIVATION_VERSION))
+        if row is not None:
+            return _iso_from(row["result"])
+
+    t0 = time.perf_counter()
+    g = physical.get(snapshot_id, profile)
+    iso = physical.analyse_closure(g, removed_link_ids)
+    conf, why = physical.topology_confidence(snapshot_id, closure_nodes)
+    iso.topology_confidence = conf
+    iso.topology_confidence_reason = why
+    ms = int((time.perf_counter() - t0) * 1000)
+
+    if use_cache:
+        db.execute(
+            "INSERT INTO closure_isolation_v2 (snapshot_id, "
+            "  isolation_fingerprint, vehicle_profile, derivation_version, "
+            "  result, runtime_ms) VALUES (%s,%s,%s,%s,%s,%s) "
+            "ON CONFLICT (snapshot_id, isolation_fingerprint, "
+            "             derivation_version) "
+            "DO UPDATE SET result = EXCLUDED.result, "
+            "  runtime_ms = EXCLUDED.runtime_ms, computed_at_utc = now()",
+            (snapshot_id, fp, profile, physical.DERIVATION_VERSION,
+             json.dumps(asdict(iso)), ms))
+    return iso
+
+
+def _cache_get(snapshot_id: str, fp: str, link_id: int, metric: str,
                direction: str) -> AnalysisResult | None:
     row = db.query_one(
         "SELECT result FROM closure_analysis_v2 "
-        " WHERE snapshot_id=%s AND closure_fingerprint=%s AND algorithm_version=%s "
-        "   AND metric=%s AND direction=%s",
-        (snapshot_id, fp, ALGORITHM_VERSION, metric, direction))
+        " WHERE snapshot_id=%s AND closure_fingerprint=%s AND link_id=%s "
+        "   AND algorithm_version=%s AND metric=%s AND direction=%s",
+        (snapshot_id, fp, link_id, ALGORITHM_VERSION, metric, direction))
     if row is None:
         return None
     return _from_payload(row["result"])
@@ -375,7 +488,7 @@ def _cache_put(out: AnalysisResult, metric: str, direction: str) -> None:
         "  algorithm, algorithm_version, derivation_version, result, runtime_ms) "
         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
         "ON CONFLICT (snapshot_id, closure_fingerprint, algorithm_version, "
-        "             metric, direction) "
+        "             metric, direction, link_id) "
         "DO UPDATE SET result = EXCLUDED.result, runtime_ms = EXCLUDED.runtime_ms, "
         "  computed_at_utc = now()",
         (out.snapshot_id, out.closure.fingerprint, out.link_id, out.scope,
@@ -407,26 +520,42 @@ def _from_payload(payload) -> AnalysisResult:
     return out
 
 
-def _iso_from(d: dict) -> IsolationResult:
+def _iso_from(d) -> IsolationResult:
+    d = dict(d) if not isinstance(d, str) else json.loads(d)
     comps = [physical.ResultingComponent(**c) for c in d.get("components", [])]
     return IsolationResult(
-        exact=d["exact"], physically_isolates=d["physically_isolates"],
+        calculation_exact=d["calculation_exact"],
+        physically_isolates=d["physically_isolates"],
         method=d["method"], components=comps,
         separated_link_ids=d.get("separated_link_ids", []),
         separated_link_count=d.get("separated_link_count", 0),
         separated_length_m=d.get("separated_length_m", 0.0),
+        separated_truncated=d.get("separated_truncated", False),
         origin_component_ids=d.get("origin_component_ids", []),
         closure_is_bridge=d.get("closure_is_bridge", False),
+        graph_exact=d.get("graph_exact", False),
+        topology_confidence=d.get("topology_confidence",
+                                  physical.TOPOLOGY_CONFIDENCE_CEILING),
+        topology_confidence_reason=d.get("topology_confidence_reason", ""),
+        partition_exact=d.get("partition_exact", True),
+        principal_side_rule=d.get("principal_side_rule", ""),
+        principal_side_confidence=d.get("principal_side_confidence", "high"),
+        principal_side_ambiguous=d.get("principal_side_ambiguous", False),
         detail=d.get("detail", ""))
 
 
 def invalidate_cache(snapshot_id: str) -> int:
+    """Drop BOTH caches for a snapshot. Used by tests and by re-derivation."""
     with db.direct_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM closure_analysis_v2 WHERE snapshot_id=%s "
                         "AND algorithm_version=%s",
                         (snapshot_id, ALGORITHM_VERSION))
-            return cur.rowcount
+            n = cur.rowcount
+            cur.execute("DELETE FROM closure_isolation_v2 WHERE snapshot_id=%s "
+                        "AND derivation_version=%s",
+                        (snapshot_id, physical.DERIVATION_VERSION))
+            return n + cur.rowcount
 
 
 # --------------------------------------------------------------- API shape
@@ -462,13 +591,26 @@ def direction_dict(d: DirectionResult | None) -> dict | None:
 def isolation_dict(iso: IsolationResult, *, max_components: int = 50) -> dict:
     comps = iso.components[:max_components]
     return {
-        "exact": iso.exact,
+        # Two claims, never merged. `calculationExact` is about the algorithm;
+        # `graphExact` is about whether Gu models the real road network, and it
+        # is always false. A single `exact` could only be read as the second.
+        "calculationExact": iso.calculation_exact,
+        "graphExact": iso.graph_exact,
+        "partitionExact": iso.partition_exact,
+        "topologyConfidence": iso.topology_confidence,
+        "topologyConfidenceReason": iso.topology_confidence_reason,
+        # Which side is "cut off" is a policy, not a theorem. A bridge yields
+        # two components and mathematics alone does not privilege either.
+        "principalSideRule": iso.principal_side_rule,
+        "principalSideConfidence": iso.principal_side_confidence,
+        "principalSideAmbiguous": iso.principal_side_ambiguous,
         "physicallyIsolates": iso.physically_isolates,
         "method": iso.method,
         "closureIsBridge": iso.closure_is_bridge,
         "separatedLinkCount": iso.separated_link_count,
         "separatedLengthM": _round(iso.separated_length_m, 1),
-        "separatedLinkIds": iso.separated_link_ids[:5000],
+        "separatedLinkIds": iso.separated_link_ids,
+        "separatedTruncated": iso.separated_truncated,
         "componentCount": len(iso.components),
         "componentsTruncated": len(iso.components) > len(comps),
         "components": [

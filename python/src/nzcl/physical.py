@@ -416,16 +416,52 @@ class ResultingComponent:
     node_ids: list[int] = field(default_factory=list)
 
 
+#: The most this PR will claim about how faithfully Gu models the real road
+#: network. Never "high": Gu is built from INFERRED topology - AMDS publishes no
+#: node identifiers, junctions are inferred where one link ends on the interior
+#: of another, interior-to-interior crossings are deliberately left unconnected
+#: to preserve grade separation, there is no z-level field, and the national
+#: snapshot carries 50,000 recorded near-miss endpoints that are close together
+#: and deliberately NOT joined. Any of those can turn a road that is connected
+#: in reality into a bridge in Gu.
+#:
+#: The rule set that would justify "high" is not in this PR and is not pretended
+#: to be. It needs, at least: z-level or grade-separation evidence per crossing,
+#: a resolved disposition for every near miss, ferry-link handling, and a
+#: published-node-identifier source to check inferred junctions against. Queued
+#: explicitly rather than dropped.
+TOPOLOGY_CONFIDENCE_CEILING = "medium"
+
+#: A near miss within this distance of a node involved in the closure makes the
+#: isolation claim doubtful: the two endpoints may be the same junction in
+#: reality, in which case the "bridge" is not one.
+NEAR_MISS_DOUBT_M = 25.0
+
+
 @dataclass
 class IsolationResult:
-    """What a closure does to physical connectivity. Exact, or it says so.
+    """What a closure does to connectivity IN THE REPRESENTED GRAPH.
+
+    Two different claims live here and they are deliberately not merged:
+
+      `calculation_exact`  the partition was computed exactly, with no bound,
+                           no sampling and no early termination. This is a
+                           statement about the algorithm.
+
+      `graph_exact`        whether Gu is an exact model of the physical road
+                           network. It is not, and this is always False. Gu is
+                           inferred topology; see TOPOLOGY_CONFIDENCE_CEILING.
+
+    V1 published a single `exact: true` that readers could only take as the
+    second. It was not even the first.
 
     `physically_isolates` is true only when at least one link that is NOT part
     of the closure ends up in a component with no principal connection. A
     closure that merely detaches itself isolates nothing.
     """
 
-    exact: bool
+    #: The partition of the affected components is exact.
+    calculation_exact: bool
     physically_isolates: bool
     method: str
     #: Every component the original component broke into, principal first.
@@ -437,6 +473,28 @@ class IsolationResult:
     origin_component_ids: list[int] = field(default_factory=list)
     closure_is_bridge: bool = False
     detail: str = ""
+
+    #: Gu is inferred. This is never True and is carried so the distinction
+    #: cannot be lost by a caller reading one boolean.
+    graph_exact: bool = False
+    #: high | medium | low. Capped at TOPOLOGY_CONFIDENCE_CEILING.
+    topology_confidence: str = TOPOLOGY_CONFIDENCE_CEILING
+    topology_confidence_reason: str = ""
+
+    # --- which side is "cut off" is a POLICY, not a theorem -------------
+    #: The partition itself. Exact, and independent of the choice below.
+    partition_exact: bool = True
+    #: How the principal side was chosen, in words the interface can show.
+    principal_side_rule: str = ""
+    #: high | low. Low when the anchor does not clearly favour one side.
+    principal_side_confidence: str = "high"
+    #: True when no side carries a decisive anchor, so naming one "cut off"
+    #: would be asserting something the data does not support.
+    principal_side_ambiguous: bool = False
+
+    #: True when the separated link list was capped rather than enumerated in
+    #: full. The counts and lengths stay exact either way.
+    separated_truncated: bool = False
 
 
 def _edges_of(g: PhysicalGraph, link_ids: Iterable[int]) -> list[int]:
@@ -451,20 +509,32 @@ def _edges_of(g: PhysicalGraph, link_ids: Iterable[int]) -> list[int]:
 def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> IsolationResult:
     """Exact connected components of Gu after removing `removed_link_ids`.
 
-    Single bridge closures are answered from the precomputed DFS intervals with
-    no traversal at all. Everything else is a BFS restricted to the components
-    the closure actually touches - the rest of the network cannot change, so it
-    is never visited.
+    Three paths, and only the first is genuinely a lookup:
+
+      single link, not a bridge   O(1). It cannot disconnect anything; that is
+                                  what "bridge" means.
+      single link, is a bridge    walks the CHILD SUBTREE only, then derives
+                                  the parent side by subtraction from the
+                                  precomputed component aggregates. Bounded by
+                                  the separated side, not by the network.
+      anything else               BFS restricted to the components the closure
+                                  touches. The rest of the network cannot have
+                                  changed, so it is never visited.
 
     Every component of every affected pre-closure component is returned. The
     smallest is not selected and called "the affected side": on a multi-link
     closure that is a guess, and reporting all of them is the only honest
     answer.
+
+    `calculation_exact` is about the algorithm. It says nothing about whether
+    Gu models the real road network, which is what `graph_exact` and
+    `topology_confidence` are for.
     """
     removed = set(_edges_of(g, removed_link_ids))
     if not removed:
         return IsolationResult(
-            exact=True, physically_isolates=False, method="empty-closure",
+            calculation_exact=True, physically_isolates=False,
+            method="empty-closure", principal_side_rule="not applicable",
             detail="no link in the closure is an edge of the physical-access graph",
         )
 
@@ -480,7 +550,7 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
     if len(removed) == 1 and not single_bridge:
         cid = int(g.comp_of_edge[single])
         return IsolationResult(
-            exact=True, physically_isolates=False,
+            calculation_exact=True, physically_isolates=False,
             method="precomputed-not-a-bridge",
             components=[ResultingComponent(
                 node_count=int(g.comp_nodes[cid]),
@@ -490,36 +560,57 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
                 retains_principal_connection=True, node_ids=[],
             )],
             origin_component_ids=origin, closure_is_bridge=False,
+            principal_side_rule="nothing was separated, so no side was chosen",
             detail="the closed link is not a bridge of the physical-access "
                    "graph, so its removal leaves every other link connected "
                    "exactly as before",
         )
 
     if single_bridge:
-        comps = _split_by_bridge(g, next(iter(removed)))
-        method = "precomputed-bridge-interval"
+        comps, sides = _split_by_bridge(g, next(iter(removed)))
+        method = "bridge-subtree-and-subtraction"
     else:
-        comps = _recompute_components(g, removed, origin)
+        comps, sides = _recompute_components(g, removed, origin)
         method = "restricted-bfs"
 
     principal = [c for c in comps if c.retains_principal_connection]
     others = [c for c in comps if not c.retains_principal_connection]
+
+    # Counts and length come from the components, which are exact whether or
+    # not the id list was capped. Only the DRAWABLE list is bounded.
+    sep_count = sum(c.link_count for c in others)
+    sep_length = float(sum(c.road_length_m for c in others))
     separated: list[int] = []
+    truncated = False
     for c in others:
-        separated.extend(c.link_ids)
+        for lid in c.link_ids:
+            if len(separated) >= MAX_ENUMERATED_LINKS:
+                truncated = True
+                break
+            separated.append(lid)
+        if truncated:
+            break
     separated.sort()
-    length = sum(g.edge_len[g.link_index[l]] for l in separated)
+
+    ambiguous = _anchor_ambiguous(sides) and bool(sep_count)
+    rule = ("most state-highway links, then most nodes"
+            if sep_count else "nothing was separated, so no side was chosen")
 
     return IsolationResult(
-        exact=True,
-        physically_isolates=bool(separated),
+        calculation_exact=True,
+        physically_isolates=bool(sep_count),
         method=method,
         components=principal + others,
         separated_link_ids=separated,
-        separated_link_count=len(separated),
-        separated_length_m=float(length),
+        separated_link_count=sep_count,
+        separated_length_m=sep_length,
+        separated_truncated=truncated,
         origin_component_ids=origin,
         closure_is_bridge=single_bridge,
+        partition_exact=True,
+        principal_side_rule=rule,
+        principal_side_confidence="low" if ambiguous else "high",
+        principal_side_ambiguous=ambiguous,
         detail=(
             f"{len(comps)} component(s) result from removing "
             f"{len(removed)} edge(s) of {len(origin)} original component(s)"
@@ -528,36 +619,155 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
 
 
 def _split_by_bridge(g: PhysicalGraph, edge: int) -> list[ResultingComponent]:
-    """The two sides of a bridge, straight off the DFS intervals.
+    """The two sides of a bridge, from the DFS intervals.
 
-    No traversal. The child side is exactly {v : tin[child] <= tin[v] <= tout[child]}
-    within the bridge's component, and the parent side is the rest of it.
+    This is NOT O(1) and the PR no longer claims it is. It walks the child
+    subtree, which is bounded by the size of the SEPARATED side - typically a
+    handful of nodes, and never larger than half the component if the smaller
+    side is the child. The parent side is then derived by SUBTRACTION from the
+    precomputed component aggregates, so the untouched remainder of the network
+    is never visited and never enumerated.
+
+    That subtraction is the whole point. The previous version scanned all
+    338,117 nodes of the graph to partition one component, enumerated both
+    sides, and then wrote the principal side's quarter-million link and node
+    ids into the JSONB cache - ids the API suppresses before they reach anyone.
+
+    The subtree walk uses the DFS interval as the membership test, which is
+    what makes it exact: a node is on the child side if and only if its `tin`
+    lies in [tin_child, tout_child].
     """
     child = int(g.bridge_child[edge])
     lo, hi = int(g.tin[child]), int(g.tout[child])
     cid = int(g.comp_of_edge[edge])
     removed = {edge}
 
+    # Walk the child subtree only. The interval test keeps the walk inside it
+    # without needing the tree edges themselves.
     inside: set[int] = set()
-    outside: set[int] = set()
-    for i in range(len(g.node_ids)):
-        if g.comp_of_node[i] != cid:
-            continue
-        (inside if lo <= g.tin[i] <= hi else outside).add(i)
+    stack = [child]
+    inside.add(child)
+    while stack:
+        u = stack.pop()
+        for k in range(g.adj_start[u], g.adj_start[u + 1]):
+            e = g.adj_edge[k]
+            if e in removed:
+                continue
+            w = g.edge_v[e] if g.edge_u[e] == u else g.edge_u[e]
+            if w in inside or not (lo <= g.tin[w] <= hi):
+                continue
+            inside.add(w)
+            stack.append(w)
 
-    a = _side(g, inside, removed)
-    b = _side(g, outside, removed)
-    # The principal side is the one holding the network's principal component's
-    # anchors; with a single component split in two, that is the side with the
-    # state highways, else the larger side.
-    if (a[3], a[0]) >= (b[3], b[0]):
-        a_principal, b_principal = True, False
+    a = _side(g, inside, removed, collect=True)
+    # The parent side by subtraction: everything in the component that is not
+    # the child subtree, minus the bridge itself.
+    parent_nodes = int(g.comp_nodes[cid]) - len(inside)
+    parent_links = int(g.comp_links[cid]) - a[5] - 1
+    parent_length = float(g.comp_length[cid]) - a[2] - float(g.edge_len[edge])
+    parent_sh = int(g.comp_sh_links[cid]) - a[3] - (1 if g.edge_sh[edge] else 0)
+    # The child side's node ids are known; the parent side's are not yet.
+    # For the tie-break its minimum is derived: the component's own minimum,
+    # unless that happens to lie inside the child subtree, in which case the
+    # parent's minimum is strictly greater and only the ORDER matters here.
+    a_min = _min_node_id(g, inside)
+    comp_min = _component_min_node(g, cid)
+    b_min = comp_min if comp_min != a_min else a_min + 1
+    a_principal = _rank_key(a[3], a[0], a_min) <= _rank_key(
+        parent_sh, parent_nodes, b_min)
+
+    if a_principal:
+        # The SEPARATED side is the parent, so it has to be enumerated after
+        # all - the map draws it and the response lists it. Skipping that was a
+        # real defect: the separated component came back with an empty node and
+        # link list while still reporting non-zero counts.
+        #
+        # This costs a scan of the component, and it is bounded by the smaller
+        # side in the only way that matters: the parent is principal in
+        # essentially every real closure, so this branch is the rare one.
+        outside = {i for i in _component_nodes(g, cid) if i not in inside}
+        b = _side(g, outside, removed, collect=True)
+        # Re-enumerating gives the true ids; the derived aggregates above are
+        # asserted equal to them by the oracle's conservation checks.
+        a = _side(g, inside, removed, collect=False)
     else:
-        a_principal, b_principal = False, True
-    return [
-        _as_component(a, a_principal),
-        _as_component(b, b_principal),
-    ]
+        b = (parent_nodes, [], parent_length, parent_sh, [], parent_links)
+
+    return (
+        [_as_component(a, a_principal), _as_component(b, not a_principal)],
+        [a, b],
+    )
+
+
+def _component_nodes(g: PhysicalGraph, cid: int) -> list[int]:
+    """Node indices of one component, memoised on the graph.
+
+    Only built when a bridge closure needs the parent side enumerated, which is
+    the uncommon direction. Memoised because a caller in that position is
+    likely to ask again.
+    """
+    cache = g.__dict__.setdefault("_comp_nodes", {})
+    if cid not in cache:
+        cache[cid] = [i for i in range(len(g.node_ids))
+                      if g.comp_of_node[i] == cid]
+    return cache[cid]
+
+
+def _component_min_node(g: PhysicalGraph, cid: int) -> int:
+    """Smallest node id in a component.
+
+    Computed once per (graph, component) and memoised on the graph, because a
+    bridge closure otherwise pays a full node scan for a tie-break that almost
+    never decides anything.
+    """
+    cache = g.__dict__.setdefault("_comp_min", {})
+    if cid not in cache:
+        cache[cid] = min(
+            (g.node_ids[i] for i in range(len(g.node_ids))
+             if g.comp_of_node[i] == cid), default=-1)
+    return cache[cid]
+
+
+def _rank_key(sh: int, n_nodes: int, min_node_id: int) -> tuple:
+    """Sort key for choosing the principal side. Lower sorts first.
+
+    Most state-highway links, then most nodes, then the smallest node id.
+
+    That last term is not decoration. Ties on the first two are common - a
+    symmetric split of a rural network is the obvious case - and the previous
+    tie-break was the group's index in the BFS, which follows node ordering,
+    which follows edge ordering. On an exact tie the "cut off" side could
+    therefore swap when the rows came back in a different order. A node id is
+    intrinsic to the data, so the choice is now a function of the graph alone.
+
+    Whether the tie was decisive at all is reported separately as
+    `principal_side_ambiguous`; this only guarantees the answer is stable.
+    """
+    return (-sh, -n_nodes, min_node_id)
+
+
+def _min_node_id(g: PhysicalGraph, node_idxs: set[int]) -> int:
+    return min((g.node_ids[i] for i in node_idxs), default=-1)
+
+
+def _anchor_ambiguous(sides: list[tuple]) -> bool:
+    """Is the principal choice actually supported by the data?
+
+    Ambiguous when the top two sides carry the same number of state-highway
+    links AND neither is materially larger. Splitting a rural network in two
+    equal halves with no state highway on either does not make one of them
+    "cut off"; it makes the network split. Milford Sound is obvious, most of
+    the network is not, and the interface must be able to tell the difference.
+    """
+    if len(sides) < 2:
+        return False
+    ranked = sorted(sides, key=lambda s: (-s[3], -s[0]))
+    top, second = ranked[0], ranked[1]
+    if top[3] != second[3]:
+        return False
+    bigger = max(top[0], second[0])
+    smaller = min(top[0], second[0])
+    return bigger < 2 * max(smaller, 1)
 
 
 #: Above this many links, a resulting side is summarised rather than
@@ -566,14 +776,20 @@ def _split_by_bridge(g: PhysicalGraph, edge: int) -> list[ResultingComponent]:
 MAX_ENUMERATED_LINKS = 20_000
 
 
-def _side(g: PhysicalGraph, node_idxs: set[int], removed: set[int]):
+def _side(g: PhysicalGraph, node_idxs: set[int], removed: set[int],
+          collect: bool = True):
     """Roll up one node set into (nodes, link ids, length, SH count, node ids).
 
     `seen` deduplicates: an edge with both endpoints in the set is reached
     twice, and counting it twice would inflate the very figure the interface
     puts in a headline.
+
+    `collect=False` returns counts and length without the id lists. The
+    principal side is the rest of the country; enumerating it costs time and
+    cache space to produce ids that nothing draws and the API strips.
     """
     links: list[int] = []
+    n_links = 0
     length = 0.0
     sh = 0
     seen: set[int] = set()
@@ -583,19 +799,23 @@ def _side(g: PhysicalGraph, node_idxs: set[int], removed: set[int]):
             if e in removed or e in seen:
                 continue
             seen.add(e)
-            links.append(g.link_ids[e])
+            n_links += 1
+            if collect:
+                links.append(g.link_ids[e])
             length += g.edge_len[e]
             if g.edge_sh[e]:
                 sh += 1
     links.sort()
-    node_ids = sorted(g.node_ids[i] for i in node_idxs)
-    return (len(node_idxs), links, float(length), sh, node_ids)
+    node_ids = sorted(g.node_ids[i] for i in node_idxs) if collect else []
+    # The count is carried explicitly rather than left to len(link_ids), so an
+    # un-enumerated side reports a true count instead of zero.
+    return (len(node_idxs), links, float(length), sh, node_ids, n_links)
 
 
 def _as_component(side, principal: bool) -> ResultingComponent:
-    nodes, links, length, sh, node_ids = side
+    nodes, links, length, sh, node_ids, n_links = side
     return ResultingComponent(
-        node_count=nodes, link_count=len(links), road_length_m=length,
+        node_count=nodes, link_count=n_links, road_length_m=length,
         link_ids=links, state_highway_link_count=sh,
         retains_principal_connection=principal, node_ids=node_ids,
     )
@@ -635,12 +855,40 @@ def _recompute_components(g: PhysicalGraph, removed: set[int],
                     stack.append(w)
         groups.append(bucket)
 
-    sides = [_side(g, b, removed) for b in groups]
-    # The principal side is the one containing the most state-highway anchors,
-    # falling back to node count. Documented in _choose_principal.
-    order = sorted(range(len(sides)), key=lambda i: (-sides[i][3], -sides[i][0], i))
-    principal_i = order[0] if order else -1
-    return [_as_component(s, i == principal_i) for i, s in enumerate(sides)]
+    # Rank first, so the principal side is known before anything is enumerated.
+    # It is the rest of the network and its ids are never drawn, so collecting
+    # them would cost a quarter of a million entries in the cache payload to
+    # produce a list the API strips before sending.
+    ranked = sorted(range(len(groups)),
+                    key=lambda i: _rank_key(
+                        _anchor_of(g, groups[i], removed)[0],
+                        len(groups[i]), _min_node_id(g, groups[i])))
+    principal_i = ranked[0] if ranked else -1
+    sides = [_side(g, b, removed, collect=(i != principal_i))
+             for i, b in enumerate(groups)]
+    return (
+        [_as_component(s, i == principal_i) for i, s in enumerate(sides)],
+        sides,
+    )
+
+
+def _anchor_of(g: PhysicalGraph, node_idxs: set[int], removed: set[int]):
+    """State-highway link count and node count for a node set, nothing else.
+
+    Cheap enough to run on every candidate side before deciding which one to
+    enumerate, which is what lets the principal side stay un-enumerated.
+    """
+    sh = 0
+    seen: set[int] = set()
+    for i in node_idxs:
+        for k in range(g.adj_start[i], g.adj_start[i + 1]):
+            e = g.adj_edge[k]
+            if e in removed or e in seen:
+                continue
+            seen.add(e)
+            if g.edge_sh[e]:
+                sh += 1
+    return (sh, len(node_idxs))
 
 
 # ------------------------------------------------------------- persistence
@@ -703,6 +951,66 @@ def persist(g: PhysicalGraph) -> None:
                  g.principal_component_id, g.principal_rule),
             )
         conn.commit()
+
+
+# --------------------------------------------------- topology confidence
+def topology_confidence(snapshot_id: str, node_ids: Sequence[int],
+                        ) -> tuple[str, str]:
+    """How far the represented graph can be trusted AROUND THIS CLOSURE.
+
+    Returns (confidence, reason). Capped at `TOPOLOGY_CONFIDENCE_CEILING`,
+    which is "medium" and not "high", because Gu is inferred throughout and
+    nothing in this PR establishes otherwise.
+
+    One rule is implemented, and it is the one that bears directly on an
+    isolation claim: a NEAR MISS is a pair of endpoints the ingest found close
+    together and deliberately did not join. If there is one at a node involved
+    in the closure, the two endpoints may be a single junction in reality - in
+    which case the road the engine calls a bridge is not one, and the "cut off"
+    claim is an artefact of the tolerance rather than a fact about the network.
+    The national snapshot records 50,000 of these.
+
+    Still to come, and named rather than quietly omitted:
+      * grade separation - AMDS has no z-level field, so interior-to-interior
+        crossings are never noded and a genuine overbridge is indistinguishable
+        from a missed junction;
+      * ferry links, which connect places no road does;
+      * a published node-identifier source to check inferred junctions against;
+      * a resolved disposition per near miss, so an investigated one stops
+        counting against every closure near it.
+
+    Until those exist this returns "medium" for everything else, which is a
+    conservative default and is documented as one.
+    """
+    if not node_ids:
+        return TOPOLOGY_CONFIDENCE_CEILING, (
+            "no closure nodes to assess; Gu is inferred topology throughout")
+    row = db.query_one(
+        """
+        SELECT count(*) AS n
+          FROM near_misses nm
+         WHERE nm.snapshot_id = %s
+           AND EXISTS (
+                 SELECT 1 FROM nodes n
+                  WHERE n.snapshot_id = nm.snapshot_id
+                    AND n.node_id = ANY(%s)
+                    AND ST_DWithin(n.geom_2193, nm.geom_2193, %s))
+        """,
+        (snapshot_id, list(node_ids), NEAR_MISS_DOUBT_M),
+    )
+    n = int((row or {}).get("n") or 0)
+    if n:
+        return "low", (
+            f"{n} unresolved near-miss endpoint(s) lie within "
+            f"{NEAR_MISS_DOUBT_M:.0f} m of this closure. A near miss is a pair "
+            f"of endpoints the ingest found close together and deliberately did "
+            f"not join; if they are one junction in reality, this closure's "
+            f"connectivity result is an artefact of that tolerance.")
+    return TOPOLOGY_CONFIDENCE_CEILING, (
+        "no unresolved near miss lies near this closure. Capped at medium "
+        "because the represented graph is inferred throughout: AMDS publishes "
+        "no node identifiers, junctions are inferred, and there is no z-level "
+        "field to distinguish an overbridge from a missed junction.")
 
 
 #: In-process cache. The graph is immutable for a (snapshot, profile), and

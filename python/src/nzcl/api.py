@@ -600,6 +600,7 @@ def _label_block(row: dict[str, Any], locality: dict[str, Any] | None) -> dict[s
     "State-highway section near Tokoroa" are still distinguishable.
     """
     loc = (locality or {}).get("locality") or None
+    loc_alt = (locality or {}).get("locality_alt") or None
     lab = display_label(
         road_name=(row["display_name"] if "display_name" in row
                    else row.get("road_name")),
@@ -609,6 +610,7 @@ def _label_block(row: dict[str, Any], locality: dict[str, Any] | None) -> dict[s
         rca_code=row.get("rca_code"),
         rca_name=row.get("rca_name"),
         locality=loc,
+        locality_alt=loc_alt,
         amds_id=row.get("amds_id"),
         link_id=row.get("link_id"),
     )
@@ -617,8 +619,10 @@ def _label_block(row: dict[str, Any], locality: dict[str, Any] | None) -> dict[s
         "displayLabelKind": lab.kind,
         "displayLabelBasis": lab.basis,
         "displayLabelSecondary": lab.secondary,
+        # Both sides, always. These are LINZ's left and right locality for the
+        # road section, not a value and a fallback.
         "locality": loc,
-        "localityAlt": (locality or {}).get("locality_alt"),
+        "localityAlt": loc_alt,
         "territorialAuthority": (locality or {}).get("territorial_authority"),
     }
 

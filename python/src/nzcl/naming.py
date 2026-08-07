@@ -626,6 +626,32 @@ def short_identifier(amds_id: str | None, link_id: int | None = None) -> str | N
     return None if link_id is None else f"link {link_id}"
 
 
+def locality_phrase(locality: str | None,
+                    locality_alt: str | None = None) -> str | None:
+    """How to name where a road is, from LINZ's two locality fields.
+
+    They are `leftlocalityname` and `rightlocalityname`: the localities on
+    either SIDE of the road section, not a primary and a fallback. Where a road
+    runs along a boundary they legitimately differ - State Highway 1 south of
+    Tokoroa has Kinleith on one side and Tokoroa on the other, and neither is
+    more correct.
+
+    Taking the left one alone was reproducible and not useful: it silently
+    discarded half of what is known, and picked the less recognisable name in
+    exactly the case the user reported. Where the two differ, both are named
+    and the road is described as running BETWEEN them, which is what the data
+    actually says. Ordered alphabetically so the phrase does not depend on
+    which side LINZ happened to call left.
+    """
+    left = (locality or "").strip() or None
+    right = (locality_alt or "").strip() or None
+    if left and right and left != right:
+        a, b = sorted((left, right))
+        return f"between {a} and {b}"
+    name = left or right
+    return f"near {name}" if name else None
+
+
 def display_label(
     *,
     road_name: str | None = None,
@@ -635,6 +661,7 @@ def display_label(
     rca_code: int | None = None,
     rca_name: str | None = None,
     locality: str | None = None,
+    locality_alt: str | None = None,
     amds_id: str | None = None,
     link_id: int | None = None,
 ) -> DisplayLabel:
@@ -678,11 +705,12 @@ def display_label(
             "not been confirmed for display")
 
     # --- contextual -------------------------------------------------------
+    where = locality_phrase(locality, locality_alt)
     if is_state_highway:
-        label = (f"State-highway section near {locality}" if locality
+        label = (f"State-highway section {where}" if where
                  else "State-highway section")
-    elif locality:
-        label = f"Local-road section near {locality}"
+    elif where:
+        label = f"Local-road section {where}"
     elif rca_short:
         label = f"Road section managed by {rca_short}"
     else:

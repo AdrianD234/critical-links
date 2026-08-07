@@ -69,7 +69,8 @@ class TestRectangularAlternative:
         r = analyse(net, "S")
 
         assert r.headline == "Through route found"
-        assert r.isolation_statement == "No physical isolation"
+        assert r.isolation_statement == (
+            "No isolation in the represented physical-access graph")
 
         assert r.closure.removed_link_ids == [net.link_id("S")]
         assert len(r.closure.removed_arc_ids) == 2
@@ -85,7 +86,7 @@ class TestRectangularAlternative:
         assert r.reverse.alternative_distance_m == pytest.approx(300, abs=1e-6)
 
         assert r.isolation.physically_isolates is False
-        assert r.isolation.exact is True
+        assert r.isolation.calculation_exact is True
         assert r.isolation.closure_is_bridge is False
         assert r.isolation.method == "precomputed-not-a-bridge"
         assert r.isolation.separated_link_count == 0
@@ -120,9 +121,9 @@ class TestSoleAccess:
 
         assert r.headline == "Road cut off"
         assert r.isolation_statement == "Road cut off"
-        assert r.isolation.exact is True
+        assert r.isolation.calculation_exact is True
         assert r.isolation.closure_is_bridge is True
-        assert r.isolation.method == "precomputed-bridge-interval"
+        assert r.isolation.method == "bridge-subtree-and-subtraction"
 
         # Exactly the tail. Not the mouth - the closure is not stranded by
         # itself - and not the square.
@@ -155,7 +156,8 @@ class TestSoleAccess:
         assert r.isolation.closure_is_bridge is True
         assert r.isolation.separated_link_count == 0
         assert r.isolation.physically_isolates is False
-        assert r.isolation_statement == "No physical isolation"
+        assert r.isolation_statement == (
+            "No isolation in the represented physical-access graph")
         assert r.headline != "Road cut off"
         assert r.headline == "No endpoint route"
 
@@ -247,10 +249,11 @@ class TestDividedCarriageway:
 
         # Gu keeps one undirected edge per link, so the remaining three still
         # form a path. Nothing is separated.
-        assert r.isolation.exact is True
+        assert r.isolation.calculation_exact is True
         assert r.isolation.physically_isolates is False
         assert r.isolation.separated_link_count == 0
-        assert r.isolation_statement == "No physical isolation"
+        assert r.isolation_statement == (
+            "No isolation in the represented physical-access graph")
 
 
 class TestOneWayEndpointArtefact:
@@ -270,7 +273,8 @@ class TestOneWayEndpointArtefact:
         assert r.forward.headline != "Road cut off"
         assert r.headline in detourv2.HEADLINES
         assert r.headline == "No endpoint route"
-        assert r.isolation_statement == "No physical isolation"
+        assert r.isolation_statement == (
+            "No isolation in the represented physical-access graph")
         # The directed finding is reported, and reported as directed. A one-way
         # link has no reverse traversal, so mutual reachability was never
         # tested and must be reported as unknown rather than as a failure.
@@ -300,7 +304,8 @@ class TestDirectionOnlyClosure:
         # be the same category error as V1's.
         assert r.isolation.physically_isolates is False
         assert r.isolation.method == "empty-closure"
-        assert r.isolation_statement == "No physical isolation"
+        assert r.isolation_statement == (
+            "No isolation in the represented physical-access graph")
 
         assert r.forward.status == "OK"
         assert r.forward.alternative_distance_m == pytest.approx(300, abs=1e-6)
@@ -330,6 +335,34 @@ class TestDisplayLabel:
         assert lab.kind == "contextual"
         assert lab.secondary == "1073a927#12"
         assert "No name" not in lab.label
+
+    def test_differing_side_localities_name_both(self):
+        """LINZ publishes a LEFT and a RIGHT locality per road section.
+
+        They are two sides of the road, not a value and a fallback. The
+        reported Tokoroa link has Kinleith on one side and Tokoroa on the
+        other; taking the left one alone was reproducible and threw away half
+        of what is known, picking the less recognisable name in exactly the
+        case the user reported.
+        """
+        lab = display_label(
+            name_status="unresolved", rca_code=1,
+            rca_name="Waka Kotahi NZ Transport Agency",
+            locality="Kinleith", locality_alt="Tokoroa")
+        assert lab.label == "State-highway section between Kinleith and Tokoroa"
+
+    def test_side_localities_are_ordered_independently_of_which_is_left(self):
+        """The phrase must not depend on which side LINZ called left."""
+        a = display_label(rca_code=1, rca_name="NZTA",
+                          locality="Kinleith", locality_alt="Tokoroa").label
+        b = display_label(rca_code=1, rca_name="NZTA",
+                          locality="Tokoroa", locality_alt="Kinleith").label
+        assert a == b
+
+    def test_matching_side_localities_collapse_to_one(self):
+        lab = display_label(rca_code=1, rca_name="NZTA",
+                            locality="Tokoroa", locality_alt="Tokoroa")
+        assert lab.label == "State-highway section near Tokoroa"
 
     def test_state_highway_without_a_locality_still_says_what_it_is(self):
         lab = display_label(name_status="unresolved", rca_code=1,

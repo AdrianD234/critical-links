@@ -271,14 +271,49 @@ def _describe(snapshot_id: str, rows: Sequence[dict], removed_link_ids: list[int
     return shape, detail, nodes, boundary
 
 
+def isolation_fingerprint(snapshot_id: str, profile: str,
+                          derivation_version: str,
+                          removed_link_ids: Sequence[int]) -> str:
+    """Identity of the CLOSURE-INVARIANT half: what Gu had removed from it.
+
+    Keyed on the removed LINK set, because Gu has one undirected edge per link
+    and knows nothing about arcs or direction. Every child of one AMDS parent
+    under `source_feature` scope legitimately shares this - the isolation
+    result really is the same for all of them, and that is where the expensive
+    work is, so the sharing that motivated the original design is kept exactly
+    where it is correct.
+    """
+    payload = "|".join((
+        "closure-isolation-v2",
+        snapshot_id,
+        profile,
+        derivation_version,
+        ",".join(str(int(link)) for link in sorted(removed_link_ids)),
+    ))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
 def fingerprint(snapshot_id: str, scope: str, direction: str | None,
                 profile: str, removed_arc_ids: Sequence[int]) -> str:
-    """A deterministic identity for one closure computation.
+    """A deterministic identity for what a closure REMOVES.
 
     Keyed on the removed ARCS rather than on the link the user clicked: two
-    requests that remove the same arcs under the same profile are the same
-    computation however they were addressed, and should share a cache entry.
-    The snapshot is included because an arc id means nothing without it.
+    requests that remove the same arcs under the same profile remove the same
+    thing, however they were addressed. The snapshot is included because an arc
+    id means nothing without it.
+
+    This identifies the CLOSURE, not the ANSWER, and the difference is not
+    academic. Under `source_feature` scope all seventeen children of the
+    Tokoroa parent remove the same arcs and so share this hash - correctly,
+    because they do close the same roads. They do NOT share an answer: each has
+    its own selected segment, its own length, its own endpoints and its own
+    replacement metrics.
+
+    Caching a whole result under this hash alone served child #8 the record for
+    child #12, with no outward sign of anything wrong. Any cache built on it
+    must carry the selected link id in its key as well; `closure_analysis_v2`
+    now does, and the closure-invariant half lives under
+    `isolation_fingerprint()` above where sharing is actually correct.
     """
     payload = "|".join((
         "closure-impact-v2",

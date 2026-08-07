@@ -122,18 +122,58 @@ CREATE TABLE IF NOT EXISTS physical_access_components (
 );
 
 -- ------------------------------------------------------------ V2 results
--- Keyed by the deterministic closure fingerprint, not by link id: two requests
--- that remove the same arcs under the same profile ARE the same closure,
--- however they were addressed.
+-- TWO caches, because there are two kinds of result and they have different
+-- identities. Conflating them served one segment's answer for another.
 --
--- The fingerprint identifies the CLOSURE. Metric and requested direction change
--- the computation without changing what is closed, so they are part of the
--- primary key rather than folded into the hash - which keeps the fingerprint
--- meaningful as an identity for the closure itself, and keeps a distance
--- request from evicting the time request for the same closed road.
-CREATE TABLE IF NOT EXISTS closure_analysis_v2 (
+-- The bug, concretely: the closure fingerprint is keyed on the removed ARC
+-- ids. Under `source_feature` scope every child of one AMDS parent removes the
+-- SAME arc set, so all seventeen children of the Tokoroa parent hash
+-- identically. Keying the whole result on that meant selecting child #8 was
+-- served child #12's link id, segment length, endpoints and replacement
+-- metrics - internally consistent, and describing a road the user did not
+-- click. That is the worst failure shape available, because nothing looks
+-- wrong.
+--
+-- So:
+--
+--   closure_isolation_v2   CLOSURE-INVARIANT. Depends only on the removed LINK
+--                          set, the profile and the derivation version.
+--                          Genuinely shared by every sibling - which is where
+--                          the expensive work is, so the sharing that motivated
+--                          the original design is kept.
+--
+--   closure_analysis_v2    SELECTION-SPECIFIC. Endpoint metrics, the selected
+--                          segment, its nodes, its warning. link_id is part of
+--                          the key because the answer is about that link.
+--
+-- The split is also what PR 2 needs: boundary-port movements replace the
+-- endpoint half and leave the isolation half untouched.
+
+-- Cache tables are disposable by construction - every row can be recomputed,
+-- and each is stamped with the version that produced it. Dropping and
+-- recreating is therefore the honest idiom here: it guarantees the schema
+-- matches the code, where CREATE TABLE IF NOT EXISTS would silently leave an
+-- older primary key in place and reintroduce the collision above.
+DROP TABLE IF EXISTS closure_analysis_v2;
+DROP TABLE IF EXISTS closure_isolation_v2;
+
+CREATE TABLE closure_isolation_v2 (
+    snapshot_id            text NOT NULL REFERENCES network_snapshots ON DELETE CASCADE,
+    -- Hash of the removed LINK set + profile + derivation version. Says what
+    -- was removed from the physical-access graph, and nothing about who asked.
+    isolation_fingerprint  text NOT NULL,
+    vehicle_profile        text NOT NULL,
+    derivation_version     text NOT NULL,
+    result                 jsonb NOT NULL,
+    runtime_ms             integer,
+    computed_at_utc        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (snapshot_id, isolation_fingerprint, derivation_version)
+);
+
+CREATE TABLE closure_analysis_v2 (
     snapshot_id         text NOT NULL REFERENCES network_snapshots ON DELETE CASCADE,
     closure_fingerprint text NOT NULL,
+    -- Part of the KEY, not just a column. See the header.
     link_id             bigint NOT NULL,
     closure_scope       text NOT NULL
                         CHECK (closure_scope IN ('segment','direction','source_feature')),
@@ -147,7 +187,7 @@ CREATE TABLE IF NOT EXISTS closure_analysis_v2 (
     runtime_ms          integer,
     computed_at_utc     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (snapshot_id, closure_fingerprint, algorithm_version,
-                 metric, direction)
+                 metric, direction, link_id)
 );
 
 CREATE INDEX IF NOT EXISTS closure_analysis_v2_link_idx

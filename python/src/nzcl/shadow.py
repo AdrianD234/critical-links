@@ -132,7 +132,14 @@ def compare(snapshot_id: str, link_id: int, *, scope: Scope = "source_feature",
             "status": v2d.status if v2d else None,
             "scope": v2.scope,
             "removedLinkIds": v2.closure.removed_link_ids,
-            "isolationExact": v2.isolation.exact,
+            # Two claims where V1 published one. V1's `exact` is a claim about
+            # a bounded directed walk; V2 separates "the partition was computed
+            # exactly" from "the graph models the real network", and only the
+            # first is ever true.
+            "isolationCalculationExact": v2.isolation.calculation_exact,
+            "isolationGraphExact": v2.isolation.graph_exact,
+            "topologyConfidence": v2.isolation.topology_confidence,
+            "principalSideAmbiguous": v2.isolation.principal_side_ambiguous,
             "isolationMethod": v2.isolation.method,
             "closureIsBridge": v2.isolation.closure_is_bridge,
             "resultingComponentCount": len(v2.isolation.components),

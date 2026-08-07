@@ -163,9 +163,31 @@ def test_closure_components_match_oracle(seed: int) -> None:
         # The not-a-bridge fast path answers "nothing separated" from the
         # precompute and deliberately does not enumerate the untouched side.
         if result.method != "precomputed-not-a-bridge":
-            got = sorted(sorted(c.node_ids) for c in result.components)
+            # The principal side is deliberately NOT enumerated - it is the
+            # rest of the network and its ids are never drawn. Reconstruct it
+            # by subtraction so the partition can still be compared in full,
+            # rather than weakening the check to only the separated sides.
+            separated_sets = [set(c.node_ids) for c in result.components
+                              if not c.retains_principal_connection]
+            union_separated: set[int] = set()
+            for s in separated_sets:
+                union_separated |= s
+            principal_nodes = origin_nodes - union_separated
+
+            got = sorted([sorted(principal_nodes)]
+                         + [sorted(s) for s in separated_sets])
             assert got == sorted(sorted(p) for p in oracle_parts), (
                 f"seed={seed} closure={closure}: post-closure components differ")
+
+            # The un-enumerated side must still report a truthful node count -
+            # it is derived by subtraction from the precompute, so a wrong
+            # aggregate would show up here and nowhere else.
+            principal = [c for c in result.components
+                         if c.retains_principal_connection]
+            assert len(principal) == 1
+            assert principal[0].node_count == len(principal_nodes), (
+                f"seed={seed} closure={closure}: principal node count is "
+                f"{principal[0].node_count}, partition says {len(principal_nodes)}")
 
             # Road length is conserved: every edge of the affected components
             # is either in the closure or in exactly one resulting side.
@@ -176,6 +198,15 @@ def test_closure_components_match_oracle(seed: int) -> None:
                              if g.comp_of_edge[e] in origin)
             assert side_len + closed_len == pytest.approx(origin_len, abs=1e-6), (
                 f"seed={seed} closure={closure}: road length not conserved")
+
+            # Link counts too, which is what the subtraction path computes for
+            # the principal side of a bridge closure.
+            closed_edges = sum(1 for l in closure if l in g.link_index)
+            side_links = sum(c.link_count for c in result.components)
+            origin_links = sum(1 for e in range(len(g.link_ids))
+                               if g.comp_of_edge[e] in origin)
+            assert side_links + closed_edges == origin_links, (
+                f"seed={seed} closure={closure}: link count not conserved")
         else:
             assert not result.physically_isolates
             assert len(closure) == 1 and not g.bridge(closure[0])
@@ -232,6 +263,13 @@ def test_answers_do_not_depend_on_edge_order(seed: int) -> None:
         assert ra.separated_link_ids == rb.separated_link_ids
         assert ra.separated_length_m == pytest.approx(rb.separated_length_m,
                                                       abs=1e-9)
-        assert (sorted(sorted(c.node_ids) for c in ra.components)
-                == sorted(sorted(c.node_ids) for c in rb.components)), (
+        # Compare the separated sides, which are the ones enumerated, plus the
+        # principal side's counts, which are derived rather than listed.
+        assert (sorted(sorted(c.node_ids) for c in ra.components
+                       if not c.retains_principal_connection)
+                == sorted(sorted(c.node_ids) for c in rb.components
+                          if not c.retains_principal_connection)), (
             f"seed={seed} closure={closure}: post-closure partition moved")
+        assert (sorted((c.node_count, c.link_count) for c in ra.components)
+                == sorted((c.node_count, c.link_count) for c in rb.components)), (
+            f"seed={seed} closure={closure}: component sizes moved")
