@@ -181,3 +181,57 @@ def test_closure_components_match_oracle(seed: int) -> None:
             assert len(closure) == 1 and not g.bridge(closure[0])
 
 
+
+
+@pytest.mark.parametrize("seed", SEEDS[:20])
+def test_answers_do_not_depend_on_edge_order(seed: int) -> None:
+    """Row order must not change an answer.
+
+    `_load_edges` sorts by link_id, so in practice the input is stable. This
+    guards the case where it is not: a different query plan, a VACUUM, a future
+    caller building the graph from somewhere else. Component IDS and DFS
+    interval numbering are internal labels and are allowed to move. Bridges,
+    articulation points, the component partition and every closure answer are
+    not.
+    """
+    rng = random.Random(5000 + seed)
+    rows = _random_edges(rng, rng.randrange(3, 24), rng.randrange(2, 36))
+    if len(rows) < 2:
+        pytest.skip("degenerate graph")
+
+    shuffled = list(rows)
+    random.Random(seed).shuffle(shuffled)
+
+    a = physical.from_edges("test", "car", rows)
+    b = physical.from_edges("test", "car", shuffled)
+
+    def bridges(g):
+        return {g.link_ids[e] for e in range(len(g.link_ids)) if g.is_bridge[e]}
+
+    def arts(g):
+        return {g.node_ids[i] for i in range(len(g.node_ids))
+                if g.is_articulation[i]}
+
+    def partition(g):
+        out: dict[int, set[int]] = {}
+        for i, nid in enumerate(g.node_ids):
+            out.setdefault(int(g.comp_of_node[i]), set()).add(nid)
+        return sorted(sorted(s) for s in out.values())
+
+    assert bridges(a) == bridges(b), f"seed={seed}: bridge set moved with row order"
+    assert arts(a) == arts(b), f"seed={seed}: articulation points moved"
+    assert partition(a) == partition(b), f"seed={seed}: component partition moved"
+
+    all_links = [r[0] for r in rows]
+    for _ in range(4):
+        k = rng.randrange(1, min(4, len(all_links)) + 1)
+        closure = sorted(rng.sample(all_links, k))
+        ra = physical.analyse_closure(a, closure)
+        rb = physical.analyse_closure(b, closure)
+        assert ra.physically_isolates == rb.physically_isolates
+        assert ra.separated_link_ids == rb.separated_link_ids
+        assert ra.separated_length_m == pytest.approx(rb.separated_length_m,
+                                                      abs=1e-9)
+        assert (sorted(sorted(c.node_ids) for c in ra.components)
+                == sorted(sorted(c.node_ids) for c in rb.components)), (
+            f"seed={seed} closure={closure}: post-closure partition moved")
