@@ -65,9 +65,9 @@ between `(0,-400)` and `(1100,0)`, a penalty of **+259.7 m**.
 raised psycopg.errors.QueryCanceled: canceling statement due to statement timeout
 
 routing.route_many with the same 1 ms budget:
-  -> {}   (3.8 ms)
+  -> {}   (3.7 ms)
 routing.route_many with a 60 s budget:
-  -> 66564 pairs (403.9 ms)
+  -> 66564 pairs (413.4 ms)
 ```
 
 A search that found nothing and a search that never finished are the same value.
