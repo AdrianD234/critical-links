@@ -76,6 +76,13 @@ _ROUTE_REFERENCE = re.compile(
     re.IGNORECASE,
 )
 
+#: A route reference followed by a reference station: "SH 1N/414", "SH 2/678".
+#: The number after the slash locates a point along the highway.
+_REFERENCE_STATION = re.compile(
+    r"^\s*(?:SH|MSR|State\s+Highway)\s*#?\s*\d+(?![0-9])[A-Za-z]?\s*/\s*\d",
+    re.IGNORECASE,
+)
+
 #: Residual words that still leave a string a pure route code rather than a
 #: name. Taken from the published values, not invented: every one of these
 #: appears after a route reference in AMDS table 11.
@@ -214,6 +221,12 @@ def is_designation(name: str | None, group: int | None = None) -> bool:
     m = _ROUTE_REFERENCE.match(name)
     if not m:
         return False
+    # A reference station - the "/414" in "SH 1N/414" - is an internal locator
+    # along the route. Once one is present the string is a code, whatever
+    # trails it: "SH 1N/414-BUS" and "SH 1N/1030 ROUNDABOUT (SH)" are both
+    # locations on State Highway 1, not roads called BUS or ROUNDABOUT.
+    if _REFERENCE_STATION.match(name):
+        return True
     # Round brackets hold qualifiers - "(Rs 0)", "(11.65)". Square brackets
     # hold names - "SH 8 [BEAUMONT BRIDGE]" - so they are not stripped.
     residual = re.sub(r"\([^)]*\)", " ", name[m.end():])

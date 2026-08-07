@@ -120,6 +120,7 @@ export default function ResultView({
 
       <LinkHeader
         roadName={detour?.selectedLink.roadName ?? pendingName}
+        naming={detour?.selectedLink.naming}
         onClear={onClear}
       />
 

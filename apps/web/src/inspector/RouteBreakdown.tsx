@@ -9,6 +9,7 @@
 
 import { distance, count } from '../lib/format.js';
 import type { DirectionResult } from '../api/types.js';
+import { shortDisplayName } from '../naming.js';
 
 interface Leg {
   name: string;
@@ -22,7 +23,10 @@ export function legsOf(result: DirectionResult | null): Leg[] {
 
   for (const f of feats) {
     const p = (f.properties ?? {}) as Record<string, unknown>;
-    const name = String(p.roadName || '(unnamed)');
+    const name = shortDisplayName(
+      p.roadName ? String(p.roadName) : null,
+      p.nameStatus ? String(p.nameStatus) : null,
+    );
     const m = Number(p.lengthM ?? 0);
     const leg = by.get(name);
     if (leg) {

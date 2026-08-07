@@ -241,14 +241,74 @@ Applies to every external source.
 
 ## Licensing
 
-| Source | Licence | Attribution | Cleared? |
-| --- | --- | --- | --- |
-| AMDS NetworkModel + RouteName | As existing AMDS terms | Already in the app footer | ✅ |
-| LINZ NZ Addresses: Road Sections | Expected CC BY 4.0 — confirm on the dataset page | Required, wording TBC | ⏳ |
-| NZTA Street Names | **`copyrightText` and `description` both empty** | Required, wording TBC | ⚠️ |
-| NZTA RAMM carriageway | **`copyrightText` empty** | Required, wording TBC | ⚠️ |
-| OpenStreetMap | ODbL | Required; share-alike unassessed | 🚫 QA only |
-| LINZ Topo50 | CC BY 4.0 | Required | 🚫 QA only |
+Resolved 7 August 2026. The state below is not documentation — it is the
+`name_source_licences` table, which the display view joins. A source that is
+not cleared there cannot reach the interface, whatever this page says.
 
-No external name may be written to `display_road_name` until its row here is
-cleared, with the attribution wording recorded and shown in the interface.
+| Source | Licence | Cleared for display? |
+| --- | --- | --- |
+| AMDS NetworkModel + RouteName | As existing AMDS terms | ✅ |
+| **LINZ NZ Addresses: Road Sections** | **CC BY 4.0** | ✅ |
+| NZTA Street Names | None published anywhere it appears | ❌ |
+| NZTA RAMM carriageway | None published | ❌ (context only) |
+| OpenStreetMap | ODbL | 🚫 QA only, share-alike unassessed |
+| LINZ Topo50 | CC BY 4.0 | 🚫 QA only, cartographic product |
+
+### LINZ — confirmed
+
+The WFS itself is silent: `ows:Fees` and `ows:AccessConstraints` are both empty
+for the whole service, and the layer page is a JavaScript application that
+returns nothing useful to a fetch. The evidence is the government's own
+catalogue instead:
+
+```
+catalogue.data.govt.nz  package_search
+  title      NZ Addresses: Road Sections
+  org        Land Information New Zealand
+  license_id CC-BY-4.0
+  url        https://data.linz.govt.nz/layer/123109-nz-addresses-road-sections/
+```
+
+The URL carries **the same layer id this project reads**, which is what ties
+the licence to the data rather than to a similarly named product.
+
+Attribution is published in the interface whenever a LINZ-sourced name is
+displayed, read from the database rather than hard-coded, so a source cannot
+start appearing without its attribution appearing with it.
+
+### NZTA Street Names — not cleared, and unlikely to be
+
+This one changed on inspection, and it matters more than the others because it
+is the only source of the `isunnamed` classification.
+
+- `copyrightText` on the layer: **empty**
+- `licenseInfo` on the portal item `eb19b15540a844ada92dcaf5b054174e`
+  (owner `GeospatialSystems`): **empty**
+- `accessInformation`: **empty**
+- The item's own description: **"Street names for use with aerial photo base
+  maps. Major road names appear at a higher level and other road names appear
+  the more you zoom in."**
+- Not on NZTA's open data portal, and **absent from data.govt.nz**, which
+  catalogues 78 other NZTA datasets.
+
+That description is the finding. This is a **cartographic labelling service on
+an enterprise portal** — the layer that draws road labels under NZTA's own
+aerial imagery — not a published dataset with terms of reuse. It is fit for
+offline corroboration, which is how it is used; it is not fit to be
+redistributed as the road names in someone else's application.
+
+**Consequence:** 25,997 graph links have a name matched only from this source
+and are displayed as unnamed. The interface says so explicitly rather than
+implying those roads have no name. `officially_unnamed` is likewise computed
+and stored but never displayed.
+
+**To clear it:** NZTA must confirm terms of use for
+`spatial.nzta.govt.nz/portal/.../Street_names/FeatureServer/0`, or publish the
+equivalent through their open data portal. One email, and a table update.
+
+### NZTA RAMM — not cleared, no display impact
+
+`copyrightText` empty, not catalogued. It is used only for state-highway route,
+corridor and ramp context and **no name from it is ever stored as a display
+name** — its `roadName` is a route-section code and its `roadCorridor` spans
+hundreds of kilometres. Clearance would change nothing that is shown.

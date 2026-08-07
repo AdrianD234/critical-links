@@ -95,3 +95,60 @@ If OSM is introduced later:
 CSV and XLSX exports carry the AMDS attribution on the Network Metadata and
 Source Lineage sheets. Anyone redistributing those outputs inherits the same
 open question about formal licence terms noted above.
+
+---
+
+## Road-name sources
+
+Road names can come from outside AMDS. Each source is cleared, or not, in the
+`name_source_licences` table, and the display view joins it — so an uncleared
+source cannot reach the interface regardless of what any document says. Full
+findings in [`ROAD_NAME_SOURCES.md`](ROAD_NAME_SOURCES.md).
+
+### LINZ NZ Addresses: Road Sections — cleared
+
+**CC BY 4.0.** The service itself is silent (`ows:Fees` and
+`ows:AccessConstraints` are both empty for the whole LINZ Data Service), so the
+evidence is the government's own catalogue:
+
+```
+catalogue.data.govt.nz  package_search
+  title      NZ Addresses: Road Sections
+  org        Land Information New Zealand
+  license_id CC-BY-4.0
+  url        https://data.linz.govt.nz/layer/123109-nz-addresses-road-sections/
+```
+
+The URL carries the same layer id this project reads, which is what ties the
+licence to the data rather than to a similarly named product.
+
+Attribution shown whenever a LINZ-sourced name is displayed:
+
+> Contains road-name data sourced from the LINZ Data Service and licensed by
+> Land Information New Zealand for reuse under CC BY 4.0.
+
+### NZTA Street Names — not cleared
+
+**No licence is published anywhere this layer appears**, and unlike AMDS there
+is no statement of open access to fall back on. `copyrightText`, `licenseInfo`
+and `accessInformation` are all empty. Its portal item describes it as *"Street
+names for use with aerial photo base maps"* — a cartographic labelling service
+on NZTA's enterprise portal — and it is absent from data.govt.nz, which
+catalogues 78 other NZTA datasets.
+
+Reading it offline to corroborate a match is one thing. Redistributing it as
+the road names in an application is another, and nothing published grants that.
+
+**Consequence:** 25,997 links have a name only from this source and are shown
+as unnamed, and the `officially_unnamed` classification — which no other source
+can supply — is computed but never displayed.
+
+**To clear it:** NZTA confirms terms of use for
+`spatial.nzta.govt.nz/portal/rest/services/Hosted/Street_names/FeatureServer/0`,
+or publishes the equivalent through their open data portal.
+
+### NZTA RAMM carriageway — not cleared, no display impact
+
+`copyrightText` empty, not catalogued. Used only for state-highway route,
+corridor and ramp context; no name from it is ever stored as a display name.
+Clearing it would change nothing that is shown.

@@ -27,6 +27,7 @@ from .naming import (
     AMBIGUOUS_CONFLICT,
     AMDS_NAMED,
     EPOCH_MS_9999,
+    EXTERNALLY_ENRICHED,
     OFFICIALLY_UNNAMED,
     ROUTE_DESIGNATION_ONLY,
     UNRESOLVED,
@@ -164,58 +165,212 @@ def _record_run(snapshot_id: str, stage: str, counts: dict[str, Any],
 
 
 # --------------------------------------------------------------------------
+# enrichment
+# --------------------------------------------------------------------------
+
+def enrich(snapshot_id: str, *, batch: int = 500,
+           confidence: str = "HIGH") -> dict[str, Any]:
+    """Match every unresolved source feature and record what came back.
+
+    Only `unresolved` features are touched. A native AMDS name is never
+    overwritten and never compared against - the question here is only what to
+    do about the links that have no name at all.
+
+    Recording is not publishing. Whether any of this reaches the interface is
+    decided by `name_source_licences`, which the display view joins; two of the
+    three sources are currently withheld there.
+    """
+    from .namematch import HIGH, MEDIUM, classify, normalise_external_name, \
+        persist_candidates, score_candidates
+
+    rank = {"HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0}
+    floor = rank[confidence]
+
+    # Where two sources agree, credit the one whose licence permits display.
+    # This changes who a name is attributed to, never what the name is.
+    preferred = [r["source"] for r in db.query(
+        "SELECT source FROM name_source_licences WHERE display_cleared "
+        " ORDER BY source")]
+    print(f"  preferring cleared sources: {', '.join(preferred) or '(none)'}")
+
+    # Only `unresolved` rows are eligible, which also makes a re-run safe:
+    # `backfill` rebuilds link_names from AMDS, so the sequence backfill then
+    # enrich is idempotent, and enrich on its own can never enrich twice or
+    # leave a stale match behind from an earlier rule set.
+    gids = [r["closure_group_id"] for r in db.query(
+        "SELECT closure_group_id FROM link_names "
+        " WHERE snapshot_id = %s AND name_status = 'unresolved' "
+        " ORDER BY closure_group_id", (snapshot_id,))]
+    print(f"  {len(gids):,} unresolved source features")
+
+    counts: dict[str, int] = {}
+    applied = 0
+    candidate_rows = 0
+
+    for i in range(0, len(gids), batch):
+        chunk = gids[i:i + batch]
+        scored = score_candidates(snapshot_id, chunk)
+        outcomes = [classify(g, scored.get(g, []), preferred_sources=preferred)
+                    for g in chunk]
+        candidate_rows += persist_candidates(snapshot_id, outcomes)
+
+        updates = []
+        for o in outcomes:
+            counts[o.confidence] = counts.get(o.confidence, 0) + 1
+            if rank[o.confidence] < floor:
+                continue
+            if o.officially_unnamed:
+                updates.append((
+                    None, OFFICIALLY_UNNAMED, o.source, "isunnamed", None,
+                    o.source, o.feature_id, o.confidence,
+                    o.evidence.get("score"), json.dumps(o.evidence),
+                    list(o.reasons), snapshot_id, o.gid))
+                applied += 1
+                continue
+            name = normalise_external_name(o.name)
+            if not name:
+                continue
+            status = (ROUTE_DESIGNATION_ONLY
+                      if "DESIGNATION_ONLY" in o.reasons
+                      else EXTERNALLY_ENRICHED)
+            updates.append((
+                name, status, o.source,
+                "full_road_name" if o.source == "linz_road_sections"
+                else "fullprimaryroadname",
+                o.designation, o.source, o.feature_id, o.confidence,
+                o.evidence.get("score"), json.dumps(o.evidence),
+                list(o.reasons), snapshot_id, o.gid))
+            applied += 1
+
+        if updates:
+            with db.direct_connection(autocommit=False) as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(
+                        "UPDATE link_names SET external_name = %s, "
+                        "  name_status = %s, name_source = %s, "
+                        "  source_field = %s, route_designation = %s, "
+                        "  external_source = %s, external_ref = %s, "
+                        "  match_confidence = %s, match_score = %s, "
+                        "  match_evidence = %s, notes = notes || %s, "
+                        "  updated_at = now() "
+                        " WHERE snapshot_id = %s AND closure_group_id = %s",
+                        updates)
+                conn.commit()
+        print(f"\r  matched {min(i + batch, len(gids)):,}/{len(gids):,}"
+              f"  applied {applied:,}", end="", flush=True)
+    print()
+
+    _record_run(snapshot_id, "enrich-external", {
+        "unresolved_before": len(gids),
+        "by_confidence": counts,
+        "applied": applied,
+        "candidate_rows": candidate_rows,
+        "confidence_floor": confidence,
+    })
+    return {"scored": len(gids), "by_confidence": counts, "applied": applied}
+
+
+# --------------------------------------------------------------------------
 # report
 # --------------------------------------------------------------------------
 
 def report(snapshot_id: str) -> dict[str, Any]:
-    """Naming coverage at both levels. The two are not interchangeable.
+    """Naming coverage, at both levels and in both senses.
+
+    Two distinctions, and conflating either produces a wrong number.
 
     A source feature split into six graph links contributes one to the source
     figure and six to the graph figure, so a cohort quoted at one level and
-    compared at the other will look like a different network.
+    compared at the other looks like a different network.
+
+    And what is KNOWN is not what is SHOWN. `link_names` holds every name the
+    matching found; `link_display_names` shows only the ones whose source has a
+    cleared licence. Reporting the second as coverage would understate the work;
+    reporting the first as coverage would claim something the interface does not
+    actually do.
     """
-    src = db.query(
+    stored_src = db.query(
         "SELECT name_status, count(*) AS n FROM link_names "
         " WHERE snapshot_id = %s GROUP BY name_status ORDER BY n DESC",
         (snapshot_id,))
-    lnk = db.query(
+    stored_lnk = db.query(
+        "SELECT n.name_status, count(*) AS n FROM links l "
+        "  JOIN link_names n USING (snapshot_id, closure_group_id) "
+        " WHERE l.snapshot_id = %s GROUP BY 1 ORDER BY 2 DESC", (snapshot_id,))
+    shown = db.query(
         "SELECT name_status, count(*) AS n FROM link_display_names "
         " WHERE snapshot_id = %s GROUP BY name_status ORDER BY n DESC",
         (snapshot_id,))
     totals = db.query_one(
         "SELECT count(*) AS links, count(DISTINCT closure_group_id) AS groups "
         "  FROM links WHERE snapshot_id = %s", (snapshot_id,))
-    named_links = db.query_one(
+    shown_named = db.query_one(
         "SELECT count(*) AS n FROM link_display_names "
         " WHERE snapshot_id = %s AND display_name IS NOT NULL", (snapshot_id,))
+    withheld = db.query(
+        "SELECT withheld_name_source AS src, count(*) AS n "
+        "  FROM link_display_names WHERE snapshot_id = %s "
+        "   AND withheld_name_source IS NOT NULL GROUP BY 1 ORDER BY 2 DESC",
+        (snapshot_id,))
     legacy = db.query_one(
         "SELECT count(*) AS n FROM links "
         " WHERE snapshot_id = %s AND road_name IS NOT NULL", (snapshot_id,))
+    licences = db.query(
+        "SELECT source, display_cleared, licence FROM name_source_licences "
+        " ORDER BY source")
+
+    known_named = sum(r["n"] for r in stored_lnk
+                      if r["name_status"] not in ("unresolved",
+                                                  "officially_unnamed"))
+    withheld_total = sum(r["n"] for r in withheld)
 
     out = {
         "snapshot_id": snapshot_id,
         "source_features": totals["groups"],
         "graph_links": totals["links"],
-        "by_status_source": {r["name_status"]: r["n"] for r in src},
-        "by_status_link": {r["name_status"]: r["n"] for r in lnk},
-        "named_links_now": named_links["n"],
-        "named_links_before": legacy["n"],
+        "stored_by_status_source": {r["name_status"]: r["n"] for r in stored_src},
+        "stored_by_status_link": {r["name_status"]: r["n"] for r in stored_lnk},
+        "displayed_by_status_link": {r["name_status"]: r["n"] for r in shown},
+        "displayed_named_links": shown_named["n"],
+        "known_named_links": known_named,
+        "withheld_links_by_source": {r["src"]: r["n"] for r in withheld},
+        "withheld_links_total": withheld_total,
+        "named_links_before_this_work": legacy["n"],
+        "licences": {r["source"]: {"cleared": r["display_cleared"],
+                                   "licence": r["licence"]} for r in licences},
     }
 
+    def table(rows, total, label):
+        print(f"\n  {label}")
+        for r in rows:
+            print(f"    {r['name_status']:<24} {r['n']:>9,}"
+                  f"  {100 * r['n'] / total:5.1f}%")
+
     print(f"snapshot {snapshot_id}")
-    print(f"  source features {totals['groups']:,}   graph links {totals['links']:,}")
-    print("\n  by name state (source features)")
-    for r in src:
-        print(f"    {r['name_status']:<24} {r['n']:>9,}"
-              f"  {100 * r['n'] / totals['groups']:5.1f}%")
-    print("\n  by name state (graph links)")
-    for r in lnk:
-        print(f"    {r['name_status']:<24} {r['n']:>9,}"
-              f"  {100 * r['n'] / totals['links']:5.1f}%")
-    print(f"\n  graph links with a name: {named_links['n']:,} "
-          f"({100 * named_links['n'] / totals['links']:.1f}%)")
-    print(f"  before this work:        {legacy['n']:,} "
+    print(f"  source features {totals['groups']:,}   "
+          f"graph links {totals['links']:,}")
+    table(stored_src, totals["groups"], "KNOWN, by name state (source features)")
+    table(stored_lnk, totals["links"], "KNOWN, by name state (graph links)")
+    table(shown, totals["links"], "SHOWN, by name state (graph links)")
+
+    print(f"\n  graph links with a name the application SHOWS: "
+          f"{shown_named['n']:,} "
+          f"({100 * shown_named['n'] / totals['links']:.1f}%)")
+    print(f"  graph links with a name the project KNOWS:      "
+          f"{known_named:,} "
+          f"({100 * known_named / totals['links']:.1f}%)")
+    print(f"  before this work:                               "
+          f"{legacy['n']:,} "
           f"({100 * legacy['n'] / totals['links']:.1f}%)")
+
+    if withheld:
+        print(f"\n  WITHHELD: {withheld_total:,} links have a name that is not "
+              f"shown because\n  the source's licence is unconfirmed.")
+        for r in withheld:
+            print(f"    {r['src']:<26} {r['n']:>9,}")
+        for r in licences:
+            if not r["display_cleared"]:
+                print(f"    - {r['source']}: {r['licence']}")
     return out
 
 
@@ -396,7 +551,10 @@ def acquire_and_stage(sources: list[str], *, refresh: bool) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(prog="nzcl-names", description=__doc__)
     p.add_argument("command",
-                   choices=["backfill", "report", "verify", "sources"])
+                   choices=["backfill", "report", "verify", "sources", "poc",
+                            "enrich"])
+    p.add_argument("--out", default=None,
+                   help="poc: directory for the reviewable output")
     p.add_argument("--source", action="append", default=None,
                    help="sources: limit to these external sources")
     p.add_argument("--snapshot", default=None)
@@ -423,6 +581,19 @@ def main() -> int:
 
     if args.command == "verify":
         return verify(snapshot, args.baseline, args.save, probe=args.probe)
+
+    if args.command == "poc":
+        from pathlib import Path
+
+        from .namepoc import run as run_poc
+        out = run_poc(snapshot, out_dir=Path(args.out) if args.out else None)
+        print(json.dumps(out, indent=2, default=str))
+        return 0
+
+    if args.command == "enrich":
+        out = enrich(snapshot)
+        print(json.dumps(out, indent=2, default=str))
+        return 0
 
     if args.command == "backfill":
         out = backfill(snapshot, refresh=args.refresh)

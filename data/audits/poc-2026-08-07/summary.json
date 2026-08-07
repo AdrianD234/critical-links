@@ -1,0 +1,98 @@
+{
+  "features_scored": 3131,
+  "by_cohort": {
+    "linz_rca": {
+      "NONE": 76,
+      "HIGH": 19,
+      "MEDIUM": 3,
+      "LOW": 2
+    },
+    "long": {
+      "MEDIUM": 6,
+      "HIGH": 32,
+      "LOW": 3,
+      "NONE": 9
+    },
+    "ramp": {
+      "MEDIUM": 46,
+      "LOW": 2,
+      "NONE": 2
+    },
+    "rural": {
+      "HIGH": 112,
+      "MEDIUM": 26,
+      "NONE": 10,
+      "LOW": 2
+    },
+    "sh_all": {
+      "LOW": 57,
+      "HIGH": 757,
+      "MEDIUM": 1616,
+      "NONE": 243
+    },
+    "urban": {
+      "HIGH": 115,
+      "LOW": 4,
+      "NONE": 10,
+      "MEDIUM": 21
+    }
+  },
+  "corroboration_by_confidence": {
+    "HIGH": {
+      "agree": 652,
+      "single_source": 377,
+      "disagree": 5
+    },
+    "LOW": {
+      "none": 67,
+      "single_source": 3
+    },
+    "MEDIUM": {
+      "single_source": 409,
+      "none": 1084,
+      "agree": 89,
+      "disagree": 96
+    },
+    "NONE": {
+      "none": 331,
+      "single_source": 18
+    }
+  },
+  "neighbour_outcome_by_confidence": {
+    "HIGH": {
+      "no_named_neighbour": 516,
+      "no_match": 359,
+      "agree": 159
+    },
+    "LOW": {
+      "no_named_neighbour": 44,
+      "no_match": 22,
+      "agree": 4
+    },
+    "MEDIUM": {
+      "no_named_neighbour": 1317,
+      "no_match": 228,
+      "agree": 133
+    },
+    "NONE": {
+      "agree": 51,
+      "no_named_neighbour": 254,
+      "no_match": 43,
+      "target_has_no_name": 1
+    }
+  },
+  "high_two_source_testable": 657,
+  "high_two_source_agreement": 0.9923896499238964,
+  "high_neighbour_corroborated": 159,
+  "high_single_source": 377,
+  "high_single_source_neighbour_corroborated": 63,
+  "reasons": {
+    "RIVAL_NAME_TOO_CLOSE": 1055,
+    "RAMP_NOT_AUTO_ADOPTED": 187,
+    "DESIGNATION_ONLY": 117,
+    "NO_CANDIDATE": 20,
+    "NO_NAMED_CANDIDATE": 12,
+    "SOURCE_MARKS_ROAD_UNNAMED": 4,
+    "DIVIDED_CARRIAGEWAY_NEEDS_FULL_COVER": 2
+  }
+}

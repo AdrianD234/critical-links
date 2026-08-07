@@ -124,7 +124,13 @@ CREATE INDEX IF NOT EXISTS road_name_candidates_group_idx
 -- back to the value ingested into `links` for any snapshot that has not been
 -- through the naming pass. The fallback is what makes this safe to deploy
 -- before the backfill runs.
-CREATE OR REPLACE VIEW link_display_names AS
+-- Dropped rather than replaced: a later migration widens this view, and
+-- CREATE OR REPLACE cannot narrow one back on a re-run. Migrations here are
+-- re-run routinely, so "idempotent" has to mean idempotent in sequence, not
+-- just individually.
+DROP VIEW IF EXISTS link_display_names;
+
+CREATE VIEW link_display_names AS
 SELECT
     l.snapshot_id,
     l.link_id,

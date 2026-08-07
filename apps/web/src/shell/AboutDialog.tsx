@@ -147,6 +147,49 @@ export default function AboutDialog({
           </section>
         )}
 
+        {/*
+          * Naming coverage, stated rather than left to be inferred from how
+          * many labels happen to be visible. The withheld figure is the one
+          * that matters: those roads have a name, it is simply not one this
+          * application is licensed to print yet, and reporting them as
+          * unnamed would be the same overclaim in the other direction.
+          */}
+        {meta?.naming && (
+          <section>
+            <h3>Road names</h3>
+            <dl className="kv">
+              <div style={{ display: 'contents' }}>
+                <dt>Named links</dt>
+                <dd>
+                  {meta.naming.namedLinks.toLocaleString('en-NZ')} of{' '}
+                  {meta.naming.graphLinks.toLocaleString('en-NZ')} (
+                  {Math.round(
+                    (100 * meta.naming.namedLinks) / meta.naming.graphLinks,
+                  )}
+                  %)
+                </dd>
+              </div>
+              {Object.entries(meta.naming.byStatus)
+                .sort((a, b) => b[1] - a[1])
+                .map(([status, n]) => (
+                  <div key={status} style={{ display: 'contents' }}>
+                    <dt>{status.replaceAll('_', ' ')}</dt>
+                    <dd>{n.toLocaleString('en-NZ')}</dd>
+                  </div>
+                ))}
+              {meta.naming.withheldTotal > 0 && (
+                <div style={{ display: 'contents' }}>
+                  <dt>name known, not shown</dt>
+                  <dd>
+                    {meta.naming.withheldTotal.toLocaleString('en-NZ')} — source
+                    licence unconfirmed
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+        )}
+
         {meta && meta.limitations.length > 0 && (
           <section>
             <h3>Recorded limitations</h3>
@@ -163,6 +206,15 @@ export default function AboutDialog({
             {meta.attribution} {meta.licence}
           </p>
         )}
+
+        {/* Every source whose names are displayed, attributed as its licence
+          * requires. Read from the response, so a source cannot start
+          * appearing on the map without its attribution appearing here. */}
+        {meta?.nameAttributions?.map((a) => (
+          <p className="about-attrib" key={a.source}>
+            {a.attribution} {a.licence}
+          </p>
+        ))}
       </div>
     </dialog>
   );

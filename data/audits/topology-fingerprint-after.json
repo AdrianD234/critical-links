@@ -1,0 +1,1258 @@
+{
+  "snapshot_id": "amds-national-2026-07-28-5b359d84",
+  "fingerprint": {
+    "nodes": {
+      "n": "338182",
+      "s": "57183363471",
+      "c": "54364509"
+    },
+    "links": {
+      "n": "375696",
+      "src": "62199870475",
+      "tgt": "62751859831",
+      "len": "147847593.486",
+      "named": "139980"
+    },
+    "arcs": {
+      "n": "731286",
+      "src": "122386245910",
+      "tgt": "122387233652",
+      "cost": "292849680.394"
+    },
+    "arc_transitions": {
+      "n": "1138261",
+      "f": "416834736970",
+      "t": "416835903527",
+      "v": "187626377452"
+    },
+    "closure_groups": {
+      "n": "272426"
+    },
+    "geometry": {
+      "digest": "b09e448160c8d6d2bf7cb2b62e5d13d9"
+    },
+    "routing": {
+      "0": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 0,
+          "target_node": 1,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "9392": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 10364,
+          "target_node": 10365,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 10365,
+          "target_node": 10364,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          9392
+        ]
+      },
+      "18784": {
+        "forward": {
+          "status": "OK",
+          "source_node": 19130,
+          "target_node": 19131,
+          "alternative_distance_m": "609.007780",
+          "added_distance_vs_link_m": "410.836025",
+          "network_penalty_m": "410.836025",
+          "route_link_count": 4,
+          "route_link_digest": "cc36258b45b2872d434c738f2c113bd6",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 19131,
+          "target_node": 19130,
+          "alternative_distance_m": "628.963259",
+          "added_distance_vs_link_m": "430.791504",
+          "network_penalty_m": "430.791504",
+          "route_link_count": 6,
+          "route_link_digest": "8f53caed5f495bb962ba317e365c5900",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          18784
+        ]
+      },
+      "28176": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 24872,
+          "target_node": 27503,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 27503,
+          "target_node": 24872,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          28176
+        ]
+      },
+      "37568": {
+        "forward": {
+          "status": "OK",
+          "source_node": 37496,
+          "target_node": 36403,
+          "alternative_distance_m": "6280.549506",
+          "added_distance_vs_link_m": "3955.355613",
+          "network_penalty_m": "3955.355613",
+          "route_link_count": 3,
+          "route_link_digest": "145e5cfbec3d7cfdbe0cbf203642f82a",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 36403,
+          "target_node": 37496,
+          "alternative_distance_m": "6280.549506",
+          "added_distance_vs_link_m": "3955.355613",
+          "network_penalty_m": "3955.355613",
+          "route_link_count": 3,
+          "route_link_digest": "145e5cfbec3d7cfdbe0cbf203642f82a",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          37568
+        ]
+      },
+      "46960": {
+        "forward": {
+          "status": "OK",
+          "source_node": 41708,
+          "target_node": 41535,
+          "alternative_distance_m": "803.114079",
+          "added_distance_vs_link_m": "725.192121",
+          "network_penalty_m": "725.192121",
+          "route_link_count": 5,
+          "route_link_digest": "4bad297a2d11f5ea5b20bafd3e59b3bb",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 41535,
+          "target_node": 41708,
+          "alternative_distance_m": "803.114079",
+          "added_distance_vs_link_m": "725.192121",
+          "network_penalty_m": "725.192121",
+          "route_link_count": 5,
+          "route_link_digest": "4bad297a2d11f5ea5b20bafd3e59b3bb",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          46960,
+          46961
+        ]
+      },
+      "56352": {
+        "forward": {
+          "status": "OK",
+          "source_node": 55383,
+          "target_node": 54639,
+          "alternative_distance_m": "2046.276333",
+          "added_distance_vs_link_m": "1701.929328",
+          "network_penalty_m": "1701.929328",
+          "route_link_count": 7,
+          "route_link_digest": "42ad1414df716692ab94cd079397908d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 54639,
+          "target_node": 55383,
+          "alternative_distance_m": "2046.276333",
+          "added_distance_vs_link_m": "1701.929328",
+          "network_penalty_m": "1701.929328",
+          "route_link_count": 7,
+          "route_link_digest": "42ad1414df716692ab94cd079397908d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          56352
+        ]
+      },
+      "65744": {
+        "forward": {
+          "status": "OK",
+          "source_node": 63202,
+          "target_node": 63222,
+          "alternative_distance_m": "463.742101",
+          "added_distance_vs_link_m": "279.947299",
+          "network_penalty_m": "279.947299",
+          "route_link_count": 4,
+          "route_link_digest": "fd451da5d838bb51258ae90cd63ee4ee",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 63222,
+          "target_node": 63202,
+          "alternative_distance_m": "463.742101",
+          "added_distance_vs_link_m": "279.947299",
+          "network_penalty_m": "279.947299",
+          "route_link_count": 4,
+          "route_link_digest": "fd451da5d838bb51258ae90cd63ee4ee",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          65744
+        ]
+      },
+      "75136": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 72514,
+          "target_node": 72515,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 3
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 72515,
+          "target_node": 72514,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 3
+        },
+        "removed_link_ids": [
+          75134,
+          75135,
+          75136,
+          75137
+        ]
+      },
+      "84528": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 80070,
+          "target_node": 81365,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 2
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 81365,
+          "target_node": 80070,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 2
+        },
+        "removed_link_ids": [
+          84528
+        ]
+      },
+      "93920": {
+        "forward": {
+          "status": "OK",
+          "source_node": 90781,
+          "target_node": 88617,
+          "alternative_distance_m": "516.049212",
+          "added_distance_vs_link_m": "396.318365",
+          "network_penalty_m": "396.318365",
+          "route_link_count": 2,
+          "route_link_digest": "c58a7bd4a08f1674b435ac076f9419c7",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 88617,
+          "target_node": 90781,
+          "alternative_distance_m": "516.049212",
+          "added_distance_vs_link_m": "396.318365",
+          "network_penalty_m": "396.318365",
+          "route_link_count": 2,
+          "route_link_digest": "c58a7bd4a08f1674b435ac076f9419c7",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          93920
+        ]
+      },
+      "103312": {
+        "forward": {
+          "status": "OK",
+          "source_node": 92648,
+          "target_node": 98561,
+          "alternative_distance_m": "95.589855",
+          "added_distance_vs_link_m": "90.051976",
+          "network_penalty_m": "90.051976",
+          "route_link_count": 7,
+          "route_link_digest": "d0e1e43ada9e6307f29e915298493fe2",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 98561,
+          "target_node": 92648,
+          "alternative_distance_m": "95.589855",
+          "added_distance_vs_link_m": "90.051976",
+          "network_penalty_m": "90.051976",
+          "route_link_count": 7,
+          "route_link_digest": "d0e1e43ada9e6307f29e915298493fe2",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          103310,
+          103311,
+          103312
+        ]
+      },
+      "112704": {
+        "forward": {
+          "status": "OK",
+          "source_node": 105607,
+          "target_node": 107547,
+          "alternative_distance_m": "2721.192502",
+          "added_distance_vs_link_m": "1387.587198",
+          "network_penalty_m": "1387.587198",
+          "route_link_count": 6,
+          "route_link_digest": "d5d11d8912d9d3ae01258cd8fca8572d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 107547,
+          "target_node": 105607,
+          "alternative_distance_m": "2721.192502",
+          "added_distance_vs_link_m": "1387.587198",
+          "network_penalty_m": "1387.587198",
+          "route_link_count": 6,
+          "route_link_digest": "d5d11d8912d9d3ae01258cd8fca8572d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          112704,
+          112705
+        ]
+      },
+      "122096": {
+        "forward": {
+          "status": "OK",
+          "source_node": 116440,
+          "target_node": 116441,
+          "alternative_distance_m": "781.009097",
+          "added_distance_vs_link_m": "723.170848",
+          "network_penalty_m": "723.170848",
+          "route_link_count": 18,
+          "route_link_digest": "d16c577d20ca2551ebfa7e4367111aa3",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 116441,
+          "target_node": 116440,
+          "alternative_distance_m": "781.009097",
+          "added_distance_vs_link_m": "723.170848",
+          "network_penalty_m": "723.170848",
+          "route_link_count": 18,
+          "route_link_digest": "d16c577d20ca2551ebfa7e4367111aa3",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          122096
+        ]
+      },
+      "131488": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 125127,
+          "target_node": 124178,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 124178,
+          "target_node": 125127,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          131488
+        ]
+      },
+      "140880": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 133298,
+          "target_node": 132606,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 4
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 132606,
+          "target_node": 133298,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 4
+        },
+        "removed_link_ids": [
+          140879,
+          140880
+        ]
+      },
+      "150272": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 142135,
+          "target_node": 142828,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 142828,
+          "target_node": 142135,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          150271,
+          150272,
+          150273,
+          150274
+        ]
+      },
+      "159664": {
+        "forward": {
+          "status": "OK",
+          "source_node": 150666,
+          "target_node": 146139,
+          "alternative_distance_m": "27189.115600",
+          "added_distance_vs_link_m": "27005.504160",
+          "network_penalty_m": "27005.504160",
+          "route_link_count": 23,
+          "route_link_digest": "508b9639ebf0b1ca7628f845a24bde4d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 146139,
+          "target_node": 150666,
+          "alternative_distance_m": "27189.115600",
+          "added_distance_vs_link_m": "27005.504160",
+          "network_penalty_m": "27005.504160",
+          "route_link_count": 23,
+          "route_link_digest": "508b9639ebf0b1ca7628f845a24bde4d",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          159664,
+          159665,
+          159666,
+          159667,
+          159668,
+          159669,
+          159670
+        ]
+      },
+      "169056": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 152415,
+          "target_node": 148014,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 9
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 148014,
+          "target_node": 152415,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 9
+        },
+        "removed_link_ids": [
+          169056
+        ]
+      },
+      "178448": {
+        "forward": {
+          "status": "OK",
+          "source_node": 175146,
+          "target_node": 175147,
+          "alternative_distance_m": "191.485000",
+          "added_distance_vs_link_m": "146.889843",
+          "network_penalty_m": "146.889843",
+          "route_link_count": 2,
+          "route_link_digest": "5262f851b8a5cd4238c0105ffefcc5da",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 175147,
+          "target_node": 175146,
+          "alternative_distance_m": "191.485000",
+          "added_distance_vs_link_m": "146.889843",
+          "network_penalty_m": "146.889843",
+          "route_link_count": 2,
+          "route_link_digest": "5262f851b8a5cd4238c0105ffefcc5da",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          178447,
+          178448
+        ]
+      },
+      "187840": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 157866,
+          "target_node": 184318,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 184318,
+          "target_node": 157866,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          187839,
+          187840
+        ]
+      },
+      "197232": {
+        "forward": {
+          "status": "OK",
+          "source_node": 195635,
+          "target_node": 192906,
+          "alternative_distance_m": "510.881075",
+          "added_distance_vs_link_m": "412.965668",
+          "network_penalty_m": "412.965668",
+          "route_link_count": 5,
+          "route_link_digest": "cba1f417ecae91cf498c2b44d46fa288",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 192906,
+          "target_node": 195635,
+          "alternative_distance_m": "510.881075",
+          "added_distance_vs_link_m": "412.965668",
+          "network_penalty_m": "412.965668",
+          "route_link_count": 5,
+          "route_link_digest": "cba1f417ecae91cf498c2b44d46fa288",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          197232
+        ]
+      },
+      "206624": {
+        "forward": {
+          "status": "OK",
+          "source_node": 197620,
+          "target_node": 195988,
+          "alternative_distance_m": "168.077729",
+          "added_distance_vs_link_m": "64.760895",
+          "network_penalty_m": "64.760895",
+          "route_link_count": 3,
+          "route_link_digest": "7cb0add68e0f94d1dccb505ddf47e88a",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          206624
+        ]
+      },
+      "216016": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 193485,
+          "target_node": 206743,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 206743,
+          "target_node": 193485,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          216016
+        ]
+      },
+      "225408": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 212270,
+          "target_node": 212271,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 212271,
+          "target_node": 212270,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          225408
+        ]
+      },
+      "234800": {
+        "forward": {
+          "status": "OK",
+          "source_node": 220538,
+          "target_node": 220539,
+          "alternative_distance_m": "310.651879",
+          "added_distance_vs_link_m": "141.116747",
+          "network_penalty_m": "141.116747",
+          "route_link_count": 2,
+          "route_link_digest": "2b96dc26941b97077f7643f3d85812a0",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 220539,
+          "target_node": 220538,
+          "alternative_distance_m": "310.651879",
+          "added_distance_vs_link_m": "141.116747",
+          "network_penalty_m": "141.116747",
+          "route_link_count": 2,
+          "route_link_digest": "2b96dc26941b97077f7643f3d85812a0",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          234800
+        ]
+      },
+      "244192": {
+        "forward": {
+          "status": "OK",
+          "source_node": 218578,
+          "target_node": 218689,
+          "alternative_distance_m": "316.812602",
+          "added_distance_vs_link_m": "244.437368",
+          "network_penalty_m": "244.437368",
+          "route_link_count": 6,
+          "route_link_digest": "1a575064b9376117af6a7e09bbe9978f",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 218689,
+          "target_node": 218578,
+          "alternative_distance_m": "344.059104",
+          "added_distance_vs_link_m": "271.683870",
+          "network_penalty_m": "271.683870",
+          "route_link_count": 8,
+          "route_link_digest": "a881db76fd54c9223c8a10ca4a2506c5",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          244192
+        ]
+      },
+      "253584": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 233135,
+          "target_node": 230573,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 230573,
+          "target_node": 233135,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          253581,
+          253582,
+          253583,
+          253584
+        ]
+      },
+      "262976": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 112878,
+          "target_node": 113248,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 113248,
+          "target_node": 112878,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          262974,
+          262975,
+          262976,
+          262977
+        ]
+      },
+      "272368": {
+        "forward": {
+          "status": "OK",
+          "source_node": 249745,
+          "target_node": 249746,
+          "alternative_distance_m": "10282.781599",
+          "added_distance_vs_link_m": "10101.423084",
+          "network_penalty_m": "10101.423084",
+          "route_link_count": 12,
+          "route_link_digest": "8547031eff13a5d8ebea5c0c1e747a3e",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 249746,
+          "target_node": 249745,
+          "alternative_distance_m": "10282.781599",
+          "added_distance_vs_link_m": "10101.423084",
+          "network_penalty_m": "10101.423084",
+          "route_link_count": 12,
+          "route_link_digest": "8547031eff13a5d8ebea5c0c1e747a3e",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          272368
+        ]
+      },
+      "281760": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 260055,
+          "target_node": 259296,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 5
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 259296,
+          "target_node": 260055,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 5
+        },
+        "removed_link_ids": [
+          281760
+        ]
+      },
+      "291152": {
+        "forward": {
+          "status": "OK",
+          "source_node": 268935,
+          "target_node": 268936,
+          "alternative_distance_m": "1707.950545",
+          "added_distance_vs_link_m": "1692.982811",
+          "network_penalty_m": "1692.982811",
+          "route_link_count": 11,
+          "route_link_digest": "397021e7411b9df863cf3e8d2c00eda8",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 268936,
+          "target_node": 268935,
+          "alternative_distance_m": "1707.950545",
+          "added_distance_vs_link_m": "1692.982811",
+          "network_penalty_m": "1692.982811",
+          "route_link_count": 11,
+          "route_link_digest": "397021e7411b9df863cf3e8d2c00eda8",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          291152
+        ]
+      },
+      "300544": {
+        "forward": {
+          "status": "OK",
+          "source_node": 277080,
+          "target_node": 274421,
+          "alternative_distance_m": "28172.629516",
+          "added_distance_vs_link_m": "28137.788723",
+          "network_penalty_m": "28137.788723",
+          "route_link_count": 41,
+          "route_link_digest": "614a9d36cdc320692199a7da613d7da7",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 274421,
+          "target_node": 277080,
+          "alternative_distance_m": "28172.629516",
+          "added_distance_vs_link_m": "28137.788723",
+          "network_penalty_m": "28137.788723",
+          "route_link_count": 41,
+          "route_link_digest": "614a9d36cdc320692199a7da613d7da7",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          300544
+        ]
+      },
+      "309936": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 283936,
+          "target_node": 49588,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 49588,
+          "target_node": 283936,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          309936,
+          309937
+        ]
+      },
+      "319328": {
+        "forward": {
+          "status": "OK",
+          "source_node": 289255,
+          "target_node": 293312,
+          "alternative_distance_m": "831.504741",
+          "added_distance_vs_link_m": "791.504728",
+          "network_penalty_m": "791.504728",
+          "route_link_count": 11,
+          "route_link_digest": "6bcfbf371adce8a1b4788166774cc085",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 293312,
+          "target_node": 289255,
+          "alternative_distance_m": "831.504741",
+          "added_distance_vs_link_m": "791.504728",
+          "network_penalty_m": "791.504728",
+          "route_link_count": 11,
+          "route_link_digest": "6bcfbf371adce8a1b4788166774cc085",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          319328
+        ]
+      },
+      "328720": {
+        "forward": {
+          "status": "OK",
+          "source_node": 299939,
+          "target_node": 88294,
+          "alternative_distance_m": "1255.717313",
+          "added_distance_vs_link_m": "1243.078814",
+          "network_penalty_m": "1243.078814",
+          "route_link_count": 7,
+          "route_link_digest": "f3385cb02659c39cfb7170304d780632",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 88294,
+          "target_node": 299939,
+          "alternative_distance_m": "1255.717313",
+          "added_distance_vs_link_m": "1243.078814",
+          "network_penalty_m": "1243.078814",
+          "route_link_count": 7,
+          "route_link_digest": "f3385cb02659c39cfb7170304d780632",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          328720,
+          328721
+        ]
+      },
+      "338112": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 304351,
+          "target_node": 306527,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 306527,
+          "target_node": 304351,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          338099,
+          338100,
+          338101,
+          338102,
+          338103,
+          338104,
+          338105,
+          338106,
+          338107,
+          338108,
+          338109,
+          338110,
+          338111,
+          338112,
+          338113,
+          338114,
+          338115,
+          338116,
+          338117,
+          338118,
+          338119
+        ]
+      },
+      "347504": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 317444,
+          "target_node": 317445,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 3
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 317445,
+          "target_node": 317444,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 3
+        },
+        "removed_link_ids": [
+          347504
+        ]
+      },
+      "356896": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 326361,
+          "target_node": 326362,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 326362,
+          "target_node": 326361,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 1
+        },
+        "removed_link_ids": [
+          356892,
+          356893,
+          356894,
+          356895,
+          356896,
+          356897,
+          356898
+        ]
+      },
+      "366288": {
+        "forward": {
+          "status": "DISCONNECTED",
+          "source_node": 334388,
+          "target_node": 334389,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "reverse": {
+          "status": "DISCONNECTED",
+          "source_node": 334389,
+          "target_node": 334388,
+          "alternative_distance_m": null,
+          "added_distance_vs_link_m": null,
+          "network_penalty_m": null,
+          "route_link_count": 0,
+          "route_link_digest": "d41d8cd98f00b204e9800998ecf8427e",
+          "corridor_penalty_m": null,
+          "isolation_links": 0
+        },
+        "removed_link_ids": [
+          366288
+        ]
+      },
+      "373604": {
+        "forward": {
+          "status": "OK",
+          "source_node": 337884,
+          "target_node": 337885,
+          "alternative_distance_m": "34469.112860",
+          "added_distance_vs_link_m": "33098.581343",
+          "network_penalty_m": "33098.581343",
+          "route_link_count": 48,
+          "route_link_digest": "a0a86e47b603ee582d3b44129e375fb0",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "reverse": {
+          "status": "OK",
+          "source_node": 337885,
+          "target_node": 337884,
+          "alternative_distance_m": "34469.112860",
+          "added_distance_vs_link_m": "33098.581343",
+          "network_penalty_m": "33098.581343",
+          "route_link_count": 48,
+          "route_link_digest": "a0a86e47b603ee582d3b44129e375fb0",
+          "corridor_penalty_m": null,
+          "isolation_links": null
+        },
+        "removed_link_ids": [
+          373604
+        ]
+      }
+    }
+  }
+}

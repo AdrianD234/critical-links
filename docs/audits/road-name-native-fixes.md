@@ -184,12 +184,19 @@ that was in the source all along.
 
 | State | Source features | Graph links |
 | --- | --- | --- |
-| `unresolved` | 180,731 (66.3%) | 235,684 (62.7%) |
-| `amds_named` | 88,095 (32.3%) | 127,608 (34.0%) |
-| `route_designation_only` | 3,519 (1.3%) | 12,137 (3.2%) |
-| `ambiguous_conflict` | 81 (0.0%) | 267 (0.1%) |
+| `unresolved` | 180,731 (66.3%) | 235,642 (62.7%) |
+| `amds_named` | 88,002 (32.3%) | 127,127 (33.8%) |
+| `route_designation_only` | 3,619 (1.3%) | 12,695 (3.4%) |
+| `ambiguous_conflict` | 74 (0.0%) | 232 (0.1%) |
 
-The 81 conflicts are surfaced, not resolved. They are features where AMDS holds
+A further rule landed after the first pass and is included above: once a
+**reference station** appears - the "/414" in `SH 1N/414` - the string is a code
+whatever trails it. `SH 1N/414-BUS` and `SH 1N/1030 ROUNDABOUT (SH)` are
+locations on State Highway 1, not roads called BUS or ROUNDABOUT. It was found
+by a browser test asserting that no displayed name is reference-station-shaped,
+not by reading the data again.
+
+The 74 conflicts are surfaced, not resolved. They are features where AMDS holds
 two different roadway names of the same kind — `Mount Nicholas Road (Te Anau
 Ward)` against `Von Road`, both flagged primary. A street name sitting beside
 its own highway designation is *not* counted as a conflict, and neither is

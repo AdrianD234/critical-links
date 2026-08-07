@@ -92,6 +92,10 @@ def test_different_roads_do_not_collide():
     ("SH 26/1 REVOKE", 6, True),
     ("State Highway 6 Highway (NZTA)", 1, True),
     ("Sh 2 North", 1, True),
+    # A reference station makes it a code whatever trails it.
+    ("SH 1N/414-BUS", 6, True),
+    ("SH 1N/1030 ROUNDABOUT (SH)", 6, True),
+    ("SH 2/678 ROUNDABOUT (SH)", 6, True),
     ("002-0161-R1", 6, True),               # RAMM-style section code
     ("01N-0475-R4", 6, True),
     # Real names that happen to open with a route reference.

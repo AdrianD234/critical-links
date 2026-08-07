@@ -6,12 +6,41 @@
  * graph, and it makes the client the single place request behaviour is defined.
  */
 
+/** How a road came to be called what it is called — or why it is not. */
+export type NameStatus =
+  | 'amds_named'
+  | 'route_designation_only'
+  | 'externally_enriched'
+  | 'officially_unnamed'
+  | 'ambiguous_conflict'
+  | 'unresolved';
+
+export interface Naming {
+  status: NameStatus;
+  /** What to put in the name position when there is no name. */
+  label: string | null;
+  explanation: string | null;
+  source: string | null;
+  confidence: string | null;
+  /** "State Highway 3". Shown alongside a street name, never instead of one. */
+  routeDesignation: string | null;
+  alternates: string[];
+  conflict: boolean;
+  /**
+   * Set when a name IS known but is not shown, because that source's licence
+   * has not been confirmed. Distinct from having no name at all, and the
+   * distinction is the point.
+   */
+  withheldSource: string | null;
+}
+
 export interface LinkSummary {
   linkId: number;
   amdsId: string;
   sourceObjectId: number;
   closureGroupId: string;
   roadName: string | null;
+  naming?: Naming;
   modelAssetTypeName: string | null;
   surfaceTypeName: string | null;
   assetOwnerOrganisation: number | null;
@@ -154,6 +183,24 @@ export interface NetworkMetadata {
   };
   /** Why the backend is serving this snapshot. Diagnostic, shown on hover. */
   selectionReason?: string | null;
+  /**
+   * Naming coverage for the whole snapshot.
+   *
+   * Reported so the application can state how much of the network it can name,
+   * rather than leaving a reader to infer it from how many labels they happen
+   * to see. `withheldTotal` counts links that HAVE a name which is not being
+   * displayed because that source's licence is unconfirmed — a different fact
+   * from having no name, and the more actionable of the two.
+   */
+  naming?: {
+    graphLinks: number;
+    namedLinks: number;
+    byStatus: Record<string, number>;
+    withheldBySource: Record<string, number>;
+    withheldTotal: number;
+  };
+  /** Attribution for every non-AMDS source whose names are displayed. */
+  nameAttributions?: { source: string; licence: string; attribution: string }[];
   /**
    * What this build of the backend can actually do. Optional because the
    * frontend must keep working against a backend that predates it; when it is

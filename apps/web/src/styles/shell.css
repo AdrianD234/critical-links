@@ -446,7 +446,13 @@
   border-radius: 3px;
   font-size: 10px;
   line-height: 1.5;
-  color: var(--shell-fg-faint);
+  /*
+   * Muted, not faint. `--shell-fg-faint` is 3.26:1 against this panel, and at
+   * 10px WCAG AA wants 4.5:1 — attribution is the one piece of text on the map
+   * that a licence obliges us to make legible, so it cannot be the quietest
+   * thing on screen. `--shell-fg-muted` gives 5.98:1.
+   */
+  color: var(--shell-fg-muted);
   text-align: right;
 }
 

@@ -200,6 +200,61 @@ def _round(v: float | None, dp: int) -> float | None:
     return None if v is None else round(v, dp)
 
 
+def _name_attributions() -> list[dict[str, Any]]:
+    """Attribution for every source whose names are actually being displayed.
+
+    Read from the database rather than hard-coded, so a source cannot start
+    appearing in the interface without its attribution appearing with it -
+    which is the condition its licence is granted on.
+    """
+    try:
+        rows = db.query(
+            "SELECT source, licence, attribution FROM name_source_licences "
+            " WHERE display_cleared AND attribution IS NOT NULL "
+            " ORDER BY source")
+    except Exception:  # noqa: BLE001 - a snapshot predating the naming layer
+        return []
+    return [{"source": r["source"], "licence": r["licence"],
+             "attribution": r["attribution"]} for r in rows]
+
+
+def _naming_coverage(snap: str) -> dict[str, Any] | None:
+    """How many links have a name, where it came from, and what is held back.
+
+    Reported so the interface can state its own naming coverage rather than
+    leave a reader to infer it from how many labels they happen to see. The
+    withheld figure is the one that matters most: those links have a name, and
+    saying nothing about them would understate what is known and hide a
+    decision that is waiting on someone.
+    """
+    try:
+        rows = db.query(
+            "SELECT name_status, count(*) AS n, "
+            "       count(display_name) AS named FROM link_display_names "
+            " WHERE snapshot_id = %s GROUP BY 1", (snap,))
+        withheld = db.query(
+            "SELECT withheld_name_source AS src, count(*) AS n "
+            "  FROM link_display_names WHERE snapshot_id = %s "
+            "   AND withheld_name_source IS NOT NULL GROUP BY 1", (snap,))
+    except Exception:  # noqa: BLE001 - snapshot predating the naming layer
+        return None
+    if not rows:
+        return None
+    by_status = {r["name_status"]: r["n"] for r in rows}
+    total = sum(by_status.values())
+    # Counted, not derived by subtraction: a handful of designation-only rows
+    # have no display string, and subtracting the states that "should" be
+    # nameless silently counted them as named.
+    named = sum(r["named"] for r in rows)
+    return {
+        "graphLinks": total,
+        "namedLinks": named,
+        "byStatus": by_status,
+        "withheldBySource": {r["src"]: r["n"] for r in withheld},
+        "withheldTotal": sum(r["n"] for r in withheld),
+    }
+
+
 def _provenance() -> dict[str, Any]:
     m = _ACTIVE["meta"]
     return {
@@ -209,6 +264,9 @@ def _provenance() -> dict[str, Any]:
         "retrievedAtUtc": m["retrieved_at_utc"].isoformat(),
         "licence": m["licence"],
         "attribution": m["attribution"],
+        # Road names can come from outside AMDS, and those sources carry their
+        # own attribution requirements.
+        "nameAttributions": _name_attributions(),
         "processingVersion": m["processing_version"],
         "algorithm": ALGORITHM,
         "algorithmVersion": ALGORITHM_VERSION,
@@ -375,6 +433,7 @@ def metadata() -> dict[str, Any]:
             "isNational": (m.get("coverage_kind") or "") == "national",
         },
         "selectionReason": _ACTIVE.get("selection_reason"),
+        "naming": _naming_coverage(snap),
         # What this build can actually do, so the client does not have to
         # hard-code the parameter enums.
         #
@@ -412,13 +471,73 @@ def metadata() -> dict[str, Any]:
     }
 
 
+#: What the interface should put in the road-name position for each name state,
+#: when there is no name to put there. Held here rather than in the client so
+#: that the wording cannot drift from the classification it describes.
+NAME_STATE_LABELS = {
+    "officially_unnamed": "Unnamed road",
+    "unresolved": "Name not recorded",
+    "ambiguous_conflict": "Name disputed",
+}
+
+NAME_STATE_EXPLANATIONS = {
+    "amds_named": "Named in the AMDS Network Model.",
+    "route_designation_only": (
+        "The source records the route this road carries, but no street name."
+    ),
+    "externally_enriched": "Name matched from an external authoritative source.",
+    "officially_unnamed": (
+        "An authoritative source records that this road has no name."
+    ),
+    "ambiguous_conflict": (
+        "Sources hold more than one name for this road. Both are shown; "
+        "neither has been chosen over the other."
+    ),
+    "unresolved": (
+        "No source consulted holds a name for this road. This is not the same "
+        "as the road having no name."
+    ),
+}
+
+
+def _naming_block(row: dict[str, Any]) -> dict[str, Any]:
+    """Where the displayed name came from, and what it means when there is none.
+
+    `withheldSource` is the case worth reading carefully: a name IS known for
+    the link, and it is not being shown because that source's licence has not
+    been confirmed. Reporting it as simply unnamed would understate what the
+    project knows and hide a decision that someone needs to make.
+    """
+    status = row.get("name_status") or (
+        "amds_named" if row.get("road_name") else "unresolved")
+    return {
+        "status": status,
+        "label": NAME_STATE_LABELS.get(status),
+        "explanation": NAME_STATE_EXPLANATIONS.get(status),
+        "source": row.get("name_source"),
+        "confidence": row.get("name_confidence"),
+        "routeDesignation": row.get("route_designation"),
+        "alternates": list(row.get("name_alternates") or []),
+        "conflict": bool(row.get("name_conflict")),
+        "withheldSource": row.get("withheld_name_source"),
+    }
+
+
 def _link_summary(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "linkId": row["link_id"],
         "amdsId": row["amds_id"],
         "sourceObjectId": row.get("source_object_id"),
         "closureGroupId": row["closure_group_id"],
-        "roadName": row.get("road_name"),
+        # The naming layer decides this, and it may legitimately be null. The
+        # `naming` block below says WHY it is null, which is the difference
+        # between "we could not find a name" and "this road has none".
+        # The view is authoritative when it is joined, INCLUDING when it says
+        # NULL - that is how a withheld name stays withheld. Falling back to
+        # links.road_name here would route around the licence gate.
+        "roadName": (row["display_name"] if "display_name" in row
+                     else row.get("road_name")),
+        "naming": _naming_block(row),
         "modelAssetTypeName": {1: "Roadway", 6: "Connector"}.get(
             row.get("model_asset_type"), f"type {row.get('model_asset_type')}"),
         "surfaceTypeName": {1: "Sealed", 2: "Metalled", 3: "Unsurfaced"}.get(
@@ -446,8 +565,24 @@ def _link_summary(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Names come from the naming layer, never from links.road_name. The view falls
+# back to that column for any snapshot that has not been through a naming pass,
+# and it applies the licence gate, so this is the only place a name should be
+# read from.
+_NAME_JOIN = (
+    " LEFT JOIN link_display_names dn "
+    "        ON dn.snapshot_id = l.snapshot_id AND dn.link_id = l.link_id "
+)
+
+_NAME_COLUMNS = (
+    "dn.display_name, dn.name_status, dn.name_source, dn.route_designation, "
+    "dn.alternates AS name_alternates, dn.conflict AS name_conflict, "
+    "dn.withheld_name_source, dn.match_confidence AS name_confidence"
+)
+
 _LINK_COLUMNS = (
-    "l.*, ST_Y(ST_Transform(ST_LineInterpolatePoint(l.geom_2193, 0.5), 4326)) AS clat, "
+    f"l.*, {_NAME_COLUMNS}, "
+    "ST_Y(ST_Transform(ST_LineInterpolatePoint(l.geom_2193, 0.5), 4326)) AS clat, "
     "ST_X(ST_Transform(ST_LineInterpolatePoint(l.geom_2193, 0.5), 4326)) AS clon"
 )
 
@@ -474,7 +609,7 @@ def search(
         # "SH 1" is a far more likely query than any road name, and it lives
         # in a different column.
         clauses.append(
-            "(l.road_name ILIKE %(like)s OR l.road_number ILIKE %(like)s)"
+            "(coalesce(dn.display_name, l.road_name) ILIKE %(like)s OR l.road_number ILIKE %(like)s)"
         )
         params["like"] = f"%{name}%"
         params["exact"] = name
@@ -485,9 +620,11 @@ def search(
         # Lower sorts first.
         rank = """
             CASE
-              WHEN lower(l.road_name)   = lower(%(exact)s)  THEN 0
+              WHEN lower(coalesce(dn.display_name, l.road_name))
+                     = lower(%(exact)s)                     THEN 0
               WHEN lower(l.road_number) = lower(%(exact)s)  THEN 1
-              WHEN l.road_name   ILIKE %(prefix)s           THEN 2
+              WHEN coalesce(dn.display_name, l.road_name)
+                     ILIKE %(prefix)s                       THEN 2
               WHEN l.road_number ILIKE %(prefix)s           THEN 3
               ELSE 4
             END
@@ -517,7 +654,7 @@ def search(
     rows = db.query(
         f"""
         SELECT {_LINK_COLUMNS}
-          FROM links l
+          FROM links l {_NAME_JOIN}
          WHERE {' AND '.join(clauses)}
          ORDER BY ({rank}),
                   (l.rca_code = 1) DESC,
@@ -538,13 +675,14 @@ def search(
 def _resolve(link_ref: str) -> dict[str, Any]:
     snap = snapshot_id()
     row = db.query_one(
-        f"SELECT {_LINK_COLUMNS} FROM links l WHERE l.snapshot_id=%s AND l.amds_id=%s",
+        f"SELECT {_LINK_COLUMNS} FROM links l {_NAME_JOIN} "
+        f"WHERE l.snapshot_id=%s AND l.amds_id=%s",
         (snap, link_ref),
     )
     if row is None and link_ref.lstrip("-").isdigit():
         row = db.query_one(
-            f"SELECT {_LINK_COLUMNS} FROM links l WHERE l.snapshot_id=%s "
-            f"AND l.link_id=%s", (snap, int(link_ref)))
+            f"SELECT {_LINK_COLUMNS} FROM links l {_NAME_JOIN} "
+            f"WHERE l.snapshot_id=%s AND l.link_id=%s", (snap, int(link_ref)))
     if row is None:
         raise HTTPException(404, f"unknown link {link_ref!r}")
     return row
@@ -577,13 +715,16 @@ def detour(
             return None
         rows = db.query(
             """
-            SELECT a.arc_id, a.link_id, a.direction, l.amds_id, l.road_name,
-                   l.length_m,
+            SELECT a.arc_id, a.link_id, a.direction, l.amds_id,
+                   coalesce(dn.display_name, l.road_name) AS road_name,
+                   dn.name_status, l.length_m,
                    ST_AsGeoJSON(CASE WHEN a.direction='reverse'
                                      THEN ST_Reverse(l.geom_4326)
                                      ELSE l.geom_4326 END, 7) AS geom
             FROM arcs a JOIN links l
               ON l.snapshot_id=a.snapshot_id AND l.link_id=a.link_id
+         LEFT JOIN link_display_names dn
+              ON dn.snapshot_id=l.snapshot_id AND dn.link_id=l.link_id
             WHERE a.snapshot_id=%s AND a.arc_id = ANY(%s)
             """,
             (snap, arc_ids),
@@ -601,6 +742,7 @@ def detour(
                 "properties": {
                     "order": order, "arcId": aid, "linkId": r["link_id"],
                     "amdsId": r["amds_id"], "roadName": r["road_name"],
+                    "nameStatus": r.get("name_status"),
                     "lengthM": _round(r["length_m"], 1),
                     "direction": r["direction"],
                 },
@@ -716,8 +858,12 @@ def detour(
 
     import json
     closed = db.query(
-        "SELECT link_id, amds_id, road_name, ST_AsGeoJSON(geom_4326, 7) AS geom "
-        "FROM links WHERE snapshot_id=%s AND link_id = ANY(%s)",
+        "SELECT l.link_id, l.amds_id, "
+        "       coalesce(dn.display_name, l.road_name) AS road_name, "
+        "       ST_AsGeoJSON(l.geom_4326, 7) AS geom "
+        "FROM links l LEFT JOIN link_display_names dn "
+        "  ON dn.snapshot_id=l.snapshot_id AND dn.link_id=l.link_id "
+        "WHERE l.snapshot_id=%s AND l.link_id = ANY(%s)",
         (snap, result.removed_link_ids or [-1]),
     )
     closed_features = [
@@ -865,7 +1011,9 @@ def _render_tile(
                    l.link_id                       AS "linkId",
                    l.amds_id                       AS "amdsId",
                    l.closure_group_id              AS "closureGroupId",
-                   coalesce(l.road_name, '')       AS "roadName",
+                   coalesce(dn.display_name, l.road_name, '')
+                                                   AS "roadName",
+                   coalesce(dn.name_status, '')    AS "nameStatus",
                    coalesce(l.road_number, '')     AS "roadNumber",
                    (l.oneway = 1)::int             AS oneway,
                    (l.rca_code = 1)::int           AS "stateHighway",
@@ -875,7 +1023,11 @@ def _render_tile(
                    coalesce(l.model_asset_type, 0) AS "roadClass",
                    ST_AsMVTGeom(ST_Transform(l.geom_2193, 3857),
                                 bounds.merc, 4096, 64, true) AS geom
-            FROM links l, bounds
+            FROM links l
+            LEFT JOIN link_display_names dn
+                   ON dn.snapshot_id = l.snapshot_id
+                  AND dn.link_id = l.link_id,
+                 bounds
             WHERE l.snapshot_id = %(snap)s
               AND l.geom_2193 && bounds.nztm
               -- Generalisation, applied here as well as in the client style.
