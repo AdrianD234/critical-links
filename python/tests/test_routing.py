@@ -212,13 +212,70 @@ class TestCulDeSacAndIslands:
 
 
 class TestTimeout:
+    def test_a_timeout_is_never_reported_as_disconnected_by_the_mapping(
+            self, synthetic, monkeypatch):
+        """The same contract, in the mandatory suite.
+
+        The real-data version below needs a graph big enough that a 1 ms budget
+        genuinely cannot load the edge set, so it can only run against an
+        ingested snapshot - and it therefore skipped silently everywhere else,
+        including on CI, for the whole life of the test. A stop-condition
+        contract with no mandatory guard is not guarded.
+
+        What actually has to hold is a mapping: when the database reports a
+        cancelled statement, the result is UNRESOLVED_TIMEOUT and not
+        DISCONNECTED. That is exercisable on any graph by making the database
+        say so.
+
+        The failure is isolated to the SEARCH. `db.query_one` opens its own
+        connection, so patching `db.connection` alone also breaks the
+        same-component pre-check - which returns DISCONNECTED without ever
+        reaching the code under test, and would have made this test pass for
+        the wrong reason. The pre-check is therefore held open explicitly.
+        """
+        from nzcl import db, routing
+
+        net = synthetic(SQUARE)
+        link = db.query_one(
+            "SELECT source_node, target_node FROM links "
+            " WHERE snapshot_id=%s AND link_id=%s",
+            (net.snapshot_id, net.link_id("S")))
+
+        class _Cancelled:
+            def __enter__(self):
+                raise RuntimeError(
+                    "canceling statement due to statement timeout")
+
+            def __exit__(self, *exc):
+                return False
+
+        # The endpoints ARE in one component; only the search is made to fail.
+        monkeypatch.setattr(routing, "_same_component", lambda *a, **k: True)
+        monkeypatch.setattr(routing.db, "connection", lambda: _Cancelled())
+
+        res = route(net.snapshot_id, link["source_node"], link["target_node"],
+                    statement_timeout_ms=1)
+        assert res.status == "UNRESOLVED_TIMEOUT"
+        assert res.status != "DISCONNECTED"
+        assert res.distance_m is None
+        assert res.cost is None
+        assert "timeout" in (res.detail or "").lower()
+
+    @pytest.mark.realdata
     def test_a_timeout_is_never_reported_as_disconnected(self, synthetic):
         """The distinction that matters most: an unanswered query must not be
         reported as a finding about the network.
 
         A synthetic four-link graph completes faster than any timeout worth
         setting, so this runs against a real ingested snapshot where a 1 ms
-        budget genuinely cannot load the edge set."""
+        budget genuinely cannot load the edge set.
+
+        Marked `realdata` rather than skipping itself. It was skipping on every
+        runner that lacks an ingested snapshot - which is every runner - and a
+        deterministic skip reads as a pass. The mandatory guard above now covers
+        the mapping; this one keeps the end-to-end evidence for anyone with a
+        national snapshot.
+        """
         from nzcl import db
         real = db.query_one(
             "SELECT snapshot_id FROM network_snapshots "
