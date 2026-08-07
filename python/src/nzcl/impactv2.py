@@ -98,8 +98,22 @@ HEADLINES = (
     "Through movement has no represented replacement",
     "Through movement diverts",
     "No through movement identified",
+    "Partial analysis",
     "Analysis unresolved",
 )
+
+#: Headlines that assert something about the ROAD. None of them may be emitted
+#: when the candidate search was not exhaustive.
+#:
+#: Each reads as a statement about every movement the closure interrupts, and
+#: an unevaluated pair could hold the worst detour, the only disconnected
+#: movement, or the movement the reader actually cares about. The sample
+#: recorded 10 truncated analyses that still carried one of these.
+DEFINITIVE_HEADLINES = frozenset({
+    "Through movement has no represented replacement",
+    "Through movement diverts",
+    "No through movement identified",
+})
 
 
 def analyse(
@@ -175,9 +189,14 @@ def analyse(
         entry = port_by_id.get(pm.entry_port_id)
         exit_ = port_by_id.get(pm.exit_port_id)
         if entry is not None and exit_ is not None:
+            # The principal movement's own intact arcs are handed in as the
+            # WITNESS. Without them a candidate pair can have a perfectly good
+            # post-closure route while the cheapest intact route between those
+            # two nodes never used the closure - a diversion nobody needs.
             out.corridor = timed("corridor_expansion", lambda: corridor_mod.select(
                 b, c.removed_link_ids, c.removed_arc_ids,
                 entry_ports=[entry], exit_ports=[exit_], profile=profile,
+                witness_arcs=pm.intact_arc_ids,
                 statement_timeout_ms=statement_timeout_ms))
 
     if with_geometry:
@@ -200,7 +219,8 @@ def analyse(
                     snapshot_id, out.principal.arc_ids)
         timed("geometry_assembly", _geom)
 
-    out.headline, out.quality_flags = _classify(ms, rs, out.principal)
+    out.headline, out.quality_flags = _classify(ms, rs, out.principal,
+                                                out.corridor)
     stage["total"] = int((time.perf_counter() - t0) * 1000)
     out.stage_ms = stage
     out.runtime_ms = stage["total"]
@@ -256,27 +276,52 @@ def _principal(rs: ReplacementSet, by_id: dict[str, movements.Movement],
 
 
 def _classify(ms: MovementSet, rs: ReplacementSet,
-              principal: ReplacementPath | None) -> tuple[str, list[str]]:
+              principal: ReplacementPath | None,
+              corridor_result=None) -> tuple[str, list[str]]:
     """The only place a headline is chosen.
 
-    An unresolved search is reported as unresolved and never as a finding about
-    a road - which is why the status of the SEARCH is tested before anything is
-    read off an individual movement.
+    Order, and why:
+
+      1. an unresolved SEARCH is unresolved, never a finding about a road;
+      2. an INVALID GRAPH poisons everything - a replacement that traversed
+         its own closure means the exclusion did not take, so no figure from
+         that request is safe, including the ones that look fine;
+      3. a search that was TRUNCATED may report what it found but may not
+         imply it found everything;
+      4. only then may an ordinary headline be emitted.
     """
     flags: list[str] = []
-    if ms.truncated:
+    if ms.truncated or not ms.exhaustive:
         flags.append("MOVEMENT_CANDIDATES_TRUNCATED")
+    if corridor_result is not None and corridor_result.truncated:
+        flags.append("CORRIDOR_CANDIDATES_TRUNCATED")
+    if corridor_result is not None and corridor_result.confidence == "low":
+        flags.append("CORRIDOR_CONFIDENCE_LOW")
+
     if not ms.resolved:
         return "Analysis unresolved", flags + ["MOVEMENT_SEARCH_UNRESOLVED"]
+    if rs.status == "INVALID_GRAPH":
+        return "Analysis unresolved", flags + ["INVALID_GRAPH"]
     if not rs.resolved:
         return "Analysis unresolved", flags + ["REPLACEMENT_SEARCH_UNRESOLVED"]
-    if principal is None:
-        return "No through movement identified", flags
-    if not principal.resolved:
+    if principal is not None and not principal.resolved:
         return "Analysis unresolved", flags + ["PRINCIPAL_MOVEMENT_UNRESOLVED"]
-    if principal.status == "DISCONNECTED":
-        return "Through movement has no represented replacement", flags
-    return "Through movement diverts", flags
+
+    if principal is None:
+        headline = "No through movement identified"
+    elif principal.status == "DISCONNECTED":
+        headline = "Through movement has no represented replacement"
+    else:
+        headline = "Through movement diverts"
+
+    # A definitive sentence needs an exhaustive search behind it. The resolved
+    # sub-results stay visible either way; what changes is that nothing claims
+    # to have looked at everything.
+    incomplete = ("MOVEMENT_CANDIDATES_TRUNCATED" in flags
+                  or "CORRIDOR_CANDIDATES_TRUNCATED" in flags)
+    if incomplete and headline in DEFINITIVE_HEADLINES:
+        return "Partial analysis", flags + ["HEADLINE_WITHHELD_NOT_EXHAUSTIVE"]
+    return headline, flags
 
 
 # --------------------------------------------------------------- API shape

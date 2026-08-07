@@ -397,10 +397,13 @@ class TestParallelFrontageRoad:
         assert r.corridor.explanation
         assert r.corridor.admissibility_level in ("decision_points",
                                                   "all_candidates")
-        # Every bound the search ran under is reported, not implied.
-        for key in ("beamWidth", "maxHops", "maxOutwardM",
-                    "maxCandidatesPerSide", "maxPairs"):
+        # Every bound the search ran under is reported, not implied - and the
+        # outward one is named for what it actually governs.
+        for key in ("beamWidth", "maxHops", "maxExpansionOutwardM",
+                    "seedMayExceedExpansionBound", "maxCandidatesPerSide",
+                    "maxPairs"):
             assert key in r.corridor.bounds
+        assert r.corridor.bounds["seedMayExceedExpansionBound"] is True
 
 
 class TestEndpointArtefact:
@@ -915,6 +918,193 @@ class TestTheClosureIsRespected:
         assert rs.status == "INVALID_GRAPH"
         assert "did not declare" in rs.detail
         assert rs.paths == []
+
+
+class TestTruncationWithholdsADefinitiveHeadline:
+    """A bounded search may report what it found. It may not imply it found
+    everything.
+
+    The national sample recorded 10 truncated movement analyses that still
+    carried "Through movement diverts" or "has no represented replacement".
+    Each of those reads as a statement about every movement the closure
+    interrupts, and an unevaluated pair could hold the worst detour, the only
+    disconnected movement, or the one the reader cares about.
+    """
+
+    def test_an_exhaustive_search_keeps_its_definitive_headline(self, synthetic):
+        net = synthetic(FRONTAGE)
+        r = analyse(net, "M3")
+        assert r.movement_set.exhaustive is True
+        assert r.headline in impactv2.DEFINITIVE_HEADLINES
+
+    def test_a_truncated_movement_search_downgrades_to_partial(self, synthetic):
+        net = synthetic(TEE)
+        c, b, _, _ = stages(net, "STEM")
+        ms = movements.identify(b, c.removed_arc_ids, max_ports_per_side=1)
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+        assert ms.exhaustive is False
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0] if rs.paths
+                                             else None)
+        assert headline == "Partial analysis"
+        assert headline in impactv2.HEADLINES
+        assert headline not in impactv2.DEFINITIVE_HEADLINES
+        assert "MOVEMENT_CANDIDATES_TRUNCATED" in flags
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in flags
+
+    def test_a_truncated_corridor_also_downgrades(self, synthetic):
+        net = synthetic(FRONTAGE)
+        c, b, ms, rs = stages(net, "M3")
+
+        class _Truncated:
+            truncated = True
+            confidence = "high"
+
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0], _Truncated())
+        assert headline == "Partial analysis"
+        assert "CORRIDOR_CANDIDATES_TRUNCATED" in flags
+
+    def test_the_resolved_sub_results_stay_visible(self, synthetic):
+        """Downgrading the headline must not hide what WAS established.
+
+        FRONTAGE with TWO ports per side. With one, the surviving pair on
+        either fixture is the F3 entry against the F3 exit - the same link in
+        and out, a U-turn - so there is no movement to keep and the test would
+        pass for the wrong reason.
+        """
+        net = synthetic(FRONTAGE)
+        c, b, _, _ = stages(net, "M3")
+        ms = movements.identify(b, c.removed_arc_ids, max_ports_per_side=2)
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+
+        assert ms.exhaustive is False
+        assert ms.status == "OK", "the search itself resolved"
+        assert ms.movements, "the pair that WAS evaluated keeps its verdict"
+        assert rs.status == "OK"
+        assert rs.paths, "and its replacement is still reported"
+        assert rs.paths[0].replacement_distance_m == pytest.approx(900.0)
+
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0])
+        assert headline == "Partial analysis"
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in flags
+
+
+class TestOneBrokenPathPoisonsTheRequest:
+    """A replacement that traverses its own closure is a contract failure.
+
+    Every path in the set came from the same edge query under the same
+    exclusion, so if one of them used a closed arc, none of the others can be
+    trusted either - including the ones that look fine.
+    """
+
+    @staticmethod
+    def _corrupt(monkeypatch, removed_arc):
+        """Make the exclusion fail: hand back a path through the closure."""
+        real = repl_mod.route_many_paths
+
+        def fake(*a, **kw):
+            res = real(*a, **kw)
+            for key in list(res.paths):
+                res.paths[key] = list(res.paths[key]) + [int(removed_arc)]
+            return res
+
+        monkeypatch.setattr(repl_mod, "route_many_paths", fake)
+
+    def test_the_whole_set_becomes_invalid_graph(self, synthetic, monkeypatch):
+        net = synthetic(SQUARE)
+        c, b, ms, _ = stages(net, "S")
+        self._corrupt(monkeypatch, c.removed_arc_ids[0])
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+        assert rs.status == "INVALID_GRAPH"
+        assert rs.resolved is False
+        assert "did not take" in rs.detail
+
+    def test_no_ordinary_headline_survives_it(self, synthetic, monkeypatch):
+        net = synthetic(SQUARE)
+        c, b, ms, _ = stages(net, "S")
+        self._corrupt(monkeypatch, c.removed_arc_ids[0])
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+        headline, flags = impactv2._classify(ms, rs, None)
+        assert headline == "Analysis unresolved"
+        assert "INVALID_GRAPH" in flags
+        assert headline not in impactv2.DEFINITIVE_HEADLINES
+
+    def test_a_clean_request_is_untouched_by_the_guard(self, synthetic):
+        net = synthetic(SQUARE)
+        _, _, _, rs = stages(net, "S")
+        assert rs.status == "OK"
+        assert all(p.traverses_own_closure is False for p in rs.paths)
+
+
+class TestCorridorNeedsAnIntactWitness:
+    """A corridor pair must be backed by a trip that actually went through.
+
+    Every term in the choice rule is about the post-closure world. Without a
+    witness, a pair can have a perfectly good replacement route while the
+    cheapest intact route between those two nodes never touched the closure -
+    a diversion nobody needs to make.
+    """
+
+    def test_the_chosen_pair_carries_a_valid_witness(self, synthetic):
+        net = synthetic(FRONTAGE)
+        r = analyse(net, "M3")
+        w = r.corridor.witness
+        assert w is not None
+        assert w.valid is True
+        assert w.continuous is True
+        assert w.connects_chosen_nodes is True
+        assert w.traverses_closure is True
+        assert w.closure_arcs_used
+
+    def test_the_witness_runs_from_the_chosen_upstream_to_the_downstream_node(
+            self, synthetic):
+        net = synthetic(FRONTAGE)
+        r = analyse(net, "M3")
+        up = {c.candidate_id: c for c in r.corridor.upstream}
+        down = {c.candidate_id: c for c in r.corridor.downstream}
+        chosen = r.corridor.chosen
+        assert r.corridor.witness.from_node == up[chosen.upstream_id].node
+        assert r.corridor.witness.to_node == down[chosen.downstream_id].node
+        # And the REPLACEMENT joins the same two nodes.
+        assert chosen.upstream_node == r.corridor.witness.from_node
+        assert chosen.downstream_node == r.corridor.witness.to_node
+
+    def test_the_witness_is_directionally_continuous_arc_by_arc(self, synthetic):
+        net = synthetic(FRONTAGE)
+        r = analyse(net, "M3")
+        arcs = r.corridor.witness.arc_ids
+        rows = db.query(
+            "SELECT arc_id, source, target FROM arcs "
+            " WHERE snapshot_id=%s AND arc_id = ANY(%s)",
+            (net.snapshot_id, sorted(set(arcs))))
+        ends = {int(x["arc_id"]): (int(x["source"]), int(x["target"]))
+                for x in rows}
+        for a, b_ in zip(arcs, arcs[1:]):
+            assert ends[a][1] == ends[b_][0], "the witness jumps a node"
+
+    def test_a_pair_with_no_intact_witness_is_never_chosen(self, synthetic):
+        """Hand the search a witness that does not use the closure."""
+        net = synthetic(FRONTAGE)
+        lid = net.link_id("M3")
+        c = closure_mod.resolve(net.snapshot_id, lid)
+        b = ports.derive(net.snapshot_id, c.removed_link_ids, lid,
+                         c.fingerprint, shape=c.shape)
+        # An arc that is not part of the closure: no witness built from it can
+        # traverse the closure, so every pair must be rejected.
+        outside = db.query_one(
+            "SELECT arc_id FROM arcs WHERE snapshot_id=%s "
+            "  AND NOT (link_id = ANY(%s)) ORDER BY arc_id LIMIT 1",
+            (net.snapshot_id, c.removed_link_ids))
+        cr = corridor.select(
+            b, c.removed_link_ids, c.removed_arc_ids,
+            entry_ports=[b.entry_ports[0]], exit_ports=[b.exit_ports[0]],
+            witness_arcs=[int(outside["arc_id"])])
+        assert cr.chosen is None
+        assert cr.witness_rejections
+        assert "no candidate pair has a demonstrable intact trip" in cr.detail
 
 
 class TestTimeoutIsNeverDisconnected:

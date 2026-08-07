@@ -94,9 +94,23 @@ Side = Literal["upstream", "downstream"]
 BEAM_WIDTH = 6
 #: Steps outward from the closure boundary.
 MAX_HOPS = 12
-#: Metres outward. A decision port five kilometres from the closure is not a
-#: place anyone would recognise as "where the detour starts".
-MAX_OUTWARD_M = 5_000.0
+#: How far outward the WALK may reach, in metres.
+#:
+#: This is an EXPANSION bound, not a cap on outward distance, and the
+#: difference is not pedantry. The SEED candidate is the port's own outside
+#: node, and its distance from the closure is the boundary arc's own length -
+#: on a rural state highway one link can be over ten kilometres. The seed is
+#: admitted whatever its length, because the first node outside the closure is
+#: the first place a driver could act on, however far away it is. There is no
+#: nearer answer available to give.
+#:
+#: It was documented as a five-kilometre bound, and the national sample then
+#: recorded chosen corridor ports at 6,613 m, 7,863 m and 10,582 m. Every one
+#: was a seed, at hop 0, inserted before a check that only ever runs on a step.
+#: The behaviour is defensible; the claim was not. A candidate past this
+#: distance is now flagged `beyond_search_bound`, and a corridor whose chosen
+#: pair contains one reports `confidence: low`.
+MAX_EXPANSION_OUTWARD_M = 5_000.0
 #: Distinct decision ports kept per side, after the walk.
 MAX_CANDIDATES_PER_SIDE = 20
 #
@@ -204,6 +218,11 @@ class DecisionPort:
     #: A degree-two node is somewhere you pass through, not somewhere you
     #: decide to divert.
     is_decision_point: bool = False
+    #: True when this candidate sits further from the closure than the walk was
+    #: allowed to travel. Only a SEED can be: its distance is the boundary
+    #: arc's own length, which no bound controls. Reported rather than hidden,
+    #: and it lowers the corridor's confidence.
+    beyond_search_bound: bool = False
 
     included: bool = True
     reason_code: str = "CANDIDATE"
@@ -237,6 +256,8 @@ class CandidatePair:
 
     replacement_arc_ids: list[int] = field(default_factory=list)
     valid: bool = False
+    #: The intact trip behind this pair, once validated.
+    witness: "Witness | None" = None
     reason_code: str = ""
     reason: str = ""
 
@@ -261,6 +282,48 @@ class CandidatePair:
 
 
 @dataclass
+class Witness:
+    """Proof that the chosen corridor pair describes a real intact trip.
+
+    WHY THIS HAS TO EXIST. The search expands outward from the ports, then
+    routes candidate decision-node pairs with the closure REMOVED. Every term
+    in the choice rule is about the post-closure world. Nothing in it checks
+    that the pre-closure world ever sent anybody between those two nodes
+    THROUGH the closure.
+
+    So a pair can have a perfectly good replacement route while the cheapest
+    intact route between the same two decision nodes never touched the closure
+    at all - in which case the "corridor" describes a diversion nobody needs to
+    make. The witness is the intact trip, spelled out arc by arc:
+
+        upstream trail -> entry port -> the intact crossing -> exit port
+        -> downstream trail
+
+    and it is only accepted if it is directionally continuous, starts and ends
+    at exactly the chosen decision nodes, and genuinely uses a closed arc.
+    """
+
+    arc_ids: list[int] = field(default_factory=list)
+    from_node: int = -1
+    to_node: int = -1
+    #: Each arc's target is the next arc's source, all the way along.
+    continuous: bool = False
+    #: Starts at the chosen upstream node and ends at the chosen downstream one.
+    connects_chosen_nodes: bool = False
+    #: Uses at least one arc of the DECLARED closure.
+    traverses_closure: bool = False
+    closure_arcs_used: list[int] = field(default_factory=list)
+    #: Every arc resolved to a real row; nothing was assumed.
+    all_arcs_resolved: bool = False
+    detail: str = ""
+
+    @property
+    def valid(self) -> bool:
+        return (self.continuous and self.connects_chosen_nodes
+                and self.traverses_closure and self.all_arcs_resolved)
+
+
+@dataclass
 class CorridorResult:
     snapshot_id: str
     closure_fingerprint: str
@@ -274,6 +337,17 @@ class CorridorResult:
     explanation: str = ""
     #: decision_points | all_candidates - which tier the chosen pair came from.
     admissibility_level: str = ""
+    #: "high" | "low". Low when the chosen pair contains a port further from
+    #: the closure than the walk was allowed to travel, so the corridor is
+    #: real but is not the near, recognisable place the rule aims for.
+    confidence: str = "high"
+    #: True when ANY candidate seed sat beyond the expansion bound.
+    seed_beyond_search_bound: bool = False
+    #: The intact trip the chosen pair is built on, and its validation. A pair
+    #: whose witness does not validate is never chosen.
+    witness: Witness | None = None
+    #: Pairs rejected because their witness failed, with the reason.
+    witness_rejections: list[dict] = field(default_factory=list)
 
     status: str = "OK"
     detail: str = ""
@@ -325,11 +399,12 @@ def select(
     removed_arc_ids: Sequence[int],
     *,
     entry_ports: Sequence[Port] | None = None,
+    witness_arcs: Sequence[int] = (),
     exit_ports: Sequence[Port] | None = None,
     profile: Profile = "car",
     beam_width: int = BEAM_WIDTH,
     max_hops: int = MAX_HOPS,
-    max_outward_m: float = MAX_OUTWARD_M,
+    max_expansion_outward_m: float = MAX_EXPANSION_OUTWARD_M,
     max_candidates_per_side: int = MAX_CANDIDATES_PER_SIDE,
     max_pairs: int = MAX_PAIRS,
     statement_timeout_ms: int = 20_000,
@@ -355,7 +430,8 @@ def select(
         selected_link_id=boundary.selected_link_id, profile=profile,
         bounds={
             "beamWidth": beam_width, "maxHops": max_hops,
-            "maxOutwardM": max_outward_m,
+            "maxExpansionOutwardM": max_expansion_outward_m,
+            "seedMayExceedExpansionBound": True,
             "maxCandidatesPerSide": max_candidates_per_side,
             "maxPairs": max_pairs,
             "headingToleranceDeg": HEADING_TOLERANCE_DEG,
@@ -371,11 +447,15 @@ def select(
     t = time.perf_counter()
     up, up_trunc = _expand(snap, boundary, seeds_in, "upstream",
                            removed_link_ids, profile, beam_width, max_hops,
-                           max_outward_m, max_candidates_per_side)
+                           max_expansion_outward_m, max_candidates_per_side)
     down, down_trunc = _expand(snap, boundary, seeds_out, "downstream",
                                removed_link_ids, profile, beam_width, max_hops,
-                               max_outward_m, max_candidates_per_side)
+                               max_expansion_outward_m, max_candidates_per_side)
     out.truncated = up_trunc or down_trunc
+    # A seed is admitted whatever its length; flag it rather than drop it.
+    for p in up + down:
+        p.beyond_search_bound = p.outward_distance_m > max_expansion_outward_m
+    out.seed_beyond_search_bound = any(p.beyond_search_bound for p in up + down)
     out.stage_ms["candidate_expansion"] = int((time.perf_counter() - t) * 1000)
     out.upstream, out.downstream = up, down
 
@@ -470,7 +550,57 @@ def select(
         out.runtime_ms = int((time.perf_counter() - t0) * 1000)
         return out
 
+    # --- the intact witness -----------------------------------------------
+    # Every term in the choice rule is about the post-closure world. Nothing in
+    # it checks that anybody ever travelled between these two nodes THROUGH the
+    # closure in the first place. Pairs whose intact trip cannot be
+    # demonstrated are struck out here, before the choice, so an unwitnessed
+    # pair can never be selected.
+    by_id = {c.candidate_id: c for c in up + down}
+    if witness_arcs:
+        witnessed: list[CandidatePair] = []
+        for p in valid:
+            u, d = by_id.get(p.upstream_id), by_id.get(p.downstream_id)
+            if u is None or d is None:
+                continue
+            w = build_witness(snap, u, d, witness_arcs, removed_arc_ids)
+            if w.valid:
+                p.witness = w
+                witnessed.append(p)
+            else:
+                p.valid = False
+                p.reason_code = "NO_INTACT_WITNESS"
+                p.reason = w.detail
+                out.witness_rejections.append({
+                    "pairId": p.pair_id,
+                    "upstreamNode": p.upstream_node,
+                    "downstreamNode": p.downstream_node,
+                    "detail": w.detail,
+                })
+        valid = witnessed
+        if not valid:
+            out.detail = (
+                "no candidate pair has a demonstrable intact trip through the "
+                "closure, so none of them describes a diversion anybody needs "
+                "to make")
+            out.runtime_ms = int((time.perf_counter() - t0) * 1000)
+            return out
+
     out.chosen, out.admissibility_level, note = _choose(valid)
+    out.witness = out.chosen.witness
+
+    chosen_ports = [by_id.get(out.chosen.upstream_id),
+                    by_id.get(out.chosen.downstream_id)]
+    far = [p for p in chosen_ports if p is not None and p.beyond_search_bound]
+    if far:
+        out.confidence = "low"
+        note = ((note + " ") if note else "") + (
+            f"The chosen corridor reaches {max(p.outward_distance_m for p in far):,.0f} m "
+            f"from the closure, further than the {max_expansion_outward_m:,.0f} m "
+            "the search expands. That is the first junction outside the closure "
+            "on a long link, not a place the search wandered to - but it is not "
+            "the near, recognisable point this rule aims for.")
+
     out.explanation = " ".join(
         [_explain(out.chosen, valid, up, down)] + ([note] if note else []))
     out.detail = (f"{len(valid)} of {len(considered)} routed candidate pair(s) "
@@ -478,6 +608,60 @@ def select(
     out.runtime_ms = int((time.perf_counter() - t0) * 1000)
     out.stage_ms["total"] = out.runtime_ms
     return out
+
+
+def build_witness(snapshot_id: str, upstream: DecisionPort,
+                  downstream: DecisionPort, movement_arcs: Sequence[int],
+                  declared_arc_ids: Sequence[int]) -> Witness:
+    """Assemble and validate the intact trip behind one corridor pair.
+
+    Arc ORDER matters and the two trails run in opposite senses. An upstream
+    trail is recorded outward from the closure - port arc first, then each step
+    further away - so travelling it takes the reverse. A downstream trail is
+    already in travel order.
+    """
+    w = Witness(from_node=upstream.node, to_node=downstream.node)
+    arcs = list(reversed(list(upstream.arc_trail))) + list(movement_arcs) \
+        + list(downstream.arc_trail)
+    w.arc_ids = arcs
+    if not arcs:
+        w.detail = "no arcs: there is no intact trip to witness"
+        return w
+
+    rows = db.query(
+        "SELECT arc_id, source, target FROM arcs "
+        " WHERE snapshot_id=%s AND arc_id = ANY(%s)",
+        (snapshot_id, sorted({int(a) for a in arcs})))
+    ends = {int(r["arc_id"]): (int(r["source"]), int(r["target"])) for r in rows}
+    w.all_arcs_resolved = all(int(a) in ends for a in arcs)
+    if not w.all_arcs_resolved:
+        w.detail = "at least one arc of the witness is not in the graph"
+        return w
+
+    w.continuous = all(ends[int(a)][1] == ends[int(b)][0]
+                       for a, b in zip(arcs, arcs[1:]))
+    w.connects_chosen_nodes = (ends[int(arcs[0])][0] == upstream.node
+                               and ends[int(arcs[-1])][1] == downstream.node)
+    declared = {int(a) for a in declared_arc_ids}
+    w.closure_arcs_used = sorted({int(a) for a in arcs if int(a) in declared})
+    w.traverses_closure = bool(w.closure_arcs_used)
+
+    if w.valid:
+        w.detail = (
+            f"an intact trip of {len(arcs)} arc(s) runs from node "
+            f"{upstream.node} to node {downstream.node} and uses "
+            f"{len(w.closure_arcs_used)} closed arc(s) on the way")
+    else:
+        why = []
+        if not w.continuous:
+            why.append("it is not directionally continuous")
+        if not w.connects_chosen_nodes:
+            why.append("it does not start and end at the chosen nodes")
+        if not w.traverses_closure:
+            why.append("it never uses a closed arc, so no trip between these "
+                       "nodes was interrupted")
+        w.detail = "rejected: " + "; ".join(why)
+    return w
 
 
 def _choose(valid: list[CandidatePair]) -> tuple[CandidatePair, str, str]:
@@ -549,7 +733,7 @@ def _name(p: DecisionPort | None) -> str:
 # ------------------------------------------------------------- beam search
 def _expand(snapshot_id: str, boundary: ClosureBoundary, seeds: Sequence[Port],
             side: Side, removed_link_ids: Sequence[int], profile: Profile,
-            beam_width: int, max_hops: int, max_outward_m: float,
+            beam_width: int, max_hops: int, max_expansion_outward_m: float,
             max_candidates: int) -> tuple[list[DecisionPort], bool]:
     """Walk outward from the boundary, carrying several candidates at once.
 
@@ -631,7 +815,7 @@ def _expand(snapshot_id: str, boundary: ClosureBoundary, seeds: Sequence[Port],
                     continue
                 trail = st["trail"] + (int(r["arc_id"]),)
                 outward = st["outward"] + float(r["cost_distance_m"])
-                if outward > max_outward_m:
+                if outward > max_expansion_outward_m:
                     truncated = True
                     continue
                 cont = _continuity(st, r, side, len(branches))
@@ -893,6 +1077,7 @@ def port_dict(p: DecisionPort) -> dict:
         "isStateHighway": p.is_state_highway,
         "nodeDegree": p.node_degree,
         "isDecisionPoint": p.is_decision_point,
+        "beyondSearchBound": p.beyond_search_bound,
         "included": p.included,
         "reasonCode": p.reason_code,
         "reason": p.reason,
@@ -938,6 +1123,20 @@ def as_dict(c: CorridorResult) -> dict:
         "validPairCount": sum(1 for p in c.pairs if p.valid),
         "chosenPair": pair_dict(c.chosen) if c.chosen else None,
         "admissibilityLevel": c.admissibility_level,
+        "confidence": c.confidence,
+        "seedBeyondSearchBound": c.seed_beyond_search_bound,
+        "witness": (None if c.witness is None else {
+            "arcIds": c.witness.arc_ids,
+            "fromNode": c.witness.from_node,
+            "toNode": c.witness.to_node,
+            "continuous": c.witness.continuous,
+            "connectsChosenNodes": c.witness.connects_chosen_nodes,
+            "traversesClosure": c.witness.traverses_closure,
+            "closureArcsUsed": c.witness.closure_arcs_used,
+            "valid": c.witness.valid,
+            "detail": c.witness.detail,
+        }),
+        "witnessRejections": c.witness_rejections,
         "explanation": c.explanation,
         # RAMM is named here so its ABSENCE is a stated decision rather than an
         # omission a reader has to notice.

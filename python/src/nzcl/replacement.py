@@ -251,6 +251,29 @@ def compute(
     paths.sort(key=lambda p: (p.entry_port_id, p.exit_port_id))
     out.paths = paths
 
+    # --- ONE broken path poisons the WHOLE request ------------------------
+    # A route that traverses the closure it is replacing means the exclusion
+    # did not take. That is a failure of the routing contract, not of one pair:
+    # every other path in this set came out of the same edge query under the
+    # same exclusion, so none of them can be trusted either.
+    #
+    # Marking only the offending path INVALID_GRAPH and leaving the set OK let
+    # a different movement become the principal result and carry an ordinary
+    # headline - on a request where the engine had just caught itself routing
+    # through a closed road.
+    broken = [p for p in paths
+              if p.traverses_own_closure or p.status == "INVALID_GRAPH"]
+    if broken:
+        out.status = "INVALID_GRAPH"
+        out.detail = (
+            f"{len(broken)} of {len(paths)} replacement path(s) traverse the "
+            "closure they are replacing, so the routing exclusion did not take. "
+            "Every path in this set came from the same query under the same "
+            "exclusion, so no figure from it is reported.")
+        out.runtime_ms = int((time.perf_counter() - t0) * 1000)
+        out.stage_ms["total"] = out.runtime_ms
+        return out
+
     ok = sum(1 for p in paths if p.status == "OK")
     disc = sum(1 for p in paths if p.status == "DISCONNECTED")
     out.detail = (f"{ok} of {len(paths)} movement(s) have a represented "

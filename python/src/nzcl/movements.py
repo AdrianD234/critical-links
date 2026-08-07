@@ -423,9 +423,9 @@ def identify(
         out.detail = (
             f"{kept} of {out.candidate_pairs} candidate pair(s) traverse the "
             f"closure in the intact network"
-            + (f"; {len(dropped_entries)} entry and {len(dropped_exits)} exit "
-               f"port(s) were beyond the candidate bound" if out.truncated
-               else ""))
+            + (f"; {out.omitted_entry_ports} entry and {out.omitted_exit_ports} "
+               f"exit port(s) and {out.omitted_pair_count} pair(s) were beyond "
+               "the bound and were not evaluated" if out.truncated else ""))
     out.runtime_ms = int((time.perf_counter() - t0) * 1000)
     return out
 
