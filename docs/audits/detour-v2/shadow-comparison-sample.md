@@ -48,7 +48,7 @@ difference below is attributable to the isolation measure alone.
 
 | V1 wording | V2 wording | Results |
 | --- | --- | --- |
-| Road cut off | Road cut off | 109 |
+| Road cut off | Road cut off | 108 |
 | Through route found | Through route found | 6 |
 | Road cut off | **Directional access loss** | 3 |
 | Road cut off | **No endpoint route** | 2 |
@@ -68,24 +68,53 @@ component of the undirected graph, and it can be larger or smaller than one.
 
 | | Total stranding attributed across the 120 results |
 | --- | --- |
-| V1 | **299 km** |
-| V2 | **123 km** |
+| V1 | **285 km** |
+| V2 | **95 km** |
 
-V1 attributes 2.4x as much stranded road as exists. This is the same defect the
-Tokoroa case shows from the other side: there, V1 reported 13.64 km where the
-exact answer across all resulting components was 27.17 km. V1's figure is
-neither an upper nor a lower bound on the truth. It is the size of whichever
-directed reachable set terminated first inside a 5,000-node cap, which is not a
-quantity anyone asked about.
+V1 attributes three times as much stranded road as exists. This is the same
+defect the Tokoroa case shows from the other side: there, V1 reported 13.64 km
+where the exact answer across all resulting components was 27.17 km. V1's
+figure is neither an upper nor a lower bound on the truth. It is the size of
+whichever directed reachable set terminated first inside a 5,000-node cap,
+which is not a quantity anyone asked about.
+
+## Topology confidence and anchor ambiguity
+
+Two fields added after review, reported for the first time here.
+
+| | Results |
+| --- | --- |
+| `topologyConfidence: low` | **12 of 120** |
+| `principalSideAmbiguous: true` | **0 of 120** |
+
+Twelve closures have an unresolved near-miss endpoint within 25 m. For those,
+the connectivity result may be an artefact of the ingest tolerance rather than
+a fact about the road: if the two endpoints are one junction in reality, the
+link the engine calls a bridge is not one. That is a tenth of the sample, and
+it is exactly the population where a "cut off" headline is least safe.
+
+No closure in this sample had an ambiguous principal side, which is what one
+would expect from a sample drawn near state highways - the anchor is decisive
+when a state highway sits on one side. The field exists for the rest of the
+network, where it is not.
+
+> **These figures were regenerated after the review fixes and differ from the
+> first run.** The earlier version of this note reported 299 km / 123 km and
+> 109 identical wordings. The isolation figures moved because two defects were
+> corrected: the principal-side tie-break was following BFS order on exact ties,
+> and a bridge closure whose child subtree won the anchor contest reported the
+> parent side with non-zero counts and an empty id list. Both are now covered by
+> tests. The V1 column moved by one row because the earlier table included a
+> stray comparison from a single-link check.
 
 ## Runtime
 
-120 comparisons — both engines, end to end — in 52.4 s.
+120 comparisons - both engines, end to end - in 47.0 s.
 
 | | median | p90 | max |
 | --- | --- | --- | --- |
-| V1 | 263 ms | 302 ms | 482 ms |
-| V2 | **174 ms** | **188 ms** | **292 ms** |
+| V1 | 239 ms | 276 ms | 348 ms |
+| V2 | **147 ms** | **177 ms** | **253 ms** |
 
 V2 is faster despite computing an exact partition rather than a bounded walk,
 because the commonest case - one link that is not a bridge - is answered from
