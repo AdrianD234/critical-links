@@ -22,6 +22,7 @@ import ContextInspector, {
 } from './shell/ContextInspector.js';
 import AppShell from './shell/AppShell.js';
 import BottomSheet, { type SheetStop, sheetHeight } from './shell/BottomSheet.js';
+import { ENGINE_SWITCH_VISIBLE, type Engine } from './shell/EngineSwitch.js';
 import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
@@ -38,9 +39,12 @@ import { BasemapUnavailable } from './inspector/ResultNotices.js';
 import { availabilityOf, normaliseDirection } from './state/direction.js';
 import InspectorActions from './inspector/InspectorActions.js';
 import ResultView from './inspector/ResultView.js';
+import V2Preview from './inspector/V2Preview.js';
 import type { DirectionView } from './inspector/DirectionTabs.js';
 import { UnsupportedScopeError } from './api/client.js';
 import {
+  DEFAULT_SCENARIO,
+  DEFAULT_SCENARIO_V2,
   closureLabel,
   closureLabelShort,
   scopeOfResponse,
@@ -50,9 +54,12 @@ import {
 import type { LinkSummary } from './api/types.js';
 import {
   resultVersion,
+  useClosureAnalysisV2,
   useDetour,
   useMetadata,
   useRoadSearch,
+  useV2Capabilities,
+  v2ResultVersion,
 } from './state/queries.js';
 import { permalinkFor, readUrl, writeUrl } from './state/url.js';
 import { palette } from './styles/palette.js';
@@ -110,6 +117,13 @@ export default function ExploreScreen() {
     basemap: true,
     labels: true,
   });
+  /*
+   * V1 IS THE DEFAULT, in development as well as in production. The switch
+   * that changes this is compiled out of a production build; see
+   * shell/EngineSwitch.tsx.
+   */
+  const [engine, setEngine] = useState<Engine>('v1');
+  const v2 = ENGINE_SWITCH_VISIBLE && engine === 'v2';
 
   /* ------------------------------------------------------------- data */
 
@@ -123,8 +137,13 @@ export default function ExploreScreen() {
    * Home returns to. Read from the backend, never inferred from a boolean. */
   const coverage = useMemo(() => coverageOf(meta), [meta]);
 
-  const detourQ = useDetour({ link, scenario, version });
+  const detourQ = useDetour({ link, scenario, version }, !v2);
   const detour = detourQ.data ?? null;
+
+  /* Only fetched when V2 is selected: under V1 nothing reads it, and an
+   * unconditional request would put a V2 call in every session. */
+  const v2CapsQ = useV2Capabilities(v2);
+  const v2Caps = v2CapsQ.data ?? null;
 
   /* Search is debounced at 180ms, per the interaction storyboard. */
   useEffect(() => {
@@ -270,7 +289,9 @@ export default function ExploreScreen() {
 
   const onSelectSearchResult = useCallback(
     (l: LinkSummary) => {
-      selectLink(l.amdsId, l.roadName);
+      /* The label, not the raw name: it is what the row the user just clicked
+       * said, and the panel must not change wording on the way in. */
+      selectLink(l.amdsId, l.displayLabel ?? l.roadName);
       setQuery('');
       setDebounced('');
       /* Move the map now, not when the detour lands. On a national snapshot
@@ -294,9 +315,41 @@ export default function ExploreScreen() {
     setPendingName(null);
   }, []);
 
+  /*
+   * Switching engine switches the default question with it.
+   *
+   * V2 defaults to the selected segment, which is what the user pointed at;
+   * V1 cannot close that and defaults to the whole AMDS source feature.
+   * Carrying one engine's scope across to the other would either fail loudly
+   * (segment under V1) or silently answer a different question, so the
+   * scenario is reset to the default the chosen engine is built around.
+   */
+  const onEngineChange = useCallback((next: Engine) => {
+    setEngine(next);
+    setScenario(next === 'v2' ? DEFAULT_SCENARIO_V2 : DEFAULT_SCENARIO);
+  }, []);
+
   /* ------------------------------------------------------ map result */
 
   const focusKey: DirectionKey = effectiveView === 'compare' ? 'reverse' : effectiveView;
+
+  /*
+   * The V2 request.
+   *
+   * Keyed on the V2 engine's own versions rather than the V1 metadata block:
+   * the two version independently, and a V2 algorithm change against an
+   * unchanged snapshot must invalidate every V2 figure in the cache.
+   */
+  const v2Q = useClosureAnalysisV2(
+    {
+      link,
+      scenario,
+      direction: focusKey,
+      version: v2ResultVersion(v2CapsQ.data),
+    },
+    v2,
+  );
+  const analysis = v2Q.data ?? null;
 
   const mapResult: MapResult | null = useMemo(() => {
     if (!detour) return null;
@@ -415,6 +468,19 @@ export default function ExploreScreen() {
   const body =
     link === null ? (
       <InspectorEmpty coverage={coverage} />
+    ) : v2 ? (
+      <V2Preview
+        analysis={analysis}
+        capabilities={v2Caps}
+        meta={meta}
+        pendingName={pendingName}
+        loading={v2Q.isPending}
+        error={(v2Q.error as Error) ?? null}
+        scenario={scenario}
+        onScenarioChange={setScenario}
+        onClear={clear}
+        onRetry={() => v2Q.refetch()}
+      />
     ) : error ? (
       <div className="inspector-empty">
         <h2>{unsupported ? 'Not available yet' : 'Analysis failed'}</h2>
@@ -489,6 +555,8 @@ export default function ExploreScreen() {
           canExport={Boolean(detour)}
           onExport={onExport}
           onCopyFailed={() => undefined}
+          engine={engine}
+          onEngineChange={onEngineChange}
         />
       }
       rail={
@@ -549,7 +617,11 @@ export default function ExploreScreen() {
               <b>{hover.name}</b>
               <span>
                 {[
-                  hover.roadNumber || null,
+                  /* Not under a heading that already is the route number:
+                   * with no street name the label falls back to it. */
+                  hover.roadNumber && hover.roadNumber !== hover.name
+                    ? hover.roadNumber
+                    : null,
                   hover.stateHighway ? 'State highway' : null,
                   inlineMetres(hover.lengthM),
                   hover.oneway ? 'one-way' : null,

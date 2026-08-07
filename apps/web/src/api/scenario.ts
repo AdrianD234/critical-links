@@ -4,25 +4,24 @@
  *
  * WHY THIS EXISTS
  *
- * The backend today accepts `closure_scope=physical|directed`. Neither name is
- * what the product means, and a third scope — closing one *segment* of a road
- * rather than every link derived from one AMDS source feature — is planned but
- * not implemented.
+ * V1 accepts `closure_scope=physical|directed`. Neither name is what the
+ * product means, and neither can express closing one *segment* of a road
+ * rather than every link derived from one AMDS source feature.
  *
- * If components read and wrote the API enum directly, landing segment scope
- * would mean touching every control, every query key, every URL reader and the
- * inspector copy. So the UI speaks `ClosureScope` and this module is the only
- * place that knows how it maps onto the wire.
+ * V2 can: it accepts `segment|direction|source_feature` and defaults to
+ * `segment`. That is a third wire vocabulary, and the reason this module was
+ * written the way it was. Components read and write `ClosureScope`; the two
+ * mappings below are the only places that know what either engine calls it.
  *
- * The option *list* is derived from API-reported capabilities where the API
- * offers them, falling back to a static description of what the current
- * backend supports. A scope the backend cannot yet honour is listed but
- * disabled with the reason shown, rather than silently missing — a control
- * that quietly lacks the option the user is looking for is worse than one that
- * says "not yet".
+ * The option *list* is derived from the engine's reported capabilities where
+ * it offers them, falling back to a static description of what each backend
+ * supports. A scope the active engine cannot honour is listed but disabled
+ * with the reason shown, rather than silently missing — a control that quietly
+ * lacks the option the user is looking for is worse than one that says "not
+ * here, and here is why".
  */
 
-import type { NetworkMetadata } from './types.js';
+import type { NetworkMetadata, V2Capabilities, V2ClosureScope } from './types.js';
 
 export type Metric = 'distance' | 'time';
 export type Vehicle = 'car' | 'heavy' | 'emergency';
@@ -49,6 +48,20 @@ export const DEFAULT_SCENARIO: Scenario = {
   closureScope: 'amds-feature',
 };
 
+/**
+ * The V2 default, kept separate on purpose.
+ *
+ * V2 defaults to the segment the user actually selected, which is the question
+ * they asked. V1 cannot answer that question, so its default above stays as it
+ * is: a permalink made under V1 must keep resolving to the same closure and
+ * therefore the same figures.
+ */
+export const DEFAULT_SCENARIO_V2: Scenario = {
+  metric: 'distance',
+  vehicle: 'car',
+  closureScope: 'segment',
+};
+
 export interface OptionDescriptor<T extends string> {
   value: T;
   label: string;
@@ -57,6 +70,11 @@ export interface OptionDescriptor<T extends string> {
   supported: boolean;
   /** Why it is unavailable. Shown to the user; required when unsupported. */
   unavailableReason?: string;
+  /**
+   * Correct, but rarely what is wanted. Ordered last and marked, so the
+   * primary choice is the one the reader reaches first.
+   */
+  advanced?: boolean;
 }
 
 /* ------------------------------------------------------------------ wire */
@@ -83,6 +101,36 @@ export function closureScopeFromWire(wire: string): ClosureScope {
   return wire === 'directed' ? 'direction' : 'amds-feature';
 }
 
+/**
+ * The same mapping for V2, which names all three scopes.
+ *
+ * Separate functions rather than a widened pair, because the V1 mapping is
+ * load-bearing for permalinks already in circulation: `segment` must still
+ * return null there, so a V1 request for a scope V1 cannot honour fails loudly
+ * instead of quietly closing more of the network than was asked.
+ */
+export function closureScopeToWireV2(scope: ClosureScope): V2ClosureScope {
+  switch (scope) {
+    case 'amds-feature':
+      return 'source_feature';
+    case 'direction':
+      return 'direction';
+    case 'segment':
+      return 'segment';
+  }
+}
+
+export function closureScopeFromWireV2(wire: string): ClosureScope {
+  switch (wire) {
+    case 'source_feature':
+      return 'amds-feature';
+    case 'direction':
+      return 'direction';
+    default:
+      return 'segment';
+  }
+}
+
 /* ------------------------------------------------------------- options */
 
 const METRICS: OptionDescriptor<Metric>[] = [
@@ -97,26 +145,41 @@ const VEHICLES: OptionDescriptor<Vehicle>[] = [
 ];
 
 /**
- * Closure scopes for the current backend.
+ * Why V1 cannot close a single segment.
  *
- * Once the API reports its own supported scopes this reads them instead; until
- * then the fallback is explicit rather than assumed, and `segment` carries the
- * reason it cannot be selected.
+ * Kept as a named constant because it is a statement about one engine, not
+ * about the product: under V2 it is simply false, and the two must not drift
+ * into contradicting each other.
+ */
+const SEGMENT_UNAVAILABLE_V1 =
+  'This engine removes every graph segment derived from one AMDS source ' +
+  'feature, so it cannot close the selected segment on its own.';
+
+/**
+ * Closure scopes, in the order they should be read.
+ *
+ * Segment first: it is the closure the user pointed at, and under V2 it is the
+ * default. AMDS source feature last and marked advanced, because it removes
+ * more than was selected — an AMDS source feature is a data-maintenance unit
+ * that may end where an authority's responsibility ends rather than where the
+ * road does.
+ *
+ * An option the active engine cannot honour is listed but disabled with the
+ * reason shown, rather than silently missing. A control that quietly lacks the
+ * option the user is looking for is worse than one that says "not here, and
+ * here is why".
  */
 export function closureScopes(
   meta: NetworkMetadata | null,
+  v2: V2Capabilities | null = null,
 ): OptionDescriptor<ClosureScope>[] {
-  const reported = meta?.capabilities?.closureScopes;
-
   const all: OptionDescriptor<ClosureScope>[] = [
     {
       value: 'segment',
-      label: 'Segment',
-      hint: 'One stretch of road, independent of AMDS feature boundaries',
+      label: 'Road segment',
+      hint: 'The selected stretch of road, independent of AMDS boundaries',
       supported: false,
-      unavailableReason:
-        'Segment-level closure is not implemented in this snapshot. ' +
-        'The engine currently removes whole AMDS source features.',
+      unavailableReason: SEGMENT_UNAVAILABLE_V1,
     },
     {
       value: 'direction',
@@ -126,12 +189,31 @@ export function closureScopes(
     },
     {
       value: 'amds-feature',
-      label: 'AMDS feature',
-      hint: 'Every link derived from one AMDS source feature',
+      label: 'AMDS source feature',
+      hint:
+        'Every graph segment split from one AMDS source record — a ' +
+        'data-maintenance unit, which may cover more road than was selected',
       supported: true,
+      advanced: true,
     },
   ];
 
+  /* V2 speaks for itself and is authoritative when it does. It names scopes in
+   * its own vocabulary, so the comparison happens on the wire side. */
+  if (v2) {
+    return all.map((o) =>
+      v2.closureScopes.includes(closureScopeToWireV2(o.value))
+        ? { ...o, supported: true, unavailableReason: undefined }
+        : {
+            ...o,
+            supported: false,
+            unavailableReason:
+              'Not offered by the V2 engine for this snapshot.',
+          },
+    );
+  }
+
+  const reported = meta?.capabilities?.closureScopes;
   if (!reported) return all;
 
   /* The API is authoritative when it speaks. An option it does not list is
@@ -181,7 +263,7 @@ function labelOf<T extends string>(opts: OptionDescriptor<T>[], v: T): string {
 export function closureLabel(scope: ClosureScope): string {
   switch (scope) {
     case 'amds-feature':
-      return 'Modelled AMDS-feature closure';
+      return 'Modelled AMDS source-feature closure';
     case 'direction':
       return 'Modelled one-direction closure';
     case 'segment':
@@ -193,7 +275,7 @@ export function closureLabel(scope: ClosureScope): string {
 export function closureLabelShort(scope: ClosureScope): string {
   switch (scope) {
     case 'amds-feature':
-      return 'Modelled closure — AMDS feature';
+      return 'Modelled closure — AMDS source feature';
     case 'direction':
       return 'Modelled closure — one direction';
     case 'segment':
@@ -211,14 +293,15 @@ export function scopeOfResponse(wireScope: string): ClosureScope {
   return closureScopeFromWire(wireScope);
 }
 
-/** "Car · Distance · AMDS feature" — the compact sticky summary. */
+/** "Car · Distance · Road segment" — the compact sticky summary. */
 export function summariseScenario(
   s: Scenario,
   meta: NetworkMetadata | null,
+  v2: V2Capabilities | null = null,
 ): string {
   return [
     labelOf(VEHICLES, s.vehicle),
     labelOf(METRICS, s.metric),
-    labelOf(closureScopes(meta), s.closureScope),
+    labelOf(closureScopes(meta, v2), s.closureScope),
   ].join(' · ');
 }

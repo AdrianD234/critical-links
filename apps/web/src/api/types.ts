@@ -34,7 +34,53 @@ export interface Naming {
   withheldSource: string | null;
 }
 
-export interface LinkSummary {
+/**
+ * Which line of the label ladder produced `displayLabel`.
+ *
+ * `conflict` is what the backend emits for `ambiguous_conflict`; it is listed
+ * here because it is what arrives on the wire, not because it mirrors a
+ * `NameStatus` value.
+ */
+export type DisplayLabelKind =
+  | 'road_name'
+  | 'route_designation'
+  | 'officially_unnamed'
+  | 'conflict'
+  | 'withheld'
+  | 'contextual'
+  | 'identifier';
+
+/**
+ * The authoritative label, and enough provenance to render it honestly.
+ *
+ * Carried by every link summary, V1 and V2 alike. The client renders
+ * `displayLabel` and never rebuilds it; the separate fields exist so a
+ * provenance panel can show what is known without re-deriving the decision.
+ *
+ * Optional throughout, because the app must keep working against a backend
+ * that predates them — see ../naming.ts for the fallback ladder.
+ */
+export interface DisplayLabelFields {
+  /** Always non-empty when present. Never "No name". */
+  displayLabel?: string;
+  displayLabelKind?: DisplayLabelKind;
+  /** Plain-English reason this label was chosen. */
+  displayLabelBasis?: string;
+  /** A short stable id such as "1073a927#12". Context, never the headline. */
+  displayLabelSecondary?: string | null;
+  /**
+   * LINZ's left and right locality for the road section — the two sides of the
+   * road, not a value and a fallback. Where they differ the backend composes
+   * both into `displayLabel` ("State-highway section between Kinleith and
+   * Tokoroa"), so anything showing them apart has to label them as two sides
+   * rather than demote the second.
+   */
+  locality?: string | null;
+  localityAlt?: string | null;
+  territorialAuthority?: string | null;
+}
+
+export interface LinkSummary extends DisplayLabelFields {
   linkId: number;
   amdsId: string;
   sourceObjectId: number;
@@ -233,4 +279,284 @@ export interface NetworkMetadata {
 export interface SearchResponse {
   count: number;
   results: LinkSummary[];
+}
+
+/* ------------------------------------------------------------------ V2 */
+
+/**
+ * The V2 closure-impact engine.
+ *
+ * A separate set of types rather than additions to the V1 shapes above. V2 is
+ * not a superset of V1: it answers a different default question (one segment,
+ * not one source feature), reports isolation as an exact undirected property
+ * rather than a bounded directed walk, and separates that from the directed
+ * "can I still get there" question V1 conflated with it. Merging the two would
+ * make it possible to read a V2 figure as though V1 had produced it.
+ *
+ * V1 remains the default and its types above are untouched.
+ */
+
+/** The wire vocabulary. See ./scenario.ts for the product's own. */
+export type V2ClosureScope = 'segment' | 'direction' | 'source_feature';
+
+/**
+ * The closed set of findings the engine may report.
+ *
+ * Spelled out as a union rather than `string` so a headline that does not
+ * exist cannot compile. The wording is the backend's and is shown verbatim;
+ * nothing in the client composes one.
+ *
+ * "No physical isolation" is deliberately absent. It made a claim about roads,
+ * when the only thing the analysis can support is a claim about the graph it
+ * was run on — Gu is inferred topology, so the honest statement is "No
+ * isolation in the represented physical-access graph".
+ *
+ * "Network split into two represented components" is the case where a closure
+ * does separate the graph but no side carries a decisive anchor. Calling
+ * either side "cut off" would assert a direction the data does not support.
+ *
+ * "Partial analysis" is the case where some requested directions resolved and
+ * others did not. Reporting the surviving half as the whole answer is how a
+ * timeout turns into a finding about a road.
+ */
+export type V2Headline =
+  | 'Road cut off'
+  | 'Network split into two represented components'
+  | 'Through route found'
+  | 'No endpoint route'
+  | 'Directional access loss'
+  | 'No isolation in the represented physical-access graph'
+  | 'Partial analysis'
+  | 'Analysis unresolved';
+
+/**
+ * The isolation question alone, with the routing question stripped out.
+ *
+ * Written as a selection from `V2Headline` rather than as its own list of
+ * strings, because it is the same closed vocabulary: two words for one finding
+ * would leave a reader reconciling them.
+ */
+export type V2IsolationStatement = Extract<
+  V2Headline,
+  | 'Road cut off'
+  | 'Network split into two represented components'
+  | 'No isolation in the represented physical-access graph'
+  | 'Analysis unresolved'
+>;
+
+export interface V2Capabilities {
+  snapshotId: string;
+  engine: 'v2';
+  algorithm: string;
+  algorithmVersion: string;
+  /** How settled this engine is. Shown verbatim; never paraphrased. */
+  stability: string;
+  derivationVersion: string;
+  closureScopes: V2ClosureScope[];
+  defaultClosureScope: V2ClosureScope;
+  metrics: string[];
+  vehicles: string[];
+  headlines: V2Headline[];
+  /**
+   * Profiles whose exact-isolation precompute exists for this snapshot. A
+   * profile that is absent is still answered, by building the derivation on
+   * demand — correct, but slow enough that the client should say so rather
+   * than let it look like a stall.
+   */
+  physicalAccessReady: string[];
+  physicalAccess: {
+    profile: string;
+    nodeCount: number;
+    linkCount: number;
+    componentCount: number;
+    bridgeCount: number;
+    articulationCount: number;
+    principalComponentId: number | null;
+    principalRule: string | null;
+    buildMs: number | null;
+    builtAtUtc: string | null;
+  }[];
+}
+
+/**
+ * Raised when the requested scope removed more than the selected segment.
+ *
+ * Only `source_feature` produces it. An AMDS source feature is a
+ * data-maintenance unit, so the extra length is not a rounding difference —
+ * it is a different closure from the one the user pointed at, and the figures
+ * describe the larger one.
+ */
+export interface V2ClosureWarning {
+  code: string;
+  severity: string;
+  headline: string;
+  detail: string;
+  selectedSegmentLengthM: number;
+  totalClosureLengthM: number;
+  removedLinkCount: number;
+}
+
+export interface V2Closure {
+  selectedLinkId: number;
+  selectedAmdsId: string;
+  closureGroupId: string;
+  scope: V2ClosureScope;
+  direction: 'forward' | 'reverse' | null;
+  removedLinkIds: number[];
+  removedArcIds: number[];
+  removedAmdsIds: string[];
+  removedLinkCount: number;
+  removedArcCount: number;
+  selectedSegmentLengthM: number;
+  totalClosureLengthM: number;
+  /** How much more than the selected segment this scope removes. */
+  excessLengthM: number;
+  boundaryNodes: number[];
+  closureNodes: number[];
+  shape: string;
+  shapeDetail: string;
+  /** Identifies the exact arc set removed, for cache and audit. */
+  fingerprint: string;
+  warning: V2ClosureWarning | null;
+}
+
+export interface V2IsolationComponent {
+  nodeCount: number;
+  linkCount: number;
+  roadLengthM: number;
+  stateHighwayLinkCount: number;
+  retainsPrincipalConnection: boolean;
+  /** Empty for the principal side: it is the rest of the country. */
+  linkIds: number[];
+}
+
+/**
+ * How well the undirected graph is believed to model the roads it stands for.
+ *
+ * Never `high` while endpoints are matched with an ingest tolerance: two ends
+ * that were merged because they were close enough are a connection the road
+ * may not have. `low` says such a near-miss sits at the closure itself, which
+ * is the one place it can change the answer.
+ */
+export type V2TopologyConfidence = 'medium' | 'low';
+
+/** Whether a side could be named principal on more than a tie-break. */
+export type V2PrincipalSideConfidence = 'high' | 'low';
+
+/** How the partition was reached. Reported so the cost of the answer is legible. */
+export type V2IsolationMethod =
+  | 'precomputed-not-a-bridge'
+  | 'bridge-subtree-and-subtraction'
+  | 'restricted-bfs'
+  | 'empty-closure';
+
+export interface V2Isolation {
+  /**
+   * The partition was computed exactly, with no search bound involved.
+   *
+   * Says nothing about whether the graph is right. A single `exact` flag used
+   * to conflate the two, and it could only be read as the stronger claim.
+   */
+  calculationExact: boolean;
+  /**
+   * Whether the graph models the real road network. Always false: Gu is
+   * inferred topology, so an exact result on it is still a result about a
+   * model.
+   */
+  graphExact: boolean;
+  /** The partition itself, independent of which side is called principal. */
+  partitionExact: boolean;
+  topologyConfidence: V2TopologyConfidence;
+  /** Plain-English reason for the confidence above. Shown verbatim. */
+  topologyConfidenceReason: string;
+  /**
+   * Which side was called principal, and on what basis — for example "most
+   * state-highway links, then most nodes". A bridge yields two components and
+   * mathematics alone does not privilege either, so this is a stated policy
+   * rather than a derived fact.
+   */
+  principalSideRule: string;
+  principalSideConfidence: V2PrincipalSideConfidence;
+  /** True when no side carries a decisive anchor, so none is named cut off. */
+  principalSideAmbiguous: boolean;
+  physicallyIsolates: boolean;
+  method: V2IsolationMethod;
+  closureIsBridge: boolean;
+  separatedLinkCount: number;
+  separatedLengthM: number;
+  separatedLinkIds: number[];
+  /** True when the id list above was capped. The counts stay exact. */
+  separatedTruncated: boolean;
+  componentCount: number;
+  componentsTruncated: boolean;
+  components: V2IsolationComponent[];
+  detail: string;
+  /** Only when the request asked for geometry and the set is small enough. */
+  separatedGeoJson?: GeoJSON.FeatureCollection | null;
+}
+
+export interface V2DirectedAccess {
+  forward_status: string;
+  reverse_status: string;
+  forward_distance_m: number | null;
+  reverse_distance_m: number | null;
+  /**
+   * Mutual reachability for this one node pair, decided by running the search
+   * both ways. Not a lookup into a precomputed partition of the graph.
+   *
+   * Null when no conclusion was reached — either the link carries only one
+   * direction, so there was no return traversal to test, or a search did not
+   * resolve. False would assert that a return path was tested and failed, and
+   * that is a different fact about the road.
+   */
+  same_scc_after_closure: boolean | null;
+  asymmetric: boolean;
+  detail: string;
+}
+
+export interface V2DirectionResult {
+  direction: 'forward' | 'reverse';
+  status: string;
+  headline: string;
+  sourceNode: number;
+  targetNode: number;
+  selectedSegmentLengthM: number;
+  normalPathDistanceM: number | null;
+  alternativeDistanceM: number | null;
+  networkPenaltyM: number | null;
+  addedVsSegmentM: number | null;
+  detourRatioVsSegment: number | null;
+  normalPathTimeS: number | null;
+  alternativeTimeS: number | null;
+  addedTimeS: number | null;
+  routeArcIds: number[];
+  qualityFlags: string[];
+  errorDetail: string | null;
+  runtimeMs: number;
+}
+
+export interface V2ClosureAnalysis {
+  snapshotId: string;
+  linkId: number;
+  algorithm: string;
+  algorithmVersion: string;
+  derivationVersion: string;
+  engine: 'v2';
+  stability: string;
+  request: { scope: V2ClosureScope; metric: string; vehicle: string };
+  headline: V2Headline;
+  isolationStatement: V2IsolationStatement;
+  closure: V2Closure;
+  isolation: V2Isolation;
+  directedAccess: V2DirectedAccess;
+  forward: V2DirectionResult | null;
+  reverse: V2DirectionResult | null;
+  runtimeMs: number;
+  cached: boolean;
+  calculatedAtUtc: string;
+  /** True only for `source_feature`: the sole scope V1 also answers. */
+  comparableToV1: boolean;
+  selectedLink: LinkSummary;
+  attribution?: string;
+  limitations?: string[];
 }

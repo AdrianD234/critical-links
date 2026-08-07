@@ -323,13 +323,26 @@ export default function NetworkMap({
         map.setFilter(LYR.networkHover, ['==', ['id'], id]);
       }
       const p = (f?.properties ?? {}) as Record<string, unknown>;
+      /*
+       * The chip reads the label, not a name state.
+       *
+       * Tiles carry `displayLabel` on a backend that publishes it and a status
+       * with a route number and a state-highway flag on one that does not, so
+       * the whole property bag goes in and naming.ts decides. What it must not
+       * do is what it used to: reduce four distinct states, and a state
+       * highway the tile can plainly describe, to one blank word.
+       */
       hoverRef.current({
         x: e.point.x,
         y: e.point.y,
-        name: shortDisplayName(
-          p.roadName ? String(p.roadName) : null,
-          p.nameStatus ? String(p.nameStatus) : null,
-        ),
+        name: shortDisplayName({
+          displayLabel: p.displayLabel ? String(p.displayLabel) : null,
+          roadName: p.roadName ? String(p.roadName) : null,
+          roadNumber: p.roadNumber ? String(p.roadNumber) : null,
+          naming: { status: p.nameStatus ? String(p.nameStatus) : null },
+          stateHighway: Number(p.stateHighway) === 1,
+          locality: p.locality ? String(p.locality) : null,
+        }),
         roadNumber: String(p.roadNumber || ''),
         lengthM: Number(p.lengthM ?? 0),
         oneway: Number(p.oneway) === 1,

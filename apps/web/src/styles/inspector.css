@@ -505,6 +505,21 @@
   font-weight: 620;
 }
 
+/* Marks a scope that is correct but rarely meant. Quiet on purpose: it is a
+ * caveat on the option, not a second label competing with it.
+ *
+ * 0.75, not 0.6. At 0.6 the composited colour is 4.22:1 on the selected
+ * segment's background and axe fails it. Small caps at 11.5px is exactly the
+ * text that needs the contrast, and this marker is the only thing warning a
+ * reader that the option closes more road than they selected - quietness that
+ * costs legibility would be defeating its own purpose. 0.75 measures 6.8:1 and
+ * is still visibly subordinate to the label. */
+.ctl .seg button .opt-advanced {
+  opacity: 0.75;
+  font-variant: all-small-caps;
+  letter-spacing: 0.03em;
+}
+
 .ctl .seg button:disabled {
   opacity: 0.42;
   cursor: not-allowed;
@@ -708,6 +723,27 @@
 .notice b {
   color: var(--panel-fg);
   font-weight: 620;
+}
+
+/*
+ * A caveat about the DATA, not about the app. Used for a low topology
+ * confidence, which says the connectivity a figure describes may be an
+ * artefact of how the network was assembled rather than a fact about the road.
+ *
+ * Declared rather than left to inherit the base rule. `notice--warn` was
+ * applied in the markup with no matching declaration, so it happened to look
+ * right only because the base `.notice` already carries the amber caveat
+ * border. A modifier that does nothing is a trap: the next person to change
+ * the base style silently changes what a warning looks like, and a confidence
+ * signal nothing surfaces is not a safeguard.
+ */
+.notice--warn {
+  border-left-color: var(--compare-ink);
+  background: var(--panel-inset);
+}
+
+.notice--warn .notice-title {
+  color: var(--compare-ink-on-tint);
 }
 
 /* Neutral: a statement about what the app did, not a caveat about the data. */

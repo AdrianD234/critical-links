@@ -119,8 +119,8 @@ export default function ResultView({
       />
 
       <LinkHeader
-        roadName={detour?.selectedLink.roadName ?? pendingName}
-        naming={detour?.selectedLink.naming}
+        link={detour?.selectedLink ?? null}
+        pendingName={pendingName}
         onClear={onClear}
       />
 

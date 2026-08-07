@@ -5,10 +5,14 @@
  * viewport, so at 1280x800 the result stays readable and repeated scenario
  * experimentation does not require scrolling past the answer each time.
  *
- * An option the backend cannot honour is rendered disabled with the reason
- * attached, not omitted. A control that quietly lacks the option the user is
- * looking for is worse than one that says "not yet, and here is why" — and
- * `segment` scope is exactly that case today.
+ * An option the active engine cannot honour is rendered disabled with the
+ * reason attached, not omitted. A control that quietly lacks the option the
+ * user is looking for is worse than one that says "not here, and here is why"
+ * — and `segment` scope is exactly that case under V1.
+ *
+ * An option marked advanced stays selectable but says so, because it is
+ * correct and rarely what was meant: AMDS source-feature scope closes more
+ * road than the reader pointed at.
  */
 
 import {
@@ -21,7 +25,7 @@ import {
   type Scenario,
   type Vehicle,
 } from '../api/scenario.js';
-import type { NetworkMetadata } from '../api/types.js';
+import type { NetworkMetadata, V2Capabilities } from '../api/types.js';
 
 function Row<T extends string>({
   label,
@@ -46,10 +50,17 @@ function Row<T extends string>({
             type="button"
             aria-pressed={value === o.value}
             disabled={!o.supported}
-            title={o.supported ? o.hint : o.unavailableReason}
+            title={
+              o.supported
+                ? o.advanced
+                  ? `Advanced. ${o.hint ?? ''}`.trim()
+                  : o.hint
+                : o.unavailableReason
+            }
             onClick={() => onChange(o.value)}
           >
             {o.label}
+            {o.advanced && <span className="opt-advanced"> · advanced</span>}
           </button>
         ))}
       </div>
@@ -62,13 +73,16 @@ export default function ScenarioControls({
   scenario,
   onChange,
   meta,
+  v2Capabilities = null,
 }: {
   id: string;
   scenario: Scenario;
   onChange: (next: Scenario) => void;
   meta: NetworkMetadata | null;
+  /** Set only when the V2 engine is selected; V2 speaks for its own scopes. */
+  v2Capabilities?: V2Capabilities | null;
 }) {
-  const scopes = closureScopes(meta);
+  const scopes = closureScopes(meta, v2Capabilities);
   const activeScope = scopes.find((s) => s.value === scenario.closureScope);
 
   return (
