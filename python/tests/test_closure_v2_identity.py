@@ -265,7 +265,7 @@ class TestPartialAnalysis:
         """
         iso = physical.IsolationResult(
             calculation_exact=True, physically_isolates=True,
-            method="bridge-subtree-and-subtraction",
+            method="bridge-smaller-side-and-subtraction",
             separated_link_ids=[7], separated_link_count=1,
             separated_length_m=100.0)
         results = {"forward": _ok(), "reverse": _bad("UNRESOLVED_TIMEOUT")}
@@ -331,7 +331,7 @@ class TestPrincipalSideTieBreakIsDeterministic:
             assert separated == baseline, (
                 f"seed={seed}: the side called cut off moved with row order")
 
-    def test_a_tie_is_reported_as_ambiguous_even_though_it_resolves(
+    def test_a_tie_is_reported_as_ambiguous_even_though_it_resolves_(
             self, synthetic):
         """Deterministic is not the same as decisive.
 

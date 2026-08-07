@@ -19,17 +19,28 @@ replacement path came to be reported as cutting off 13.64 km.
 
 The wording gate
 ----------------
-`Road cut off` is emitted if and only if the isolation result is exact AND at
-least one link that is not itself part of the closure ends up separated from
-the principal connection. A closure that merely detaches itself has cut nothing
-off. Everything else draws from a closed vocabulary:
+`Road cut off` is emitted if and only if the partition is exact, at least one
+link that is not itself part of the closure ends up separated from its own
+component's retained side, AND the choice of which side that is was decisive. A
+closure that merely detaches itself has cut nothing off, and a split with no
+anchor on either side has not established which half lost anything.
 
-    Through route found      a replacement path exists
-    No endpoint route        no directed path between the closed link's own
-                             endpoints, and nothing is physically separated
-    Directional access loss  one direction routes and the other does not
-    No physical isolation    the isolation statement when nothing is separated
-    Analysis unresolved      a timeout or error - never a finding about the road
+The complete vocabulary:
+
+    Road cut off                    a decisive separation
+    Network split into two          the graph split, but no side carries a
+      represented components        decisive anchor, so naming one is not
+                                    supported by the data
+    Through route found             a replacement path exists
+    No endpoint route               no directed path between the closed link's
+                                    own endpoints, nothing separated
+    Directional access loss         one direction routes and the other does not
+    No isolation in the represented nothing separated. Says "the represented
+      physical-access graph         graph" because Gu is inferred topology, and
+                                    a claim about roads would be stronger than
+                                    the data supports
+    Partial analysis                some requested directions did not resolve
+    Analysis unresolved             none resolved - never a finding about a road
 
 There is no code path that produces any other headline, and none of these
 strings is assembled at the call site.
@@ -426,6 +437,16 @@ def _direction_headline(d: DirectionResult, iso: IsolationResult,
 # Two caches, because there are two kinds of result. See the header of
 # sql/migrations/007_physical_access.sql for the failure that made the
 # distinction necessary.
+#: Fields of IsolationResult that depend on WHERE the closure is, not on what
+#: it removes. They must never enter a cache keyed only on the removed links.
+#:
+#: Audited against every field of IsolationResult: the other sixteen are a pure
+#: function of (graph, removed link set) and are correctly shared. These two
+#: are computed from the closure's NODES.
+_LOCATION_SPECIFIC_ISOLATION_FIELDS = (
+    "topology_confidence", "topology_confidence_reason")
+
+
 def _isolation_cached(snapshot_id: str, profile: Profile,
                       removed_link_ids: list[int], closure_nodes: list[int],
                       use_cache: bool) -> IsolationResult:
@@ -433,11 +454,27 @@ def _isolation_cached(snapshot_id: str, profile: Profile,
 
     Keyed on the removed LINK set, which is exactly what Gu had taken out of
     it. Two children of one AMDS parent under `source_feature` scope really do
-    have the same isolation result, and this is where that sharing belongs.
+    have the same PARTITION, and this is where that sharing belongs.
+
+    Topology confidence does NOT belong here and used to ride along with it.
+    It is computed from the closure's nodes, so it is a property of where the
+    closure is, not of what it removes. Under `scope='direction'` nothing is
+    removed from Gu at all, so every direction-scope closure in the country
+    shares one fingerprint - and the first one to run wrote its confidence for
+    all of them. A closure beside three unresolved near misses could serve
+    `medium`; a clean one could serve `low` with a reason describing near
+    misses hundreds of kilometres away.
+
+    So the partition is cached and the confidence is recomputed on EVERY call,
+    hit or miss, from the current closure's nodes. This is the second cache bug
+    of the same shape: the key was right for the object it was designed for,
+    and something location-specific got stored alongside it.
     """
     fp = closure_mod.isolation_fingerprint(
         snapshot_id, profile, physical.DERIVATION_VERSION, removed_link_ids)
 
+    iso: IsolationResult | None = None
+    ms = 0
     if use_cache:
         row = db.query_one(
             "SELECT result FROM closure_isolation_v2 "
@@ -445,27 +482,35 @@ def _isolation_cached(snapshot_id: str, profile: Profile,
             "   AND derivation_version=%s",
             (snapshot_id, fp, physical.DERIVATION_VERSION))
         if row is not None:
-            return _iso_from(row["result"])
+            # A fresh object per call, built from JSON, so mutating it below
+            # cannot reach another request.
+            iso = _iso_from(row["result"])
 
-    t0 = time.perf_counter()
-    g = physical.get(snapshot_id, profile)
-    iso = physical.analyse_closure(g, removed_link_ids)
+    if iso is None:
+        t0 = time.perf_counter()
+        g = physical.get(snapshot_id, profile)
+        iso = physical.analyse_closure(g, removed_link_ids)
+        ms = int((time.perf_counter() - t0) * 1000)
+
+        if use_cache:
+            payload = asdict(iso)
+            for f in _LOCATION_SPECIFIC_ISOLATION_FIELDS:
+                payload.pop(f, None)
+            db.execute(
+                "INSERT INTO closure_isolation_v2 (snapshot_id, "
+                "  isolation_fingerprint, vehicle_profile, derivation_version, "
+                "  result, runtime_ms) VALUES (%s,%s,%s,%s,%s,%s) "
+                "ON CONFLICT (snapshot_id, isolation_fingerprint, "
+                "             derivation_version) "
+                "DO UPDATE SET result = EXCLUDED.result, "
+                "  runtime_ms = EXCLUDED.runtime_ms, computed_at_utc = now()",
+                (snapshot_id, fp, profile, physical.DERIVATION_VERSION,
+                 json.dumps(payload), ms))
+
+    # ALWAYS, hit or miss, from THIS closure's nodes.
     conf, why = physical.topology_confidence(snapshot_id, closure_nodes)
     iso.topology_confidence = conf
     iso.topology_confidence_reason = why
-    ms = int((time.perf_counter() - t0) * 1000)
-
-    if use_cache:
-        db.execute(
-            "INSERT INTO closure_isolation_v2 (snapshot_id, "
-            "  isolation_fingerprint, vehicle_profile, derivation_version, "
-            "  result, runtime_ms) VALUES (%s,%s,%s,%s,%s,%s) "
-            "ON CONFLICT (snapshot_id, isolation_fingerprint, "
-            "             derivation_version) "
-            "DO UPDATE SET result = EXCLUDED.result, "
-            "  runtime_ms = EXCLUDED.runtime_ms, computed_at_utc = now()",
-            (snapshot_id, fp, profile, physical.DERIVATION_VERSION,
-             json.dumps(asdict(iso)), ms))
     return iso
 
 
@@ -541,6 +586,8 @@ def _iso_from(d) -> IsolationResult:
         principal_side_rule=d.get("principal_side_rule", ""),
         principal_side_confidence=d.get("principal_side_confidence", "high"),
         principal_side_ambiguous=d.get("principal_side_ambiguous", False),
+        nodes_examined=d.get("nodes_examined", 0),
+        edges_examined=d.get("edges_examined", 0),
         detail=d.get("detail", ""))
 
 
@@ -613,8 +660,15 @@ def isolation_dict(iso: IsolationResult, *, max_components: int = 50) -> dict:
         "separatedTruncated": iso.separated_truncated,
         "componentCount": len(iso.components),
         "componentsTruncated": len(iso.components) > len(comps),
+        # Diagnostics, so a complexity claim can be checked against a counter
+        # rather than inferred from wall-clock time.
+        "nodesExamined": iso.nodes_examined,
+        "edgesExamined": iso.edges_examined,
         "components": [
             {
+                # Which PRE-CLOSURE component this part came out of. Parts of
+                # two already-disconnected components are not alternatives.
+                "originComponentId": c.origin_component_id,
                 "nodeCount": c.node_count,
                 "linkCount": c.link_count,
                 "roadLengthM": _round(c.road_length_m, 1),

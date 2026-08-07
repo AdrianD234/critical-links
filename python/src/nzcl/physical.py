@@ -414,6 +414,12 @@ class ResultingComponent:
     #: every edge was closed is still a resulting component, and a partition
     #: described only by its links would silently drop it.
     node_ids: list[int] = field(default_factory=list)
+    #: Which PRE-CLOSURE component this part came out of.
+    #:
+    #: Without it, parts of two components that were already disconnected from
+    #: each other get compared as though they were alternatives. They are not:
+    #: a closure cannot separate two things that were never joined.
+    origin_component_id: int = -1
 
 
 #: The most this PR will claim about how faithfully Gu models the real road
@@ -496,6 +502,12 @@ class IsolationResult:
     #: full. The counts and lengths stay exact either way.
     separated_truncated: bool = False
 
+    #: How much of the graph was actually touched. A diagnostic, so a
+    #: complexity claim can be checked against a counter rather than inferred
+    #: from wall-clock time - which measures the machine, not the algorithm.
+    nodes_examined: int = 0
+    edges_examined: int = 0
+
 
 def _edges_of(g: PhysicalGraph, link_ids: Iterable[int]) -> list[int]:
     out = []
@@ -556,8 +568,16 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
                 node_count=int(g.comp_nodes[cid]),
                 link_count=int(g.comp_links[cid]) - 1,
                 road_length_m=float(g.comp_length[cid] - g.edge_len[single]),
-                link_ids=[], state_highway_link_count=int(g.comp_sh_links[cid]),
+                link_ids=[],
+                # The closed link leaves the component, so its state-highway
+                # indicator has to leave with it. Reporting the pre-closure
+                # count here over-stated the remaining state highways by one
+                # on every state-highway closure - the exact case a reader is
+                # most likely to be looking at.
+                state_highway_link_count=int(g.comp_sh_links[cid])
+                - (1 if g.edge_sh[single] else 0),
                 retains_principal_connection=True, node_ids=[],
+                origin_component_id=cid,
             )],
             origin_component_ids=origin, closure_is_bridge=False,
             principal_side_rule="nothing was separated, so no side was chosen",
@@ -567,11 +587,11 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
         )
 
     if single_bridge:
-        comps, sides = _split_by_bridge(g, next(iter(removed)))
-        method = "bridge-subtree-and-subtraction"
+        comps, sides, n_ex, e_ex = _split_by_bridge(g, next(iter(removed)))
+        method = "bridge-smaller-side-and-subtraction"
     else:
-        comps, sides = _recompute_components(g, removed, origin)
-        method = "restricted-bfs"
+        comps, sides, n_ex, e_ex = _recompute_components(g, removed, origin)
+        method = "per-component-bfs"
 
     principal = [c for c in comps if c.retains_principal_connection]
     others = [c for c in comps if not c.retains_principal_connection]
@@ -592,10 +612,16 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
             break
     separated.sort()
 
+    # Ambiguity is judged only among the sides of components that ACTUALLY
+    # SPLIT. A component that stayed whole made no choice, and folding it into
+    # the comparison would let an untouched component make a real split look
+    # like a coin toss.
     ambiguous = _anchor_ambiguous(sides) and bool(sep_count)
-    rule = ("most state-highway links, then most nodes"
+    rule = ("most state-highway links, then most nodes, within each "
+            "pre-closure component"
             if sep_count else "nothing was separated, so no side was chosen")
 
+    split_count = len({c.origin_component_id for c in others})
     return IsolationResult(
         calculation_exact=True,
         physically_isolates=bool(sep_count),
@@ -611,92 +637,139 @@ def analyse_closure(g: PhysicalGraph, removed_link_ids: Sequence[int]) -> Isolat
         principal_side_rule=rule,
         principal_side_confidence="low" if ambiguous else "high",
         principal_side_ambiguous=ambiguous,
+        nodes_examined=n_ex,
+        edges_examined=e_ex,
         detail=(
-            f"{len(comps)} component(s) result from removing "
-            f"{len(removed)} edge(s) of {len(origin)} original component(s)"
+            f"{len(comps)} part(s) result from removing {len(removed)} edge(s) "
+            f"across {len(origin)} pre-closure component(s); "
+            f"{split_count} of those component(s) actually split"
         ),
     )
 
 
-def _split_by_bridge(g: PhysicalGraph, edge: int) -> list[ResultingComponent]:
-    """The two sides of a bridge, from the DFS intervals.
+def _split_by_bridge(g: PhysicalGraph, edge: int):
+    """The two sides of a bridge, walking only the SMALLER of them.
 
-    This is NOT O(1) and the PR no longer claims it is. It walks the child
-    subtree, which is bounded by the size of the SEPARATED side - typically a
-    handful of nodes, and never larger than half the component if the smaller
-    side is the child. The parent side is then derived by SUBTRACTION from the
+    Both side sizes are known before any traversal, in O(1). DFS preorder
+    assigns a contiguous block of discovery times to a subtree, so the child
+    side's node count is exactly `tout[child] - tin[child] + 1` and the parent
+    side's is the component's total minus that. No walk is needed to find out
+    which side is smaller - only to enumerate it.
+
+    That matters because the previous version always walked the CHILD subtree,
+    and a bridge can sit near the far end of a component with the child side
+    holding 95% of it. "Bounded by the separated side" was therefore not true;
+    it was bounded by the DFS orientation, which is an artefact of where the
+    traversal happened to start.
+
+    Whichever side is walked, the other is derived by subtraction from the
     precomputed component aggregates, so the untouched remainder of the network
-    is never visited and never enumerated.
+    is never visited. The only case that costs more is when the side that must
+    be ENUMERATED is the larger one - the map draws the separated side and the
+    response lists it, so if the smaller side turns out to be the principal one
+    the larger has to be walked after all. That is rare: the smaller side would
+    have to carry more state highways than the rest of its component.
 
-    That subtraction is the whole point. The previous version scanned all
-    338,117 nodes of the graph to partition one component, enumerated both
-    sides, and then wrote the principal side's quarter-million link and node
-    ids into the JSONB cache - ids the API suppresses before they reach anyone.
-
-    The subtree walk uses the DFS interval as the membership test, which is
-    what makes it exact: a node is on the child side if and only if its `tin`
-    lies in [tin_child, tout_child].
+    Returns (components, sides, nodes_examined, edges_examined).
     """
     child = int(g.bridge_child[edge])
     lo, hi = int(g.tin[child]), int(g.tout[child])
     cid = int(g.comp_of_edge[edge])
     removed = {edge}
 
-    # Walk the child subtree only. The interval test keeps the walk inside it
-    # without needing the tree edges themselves.
-    inside: set[int] = set()
-    stack = [child]
-    inside.add(child)
+    # O(1): contiguous DFS preorder interval.
+    child_nodes = hi - lo + 1
+    parent_nodes = int(g.comp_nodes[cid]) - child_nodes
+    walk_child = child_nodes <= parent_nodes
+
+    if walk_child:
+        start, inside_test = child, lambda i: lo <= g.tin[i] <= hi
+    else:
+        # The parent endpoint of the bridge, and everything NOT in the subtree.
+        u, v = int(g.edge_u[edge]), int(g.edge_v[edge])
+        start = v if u == child else u
+        inside_test = lambda i: not (lo <= g.tin[i] <= hi)  # noqa: E731
+
+    walked, n_ex, e_ex = _walk_side(g, start, inside_test, removed)
+
+    walked_side = _side(g, walked, removed, collect=True)
+    other = _derive_other_side(g, cid, edge, walked_side)
+
+    if walk_child:
+        a, b = walked_side, other          # a = child side
+    else:
+        a, b = other, walked_side          # a = child side (derived)
+
+    a_min, b_min = _side_minima(g, cid, walked, walk_child)
+    a_principal = _rank_key(a[3], a[0], a_min) <= _rank_key(b[3], b[0], b_min)
+
+    # Enumerate the SEPARATED side. Usually that is the side already walked; if
+    # not, the other one has to be walked now.
+    separated_is_walked = (a_principal != walk_child)
+    if not separated_is_walked:
+        rest = {i for i in _component_nodes(g, cid) if i not in walked}
+        n_ex += len(_component_nodes(g, cid))
+        enumerated = _side(g, rest, removed, collect=True)
+        e_ex += enumerated[5]
+        if walk_child:
+            a, b = _strip_ids(walked_side), enumerated
+        else:
+            a, b = enumerated, _strip_ids(walked_side)
+
+    return (
+        [_as_component(a, a_principal, cid),
+         _as_component(b, not a_principal, cid)],
+        [a, b], n_ex, e_ex,
+    )
+
+
+def _walk_side(g: PhysicalGraph, start: int, inside_test, removed: set[int]):
+    """Flood from `start`, staying inside `inside_test`. Counts what it touches."""
+    inside = {start}
+    stack = [start]
+    n_ex = 1
+    e_ex = 0
     while stack:
         u = stack.pop()
         for k in range(g.adj_start[u], g.adj_start[u + 1]):
             e = g.adj_edge[k]
+            e_ex += 1
             if e in removed:
                 continue
             w = g.edge_v[e] if g.edge_u[e] == u else g.edge_u[e]
-            if w in inside or not (lo <= g.tin[w] <= hi):
+            if w in inside or not inside_test(w):
                 continue
             inside.add(w)
+            n_ex += 1
             stack.append(w)
+    return inside, n_ex, e_ex
 
-    a = _side(g, inside, removed, collect=True)
-    # The parent side by subtraction: everything in the component that is not
-    # the child subtree, minus the bridge itself.
-    parent_nodes = int(g.comp_nodes[cid]) - len(inside)
-    parent_links = int(g.comp_links[cid]) - a[5] - 1
-    parent_length = float(g.comp_length[cid]) - a[2] - float(g.edge_len[edge])
-    parent_sh = int(g.comp_sh_links[cid]) - a[3] - (1 if g.edge_sh[edge] else 0)
-    # The child side's node ids are known; the parent side's are not yet.
-    # For the tie-break its minimum is derived: the component's own minimum,
-    # unless that happens to lie inside the child subtree, in which case the
-    # parent's minimum is strictly greater and only the ORDER matters here.
-    a_min = _min_node_id(g, inside)
+
+def _derive_other_side(g: PhysicalGraph, cid: int, edge: int, walked):
+    """The side that was not walked, by subtraction from component aggregates."""
+    nodes = int(g.comp_nodes[cid]) - walked[0]
+    links = int(g.comp_links[cid]) - walked[5] - 1
+    length = float(g.comp_length[cid]) - walked[2] - float(g.edge_len[edge])
+    sh = int(g.comp_sh_links[cid]) - walked[3] - (1 if g.edge_sh[edge] else 0)
+    return (nodes, [], length, sh, [], links)
+
+
+def _strip_ids(side):
+    """Same aggregates, without the id lists. Used once the ids are not wanted."""
+    return (side[0], [], side[2], side[3], [], side[5])
+
+
+def _side_minima(g: PhysicalGraph, cid: int, walked: set[int], walk_child: bool):
+    """Tie-break minima for (child side, parent side).
+
+    Only the ORDER of the two matters, and only one side's ids are in hand, so
+    the other's minimum is derived: the component's minimum unless that lies in
+    the walked side, in which case the other's is strictly greater.
+    """
+    walked_min = _min_node_id(g, walked)
     comp_min = _component_min_node(g, cid)
-    b_min = comp_min if comp_min != a_min else a_min + 1
-    a_principal = _rank_key(a[3], a[0], a_min) <= _rank_key(
-        parent_sh, parent_nodes, b_min)
-
-    if a_principal:
-        # The SEPARATED side is the parent, so it has to be enumerated after
-        # all - the map draws it and the response lists it. Skipping that was a
-        # real defect: the separated component came back with an empty node and
-        # link list while still reporting non-zero counts.
-        #
-        # This costs a scan of the component, and it is bounded by the smaller
-        # side in the only way that matters: the parent is principal in
-        # essentially every real closure, so this branch is the rare one.
-        outside = {i for i in _component_nodes(g, cid) if i not in inside}
-        b = _side(g, outside, removed, collect=True)
-        # Re-enumerating gives the true ids; the derived aggregates above are
-        # asserted equal to them by the oracle's conservation checks.
-        a = _side(g, inside, removed, collect=False)
-    else:
-        b = (parent_nodes, [], parent_length, parent_sh, [], parent_links)
-
-    return (
-        [_as_component(a, a_principal), _as_component(b, not a_principal)],
-        [a, b],
-    )
+    other_min = comp_min if comp_min != walked_min else walked_min + 1
+    return (walked_min, other_min) if walk_child else (other_min, walked_min)
 
 
 def _component_nodes(g: PhysicalGraph, cid: int) -> list[int]:
@@ -812,64 +885,82 @@ def _side(g: PhysicalGraph, node_idxs: set[int], removed: set[int],
     return (len(node_idxs), links, float(length), sh, node_ids, n_links)
 
 
-def _as_component(side, principal: bool) -> ResultingComponent:
+def _as_component(side, principal: bool, origin_component_id: int = -1
+                  ) -> ResultingComponent:
     nodes, links, length, sh, node_ids, n_links = side
     return ResultingComponent(
         node_count=nodes, link_count=n_links, road_length_m=length,
         link_ids=links, state_highway_link_count=sh,
         retains_principal_connection=principal, node_ids=node_ids,
+        origin_component_id=origin_component_id,
     )
 
 
 def _recompute_components(g: PhysicalGraph, removed: set[int],
-                          origin: Sequence[int]) -> list[ResultingComponent]:
-    """BFS the affected components only, with `removed` deleted.
+                          origin: Sequence[int]):
+    """Re-partition each affected component INDEPENDENTLY.
 
-    Exact by construction: every node of every touched component is labelled,
-    and untouched components cannot have changed because no edge was removed
-    from them.
+    Each pre-closure component is its own universe. A closure cannot separate
+    two things that were never joined, so a part of component 1 and a part of
+    component 2 are not alternatives and must never be ranked against each
+    other.
+
+    The previous version flattened every node of every touched component into
+    one traversal and then ranked ALL the resulting groups globally. When a
+    closure touched two components that were already disconnected - reachable
+    in production, because a `source_feature` closure can be `disjoint` - the
+    lower-ranked component was reported as newly separated despite never having
+    been connected to the other and never having split at all.
+
+    The exactness argument was sound and is unchanged: every node of every
+    touched component is labelled, and untouched components cannot have changed
+    because no edge was removed from them. That justifies the PARTITION. It
+    never justified the global ranking layered on top of it, and the two got
+    conflated.
+
+    Returns (components, sides, nodes_examined, edges_examined). `sides` holds
+    only the sides of components that ACTUALLY SPLIT, because those are the
+    only ones where a principal choice was made and so the only ones whose
+    anchor can be ambiguous.
     """
-    origin_set = set(origin)
-    members = [i for i in range(len(g.node_ids))
-               if g.comp_of_node[i] in origin_set]
-    seen: dict[int, int] = {}
-    groups: list[set[int]] = []
+    components: list[ResultingComponent] = []
+    split_sides: list[tuple] = []
+    n_ex = e_ex = 0
 
-    for start in members:
-        if start in seen:
-            continue
-        gid = len(groups)
-        bucket: set[int] = {start}
-        seen[start] = gid
-        stack = [start]
-        while stack:
-            u = stack.pop()
-            for k in range(g.adj_start[u], g.adj_start[u + 1]):
-                e = g.adj_edge[k]
-                if e in removed:
-                    continue
-                w = g.edge_v[e] if g.edge_u[e] == u else g.edge_u[e]
-                if w not in seen:
-                    seen[w] = gid
-                    bucket.add(w)
-                    stack.append(w)
-        groups.append(bucket)
+    for cid in origin:
+        cid_removed = {e for e in removed if int(g.comp_of_edge[e]) == cid}
+        members = _component_nodes(g, cid)
+        n_ex += len(members)
 
-    # Rank first, so the principal side is known before anything is enumerated.
-    # It is the rest of the network and its ids are never drawn, so collecting
-    # them would cost a quarter of a million entries in the cache payload to
-    # produce a list the API strips before sending.
-    ranked = sorted(range(len(groups)),
-                    key=lambda i: _rank_key(
-                        _anchor_of(g, groups[i], removed)[0],
-                        len(groups[i]), _min_node_id(g, groups[i])))
-    principal_i = ranked[0] if ranked else -1
-    sides = [_side(g, b, removed, collect=(i != principal_i))
-             for i, b in enumerate(groups)]
-    return (
-        [_as_component(s, i == principal_i) for i, s in enumerate(sides)],
-        sides,
-    )
+        seen: set[int] = set()
+        groups: list[set[int]] = []
+        for start in members:
+            if start in seen:
+                continue
+            bucket, walked_n, walked_e = _walk_side(
+                g, start, lambda i: True, cid_removed)
+            e_ex += walked_e
+            seen |= bucket
+            groups.append(bucket)
+
+        # Rank WITHIN this component only.
+        ranked = sorted(range(len(groups)),
+                        key=lambda i: _rank_key(
+                            _anchor_of(g, groups[i], cid_removed)[0],
+                            len(groups[i]), _min_node_id(g, groups[i])))
+        retained_i = ranked[0] if ranked else -1
+
+        # A component that did not split has one part, and that part is
+        # retained. Nothing came off it, so nothing is separated from it.
+        did_split = len(groups) > 1
+        sides = [_side(g, b, cid_removed, collect=(i != retained_i))
+                 for i, b in enumerate(groups)]
+        components.extend(
+            _as_component(s, i == retained_i, cid) for i, s in enumerate(sides))
+        if did_split:
+            split_sides.extend(sides)
+
+    return components, split_sides, n_ex, e_ex
 
 
 def _anchor_of(g: PhysicalGraph, node_idxs: set[int], removed: set[int]):

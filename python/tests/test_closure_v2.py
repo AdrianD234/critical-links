@@ -123,7 +123,7 @@ class TestSoleAccess:
         assert r.isolation_statement == "Road cut off"
         assert r.isolation.calculation_exact is True
         assert r.isolation.closure_is_bridge is True
-        assert r.isolation.method == "bridge-subtree-and-subtraction"
+        assert r.isolation.method == "bridge-smaller-side-and-subtraction"
 
         # Exactly the tail. Not the mouth - the closure is not stranded by
         # itself - and not the square.

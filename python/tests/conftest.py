@@ -59,3 +59,33 @@ def synthetic() -> Callable[..., SyntheticNetwork]:
             db.execute("DELETE FROM network_snapshots WHERE snapshot_id=%s", (snap,))
         except Exception:  # noqa: BLE001
             pass
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Fail a run that passed nothing, and name anything that skipped.
+
+    Two ways a green run can be meaningless. A collection filter that matches
+    nothing exits 0 with no tests, which reads as success. And a deterministic
+    `pytest.skip` is not a passing test - it is a test that stopped running,
+    which is why this repository's pytest config says the mandatory suite must
+    never skip.
+
+    Skips are REPORTED rather than failed: `requires_db` legitimately skips the
+    whole database-backed suite on a checkout with no PostGIS, and CI's Python
+    job runs exactly that way on purpose. Printing them keeps that visible
+    instead of letting a silent 100-skip run pass for a full one.
+    """
+    passed = len(terminalreporter.stats.get("passed", []))
+    skipped = terminalreporter.stats.get("skipped", [])
+
+    if skipped:
+        terminalreporter.write_sep(
+            "-", f"{len(skipped)} skipped - each one is a test that did not run")
+
+    if passed == 0 and exitstatus == 0:
+        terminalreporter.write_sep(
+            "=", "no tests passed; an empty run is not a green run", red=True)
+        # 5 is pytest's own "no tests collected" code.
+        session = getattr(terminalreporter, "_session", None)
+        if session is not None:
+            session.exitstatus = 5
