@@ -24,6 +24,7 @@ import type {
   DetourResponse,
   NetworkMetadata,
   SearchResponse,
+  V2BoundaryAnalysis,
   V2Capabilities,
   V2ClosureAnalysis,
 } from './types.js';
@@ -187,6 +188,41 @@ export const api = {
     });
     return get<V2ClosureAnalysis>(
       `/api/v2/links/${encodeURIComponent(String(req.link))}/closure-analysis?${q}`,
+      signal,
+    );
+  },
+
+  /**
+   * The boundary-movement measure. A third question, not a better answer.
+   *
+   * Geometry IS requested here, unlike the endpoint analysis above. The
+   * principal claim of this endpoint is that a particular trip now takes a
+   * particular route, and a route nobody can see is a claim nobody can check.
+   *
+   * `allMovements=false`: the preview shows the principal movement and the
+   * counts. A branching urban closure can consider four hundred candidate
+   * pairs; the excluded ones are the audit trail rather than the answer, and
+   * shipping them on every scenario change would cost far more than it tells
+   * a reader. They remain available from the endpoint on request.
+   */
+  boundaryAnalysisV2: (req: ClosureAnalysisRequest, signal?: AbortSignal) => {
+    const q = new URLSearchParams({
+      scope: closureScopeToWireV2(req.closureScope),
+      metric: req.metric,
+      vehicle: req.vehicle,
+      geometry: 'true',
+      corridor: 'true',
+      isolation: 'true',
+      allMovements: 'false',
+    });
+    /* `direction` is only meaningful under `direction` scope, where it names
+     * the single traversal being withdrawn. Sending it otherwise would ask the
+     * engine to narrow a closure the user did not narrow. */
+    if (req.closureScope === 'direction' && req.direction !== 'both') {
+      q.set('direction', req.direction);
+    }
+    return get<V2BoundaryAnalysis>(
+      `/api/v2/links/${encodeURIComponent(String(req.link))}/boundary-analysis?${q}`,
       signal,
     );
   },

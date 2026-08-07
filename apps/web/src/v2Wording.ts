@@ -19,7 +19,7 @@
  * analysis never made.
  */
 
-import type { V2Headline } from './api/types.js';
+import type { V2BoundaryHeadline, V2Headline } from './api/types.js';
 
 /**
  * Exhaustive by construction. The value is unused; the keys are the point.
@@ -63,3 +63,37 @@ export const MUTUAL_REACHABILITY_UNKNOWN_REASON =
   'Either the link carries one direction only, so there was no return ' +
   'traversal to test, or a search did not resolve. Nothing here says the ' +
   'endpoints cannot reach each other.';
+
+/**
+ * The boundary engine's own vocabulary, kept apart from the endpoint one.
+ *
+ * A separate record rather than an addition to `HEADLINE_SET`, because the two
+ * engines answer different questions and a merged list would let a boundary
+ * headline compile into an endpoint result. Exhaustive by the same
+ * construction: a headline added to the union and not here fails to build.
+ */
+const BOUNDARY_HEADLINE_SET: Record<V2BoundaryHeadline, true> = {
+  'Through movement has no represented replacement': true,
+  'Through movement diverts': true,
+  'No through movement identified': true,
+  'Analysis unresolved': true,
+};
+
+/** Every headline the boundary engine may report. */
+export const V2_BOUNDARY_HEADLINES = Object.keys(
+  BOUNDARY_HEADLINE_SET,
+) as V2BoundaryHeadline[];
+
+/**
+ * Why a boundary figure and an endpoint figure may differ without either
+ * being wrong.
+ *
+ * Shown wherever the two appear near each other. A reader who sees 8 km on one
+ * and "no route" on the other will reach for an explanation, and the true one
+ * is that they measured different trips - not that one engine is broken.
+ */
+export const BOUNDARY_VS_ENDPOINT =
+  'The endpoint measure asks whether the closed segment’s own two ends can ' +
+  'still reach each other. The boundary measure asks whether trips that went ' +
+  'through here still have a way round. They are different quantities and a ' +
+  'difference between them is not a disagreement.';

@@ -24,6 +24,7 @@ import type {
   NetworkMetadata,
   SearchResponse,
   V2Capabilities,
+  V2BoundaryAnalysis,
   V2ClosureAnalysis,
 } from '../api/types.js';
 
@@ -194,6 +195,49 @@ export function useClosureAnalysisV2(
           closureScope: scenario.closureScope,
           /* Both directions except under `direction` scope, which is a single
            * directed traversal and has to name the one it means. */
+          direction: scenario.closureScope === 'direction' ? direction : 'both',
+        },
+        signal,
+      ),
+    enabled: enabled && link !== null && parts.version !== 'unknown',
+  });
+}
+
+/**
+ * The boundary-movement analysis.
+ *
+ * A SEPARATE query key from the endpoint one, not a variant of it. The two
+ * measure different quantities, so one must never be served out of the other's
+ * cache entry - and a key that differed only by a parameter is exactly the
+ * shape that later gets "simplified" into one that does.
+ */
+export function boundaryAnalysisQueryKey(parts: ClosureAnalysisKeyParts) {
+  const { link, scenario, direction, version } = parts;
+  return [
+    'boundary-analysis-v2',
+    version,
+    link,
+    scenario.metric,
+    scenario.vehicle,
+    scenario.closureScope,
+    direction,
+  ] as const;
+}
+
+export function useBoundaryAnalysisV2(
+  parts: ClosureAnalysisKeyParts,
+  enabled: boolean,
+) {
+  const { link, scenario, direction } = parts;
+  return useQuery<V2BoundaryAnalysis>({
+    queryKey: boundaryAnalysisQueryKey(parts),
+    queryFn: ({ signal }) =>
+      api.boundaryAnalysisV2(
+        {
+          link: link!,
+          metric: scenario.metric,
+          vehicle: scenario.vehicle,
+          closureScope: scenario.closureScope,
           direction: scenario.closureScope === 'direction' ? direction : 'both',
         },
         signal,

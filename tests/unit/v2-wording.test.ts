@@ -25,7 +25,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  BOUNDARY_VS_ENDPOINT,
   MUTUAL_REACHABILITY_UNKNOWN,
+  V2_BOUNDARY_HEADLINES,
   V2_HEADLINES,
   mutualReachability,
 } from '../../apps/web/src/v2Wording.js';
@@ -155,5 +157,51 @@ describe('the V2 preview panel', () => {
     expect(types).toContain(
       'No isolation in the represented physical-access graph',
     );
+  });
+});
+
+/*
+ * The boundary engine's vocabulary.
+ *
+ * Its headlines are the FIRST thing a reader of the new panel sees, and the
+ * whole point of PR 2 is that they answer a different question from the
+ * endpoint ones. The two lists must therefore stay disjoint: a boundary
+ * headline appearing in the endpoint list would be a claim about the closed
+ * segment's own ends, made by an engine that never measured them.
+ */
+describe('boundary headlines', () => {
+  it('are exactly the four the engine documents', () => {
+    expect([...V2_BOUNDARY_HEADLINES].sort()).toEqual(
+      [
+        'Analysis unresolved',
+        'No through movement identified',
+        'Through movement diverts',
+        'Through movement has no represented replacement',
+      ].sort(),
+    );
+  });
+
+  it('share only "Analysis unresolved" with the endpoint vocabulary', () => {
+    const shared = V2_BOUNDARY_HEADLINES.filter((h) =>
+      (V2_HEADLINES as string[]).includes(h),
+    );
+    /* Both engines may fail to resolve, and both must say so in the same
+     * words. Everything else is a claim only one of them is entitled to
+     * make. */
+    expect(shared).toEqual(['Analysis unresolved']);
+  });
+
+  it('never describe a movement result as a road losing access', () => {
+    /* "Cut off" belongs to the undirected isolation result alone. A routing
+     * headline borrowing it is precisely the V1 defect PR 1 catalogued. */
+    for (const h of V2_BOUNDARY_HEADLINES) {
+      expect(h.toLowerCase()).not.toContain('cut off');
+      expect(h.toLowerCase()).not.toContain('isolat');
+    }
+  });
+
+  it('explains that a boundary/endpoint difference is not a disagreement', () => {
+    expect(BOUNDARY_VS_ENDPOINT).toContain('different quantities');
+    expect(BOUNDARY_VS_ENDPOINT).toContain('not a disagreement');
   });
 });
