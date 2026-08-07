@@ -44,7 +44,8 @@ test.describe('mobile smoke', () => {
           }),
         { timeout: 40_000, message: 'no network rendered on mobile' },
       )
-      .toBeGreaterThan(10);
+      /* At least one, not a density figure: see the note in explore.spec.ts. */
+      .toBeGreaterThan(0);
 
     /* 3. A selected result is reachable. */
     await waitForResult(page);

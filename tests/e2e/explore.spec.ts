@@ -26,13 +26,23 @@ test.describe('Explore', () => {
     await expect(page.locator('.brand-name')).toHaveText('NZ Critical Links');
     await expect(page.getByRole('heading', { name: /select a road/i })).toBeVisible();
 
-    /* The map must actually have drawn the network, not merely mounted. */
+    /*
+     * The map must actually have drawn the network, not merely mounted.
+     *
+     * "At least one" rather than a density figure. This asserted more than a
+     * hundred rendered features, which is a property of the Wellington pilot
+     * and unreachable on the seven-link CI fixture — so it could only ever
+     * fail there, which it silently did for as long as the browser job was
+     * unable to run at all. What the gate should prove is that tiles are
+     * requested, decoded and painted; how many roads a real city has is not
+     * this test's business.
+     */
     await expect
       .poll(() => renderedCount(page, 'network-line'), {
         timeout: 30_000,
         message: 'network tiles never rendered',
       })
-      .toBeGreaterThan(100);
+      .toBeGreaterThan(0);
 
     /*
      * Attribution is a licence condition, not decoration. The AMDS credit is
