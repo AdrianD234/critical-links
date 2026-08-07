@@ -525,11 +525,133 @@ def run(snapshot_id: str, size: int, out_dir: Path) -> int:
     return 0
 
 
+# ------------------------------------------------------------------ cohorts
+#: Targeted ASSURANCE samples. Not population estimates, and less so than the
+#: stratified sample: each is deliberately all of one kind, so a percentage
+#: from any of them describes that cohort and nothing else.
+COHORTS = ("state_highway", "one_way", "truncated", "v1_cutoff_nonbridge",
+           "restricted_turn")
+
+
+def cohort_links(snapshot_id: str, cohort: str, size: int,
+                 rows_path: str | None = None) -> tuple[list[int], str]:
+    """Deterministic link ids for one assurance cohort, and what it is."""
+    if cohort in ("state_highway", "one_way", "restricted_turn"):
+        frame = _frame(snapshot_id)
+        for r in frame:
+            r["_rank"] = _rank(snapshot_id, r["link_id"])
+        frame.sort(key=lambda r: r["_rank"])
+
+        if cohort == "state_highway":
+            picked = [r for r in frame if r["rca_code"] == 1][:size]
+            return [int(r["link_id"]) for r in picked], (
+                "state-highway links (rca_code = 1). The stratified sample "
+                "carried only 15, too thin to say anything about them.")
+        if cohort == "one_way":
+            picked = [r for r in frame if r["oneway"] == 1][:size]
+            return [int(r["link_id"]) for r in picked], (
+                "one-way links. The stratified sample carried only 21, and the "
+                "V1 audit reports the highest DISCONNECTED rate on exactly "
+                "these.")
+        named = _turn_restricted_links(snapshot_id)
+        picked = [r for r in frame if int(r["link_id"]) in named][:size]
+        return [int(r["link_id"]) for r in picked], (
+            "links named in a restricted-turn sequence that applies to a car. "
+            "AMDS publishes 43 such records nationally, of which one restricts "
+            f"any modelled vehicle class, involving {len(named)} link(s).")
+
+    if rows_path is None:
+        raise SystemExit(f"cohort {cohort!r} needs a previous sample's rows")
+    prior = [json.loads(l) for l in open(rows_path, encoding="utf-8")]
+
+    if cohort == "truncated":
+        return ([r["linkId"] for r in prior
+                 if r.get("boundary", {}).get("movementsTruncated")],
+                "every link whose movement search was truncated in the "
+                "stratified sample")
+    if cohort == "v1_cutoff_nonbridge":
+        return ([r["linkId"] for r in prior
+                 if r.get("v1", {}).get("wording") == "Road cut off"
+                 and r.get("strata", {}).get("bridge") == "not_bridge"],
+                "every link where V1 says 'Road cut off' on a link that is NOT "
+                "an undirected bridge - the shape the V1 audit found in 96.6% "
+                "of state-highway cut-off results")
+    raise SystemExit(f"unknown cohort {cohort!r}")
+
+
+def _turn_restricted_links(snapshot_id: str) -> set[int]:
+    from . import turns
+
+    out: set[int] = set()
+    for seq in turns.restricted_sequences(snapshot_id, "car"):
+        out.update(int(x) for x in seq)
+    return out
+
+
+def run_cohort(snapshot_id: str, cohort: str, size: int, out_dir: Path,
+               rows_path: str | None = None) -> int:
+    ids, what = cohort_links(snapshot_id, cohort, size, rows_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"\n=== cohort {cohort}: {len(ids)} link(s) ===\n{what}", flush=True)
+
+    rows: list[dict] = []
+    if ids:
+        physical.get(snapshot_id, "car")
+        started = time.perf_counter()
+        for i, lid in enumerate(ids, 1):
+            rows.append(compare_one(snapshot_id, int(lid)))
+            if i % 25 == 0 or i == len(ids):
+                rate = (time.perf_counter() - started) / i
+                print(f"  {i}/{len(ids)}  {rate:.2f} s/link  "
+                      f"eta {rate * (len(ids) - i) / 60:.1f} min", flush=True)
+        summary = summarise(rows, {"cohort": cohort, "size": len(rows)},
+                            snapshot_id)
+    else:
+        summary = {"sampleSize": 0}
+
+    summary["cohort"] = cohort
+    summary["cohortDefinition"] = what
+    summary["isNationalEstimate"] = False
+    summary["note"] = (
+        "An ASSURANCE sample, deliberately all of one kind. Every proportion "
+        "below describes this cohort and nothing else; it is not an estimate "
+        "of the national network. No human has reviewed these results.")
+    summary["replayDigest"] = replay_digest(rows)
+
+    if rows:
+        (out_dir / f"cohort-{cohort}-rows.jsonl").write_text(
+            "\n".join(json.dumps(r, sort_keys=True, default=str) for r in rows)
+            + "\n", encoding="utf-8")
+    (out_dir / f"cohort-{cohort}.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n",
+        encoding="utf-8")
+
+    print(json.dumps({k: summary.get(k) for k in
+                      ("cohort", "sampleSize", "unresolvedOrTimeout", "errored",
+                       "geometryGapped", "movementCandidatesTruncated",
+                       "replayDigest")}, indent=2, default=str))
+    if rows:
+        print("  boundary headlines:",
+              json.dumps(summary["endpointVsBoundary"]["boundaryHeadlines"]))
+        print("  status transitions:",
+              json.dumps(summary["endpointVsBoundary"]["statusTransitions"]))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
-    if not argv or argv[0] != "run":
+    if not argv or argv[0] not in ("run", "cohort"):
         print(__doc__)
         return 2
+
+    if argv[0] == "cohort":
+        # cohort <snapshot> <name> <size> <outDir> [priorRows.jsonl]
+        if len(argv) < 5:
+            print(__doc__)
+            return 2
+        return run_cohort(argv[1], argv[2], int(argv[3]), Path(argv[4]),
+                          argv[5] if len(argv) > 5 else None)
+
     snapshot = argv[1] if len(argv) > 1 else db.query_one(
         "SELECT snapshot_id FROM network_snapshots WHERE coverage_kind='national'"
         " ORDER BY retrieved_at_utc DESC LIMIT 1")["snapshot_id"]
