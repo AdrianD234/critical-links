@@ -693,6 +693,48 @@ class TestGeometry:
         gj = routegeom.as_geojson(r.replacement_geometry)
         assert gj["type"] == "MultiLineString"
 
+    def test_a_closure_is_a_set_of_links_and_cannot_have_gaps(self, synthetic):
+        """A gap is a defect in a PATH. A closure is not a path.
+
+        The first national sample reported a geometry gap on 237 of 500 links
+        because the closure was run through the route assembler: a fifteen-child
+        source feature came out as "fourteen gaps, the widest 406 m", which is
+        just the distance between links that were never adjacent. A warning
+        that fires on half the network teaches people to ignore it.
+        """
+        net = synthetic(LONG_FEATURE)
+        lid, _ = TestBranchingSourceFeature._smallest_child(net)
+        r = impactv2.analyse(net.snapshot_id, lid, scope="source_feature",
+                             with_geometry=True, with_isolation=False)
+        g = r.closure_geometry
+        assert g is not None
+        assert g.kind == "collection"
+        # Three children of the trunk, drawn as three separate lines...
+        assert len(g.pieces) == len(r.closure.removed_link_ids)
+        # ...and not one of them is a gap.
+        assert g.gaps == []
+        assert g.has_gaps is False
+        assert "GEOMETRY_GAP" not in g.quality_flags
+        # A collection is still not animation-safe: sweeping along it would
+        # animate link-id order, which means nothing.
+        assert g.animation_safe is False
+
+    def test_a_two_way_segment_is_drawn_once_not_out_and_back(self, synthetic):
+        """Collected per LINK, not per arc.
+
+        Assembling from arcs emits the forward traversal and then the reverse
+        one, tracing the same road twice - invisible on screen and twice the
+        coordinates.
+        """
+        net = synthetic(SQUARE)
+        r = analyse(net, "S", with_geometry=True)
+        g = r.selected_geometry
+        assert g is not None
+        assert len(g.pieces) == 1
+        # The fixture's S link is a straight two-point line. Traced out and
+        # back it would carry three.
+        assert len(g.pieces[0]) == 2
+
 
 def as_flat(g):
     return [tuple(round(c, 7) for c in pt) for piece in g.pieces for pt in piece]

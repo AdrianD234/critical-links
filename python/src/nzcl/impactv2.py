@@ -182,11 +182,16 @@ def analyse(
 
     if with_geometry:
         def _geom():
-            out.selected_geometry = routegeom.assemble(
-                snapshot_id, _link_arcs(snapshot_id, [link_id]))
+            # The selected segment and the closure are SETS of links, not
+            # paths, so they are collected rather than assembled. Running them
+            # through the route assembler made a fifteen-child source feature
+            # report "fourteen gaps, the widest 406 m" - the distance between
+            # links that were never adjacent - on 237 of the first 500 sampled
+            # links. See the header of `routegeom.RouteGeometry`.
+            out.selected_geometry = routegeom.collect(snapshot_id, [link_id])
             if c.removed_link_ids != [link_id]:
-                out.closure_geometry = routegeom.assemble(
-                    snapshot_id, _link_arcs(snapshot_id, c.removed_link_ids))
+                out.closure_geometry = routegeom.collect(
+                    snapshot_id, c.removed_link_ids)
             if out.principal_movement is not None:
                 out.intact_geometry = routegeom.assemble(
                     snapshot_id, out.principal_movement.intact_arc_ids)
@@ -272,14 +277,6 @@ def _classify(ms: MovementSet, rs: ReplacementSet,
     if principal.status == "DISCONNECTED":
         return "Through movement has no represented replacement", flags
     return "Through movement diverts", flags
-
-
-def _link_arcs(snapshot_id: str, link_ids) -> list[int]:
-    rows = db.query(
-        "SELECT arc_id FROM arcs WHERE snapshot_id=%s AND link_id = ANY(%s) "
-        " ORDER BY link_id, arc_id",
-        (snapshot_id, sorted(int(x) for x in link_ids)))
-    return [int(r["arc_id"]) for r in rows]
 
 
 # --------------------------------------------------------------- API shape

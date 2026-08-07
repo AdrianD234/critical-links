@@ -53,10 +53,23 @@ class Gap:
 
 @dataclass
 class RouteGeometry:
-    """Contiguous drawable pieces of one route, plus what is missing between them."""
+    """Drawable pieces of one route, or of one set of links.
 
-    #: One coordinate list per contiguous piece, in route order. A route with
-    #: no gaps has exactly one piece.
+    `kind` decides what the gap fields MEAN, and getting it wrong produces a
+    false alarm rather than a wrong picture. A ROUTE is an ordered path, so two
+    consecutive pieces that do not meet are a defect worth warning about. A
+    COLLECTION - the closure, the selected segment - is a set of links with no
+    order at all, and the space between two of them is not a gap in anything.
+
+    The first national sample ran the closure through the route assembler and
+    reported a geometry gap on 237 of 500 links: a fifteen-child source feature
+    became "fourteen gaps, the widest 406 m", which is just the distance
+    between links that were never adjacent. A warning that fires on half the
+    network trains people to ignore it.
+    """
+
+    #: One coordinate list per piece. For a route: per contiguous run, in route
+    #: order. For a collection: per link, in link order.
     pieces: list[list[tuple[float, float]]] = field(default_factory=list)
     gaps: list[Gap] = field(default_factory=list)
     #: Arcs asked for that had no geometry at all. Distinct from a gap: a gap
@@ -64,18 +77,29 @@ class RouteGeometry:
     missing_arc_ids: list[int] = field(default_factory=list)
     total_drawn_length_m: float = 0.0
     quality_flags: list[str] = field(default_factory=list)
+    #: "route" | "collection". See the class docstring.
+    kind: str = "route"
+
+    @property
+    def is_route(self) -> bool:
+        return self.kind == "route"
 
     @property
     def has_gaps(self) -> bool:
-        return bool(self.gaps) or bool(self.missing_arc_ids)
+        """Only a ROUTE can have a gap. A set of links has spaces, not gaps."""
+        return self.is_route and (bool(self.gaps) or bool(self.missing_arc_ids))
 
     @property
     def continuous(self) -> bool:
-        return not self.has_gaps and len(self.pieces) <= 1
+        return self.is_route and not self.has_gaps and len(self.pieces) <= 1
 
     @property
     def animation_safe(self) -> bool:
-        """A reveal animation implies one continuous line. A gapped route is not."""
+        """A reveal animation implies one continuous line.
+
+        False for a gapped route, and false for a collection - sweeping along a
+        set of links in link-id order would animate an order that means nothing.
+        """
         return self.continuous
 
 
@@ -183,6 +207,50 @@ def assemble(snapshot_id: str, arc_ids: Sequence[int], *,
     return out
 
 
+def collect(snapshot_id: str, link_ids: Sequence[int]) -> RouteGeometry:
+    """One LineString per LINK, for a set of links that is not a path.
+
+    Used for the closure and the selected segment. Neither is a route: a
+    closure is whatever the scope removed, and the order its links happen to
+    carry is `link_id`, which is an ingest artefact. Ordering matters here only
+    so the output is reproducible.
+
+    Per LINK and not per arc, so a two-way link is drawn once. Assembling from
+    arcs would emit the forward traversal and then the reverse one, tracing the
+    same road out and back - invisible on screen and twice the coordinates.
+    """
+    out = RouteGeometry(kind="collection")
+    ids = sorted({int(x) for x in link_ids})
+    if not ids:
+        return out
+
+    rows = db.query(
+        "SELECT link_id, length_m, ST_AsGeoJSON(geom_4326, 7) AS geom "
+        "  FROM links WHERE snapshot_id=%s AND link_id = ANY(%s) "
+        " ORDER BY link_id",
+        (snapshot_id, ids))
+    found = set()
+    for r in rows:
+        found.add(int(r["link_id"]))
+        if not r["geom"]:
+            continue
+        coords = [(float(x), float(y))
+                  for x, y in json.loads(r["geom"])["coordinates"]]
+        if len(coords) < 2:
+            continue
+        out.pieces.append(coords)
+        out.total_drawn_length_m += float(r["length_m"] or 0.0)
+
+    missing = [i for i in ids if i not in found]
+    if missing:
+        # Reported on the arc-id field because that is where a client already
+        # looks for "something asked for is not here"; the ids are link ids and
+        # the flag says which.
+        out.missing_arc_ids = missing
+        out.quality_flags.append("GEOMETRY_MISSING_LINKS")
+    return out
+
+
 def _dist(a: tuple[float, float], b: tuple[float, float]) -> float:
     return ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
 
@@ -207,6 +275,7 @@ def as_geojson(g: RouteGeometry) -> dict | None:
 def as_dict(g: RouteGeometry) -> dict:
     return {
         "geometry": as_geojson(g),
+        "kind": g.kind,
         "pieceCount": len(g.pieces),
         "continuous": g.continuous,
         "hasGaps": g.has_gaps,

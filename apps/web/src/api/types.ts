@@ -591,6 +591,15 @@ export type V2BoundaryHeadline =
  */
 export interface V2RouteGeometry {
   geometry: GeoJSON.MultiLineString | null;
+  /**
+   * `route` is an ordered path, where two pieces that do not meet are a defect
+   * worth warning about. `collection` is a set of links - the closure, the
+   * selected segment - with no order at all, where the space between two of
+   * them is not a gap in anything. A collection always reports `hasGaps:
+   * false`, and is never animation-safe: sweeping along it would animate an
+   * order that means nothing.
+   */
+  kind: "route" | "collection";
   pieceCount: number;
   continuous: boolean;
   hasGaps: boolean;
