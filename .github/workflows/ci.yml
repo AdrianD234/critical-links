@@ -137,14 +137,11 @@ jobs:
           pip install -e './python[dev]' || pip install -r python/requirements-dev.txt
 
       - name: Apply schema
-        run: |
-          for f in sql/*.sql; do
-            PGPASSWORD=nzcl_local_dev psql -h 127.0.0.1 -U nzcl -d nzcl -v ON_ERROR_STOP=1 -f "$f"
-          done
+        working-directory: python
+        env:
+          PYTHONPATH: src
+        run: python -c "from nzcl.db import migrate; print('\n'.join(migrate()))"
 
-      # The browser suite needs a snapshot to query. Building one from a
-      # committed fixture keeps CI independent of the live NZTA service, which
-      # is neither ours to depend on nor stable enough to gate a build on.
       # The browser suite needs a snapshot to query. It is built from a
       # synthetic network rather than downloaded, because CI must not depend on
       # the live NZTA feature service: it is not ours to depend on, an outage
