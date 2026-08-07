@@ -1,0 +1,61 @@
+Byte-for-byte comparison of ordinary V1 detour responses across the fix.
+
+Captured from the running API by capture.mjs, at the product's own
+statement-timeout budget, against two snapshots:
+
+  ci-fixture-wellington   7 links   x 2 metrics x 2 closure scopes  = 28
+  v1-timeout-repro       16 links   x 2 metrics x 2 closure scopes  = 64
+
+The 16 include the bypass and both its ramps - the links whose closure
+actually reaches the corridor search - a one-way link, a dead-end case and
+twelve ordinary two-way grid streets.
+
+Comparison of the full 92-file sets, run before they were slimmed for review
+(see "What is committed" below):
+
+  $ diff -r before after
+  (no output)   exit 0
+
+  $ diff <(cd before && sha256sum * | sort -k2) <(cd after && sha256sum * | sort -k2)
+  (no output)   exit 0
+
+92 files, 92 identical. Only three fields are normalised before comparison
+- calculatedAtUtc, retrievedAtUtc and runtimeMs - each a clock or a
+stopwatch, none of them a result. Every status, metric, flag, coordinate
+and string is compared exactly as served.
+
+What is committed
+-----------------
+Committing 92 raw responses twice made the pull request unreadable, so the
+bulk was removed after the comparison and replaced with what proves it:
+
+  SHA256SUMS.before   the full manifest of all 92 before-captures
+  SHA256SUMS.after    the full manifest of all 92 after-captures
+
+The two manifests are identical hash-for-hash, which IS the byte-identity
+claim. Verify without regenerating anything:
+
+  $ diff <(awk '{print $1}' SHA256SUMS.before) <(awk '{print $1}' SHA256SUMS.after)
+
+A small deterministic sample of raw responses is kept in before/ and after/,
+chosen by rule, not by hand: the distance-metric, physical-scope capture of
+one link per behaviour class the suite exercises -
+
+  ci-ab       an ordinary two-way link with an OK replacement path
+  ci-oneway   a one-way link, so reverse is genuinely absent
+  ci-spur     a dead end: DISCONNECTED with an isolation pocket
+  EB2         the reproduction's closed bypass link, whose closure is the
+              one that reaches the corridor search
+
+Each sample file's hash appears in both manifests, so the sample is checkable
+against the full run it came from.
+
+Regenerating the full sets
+--------------------------
+  python docs/audits/v1-timeout/ui_fixture.py build
+  bash   docs/audits/v1-timeout/start-api-snap.sh ci-fixture-wellington none
+  node   docs/audits/v1-timeout/identity/capture.mjs before ci
+  bash   docs/audits/v1-timeout/start-api-snap.sh v1-timeout-repro none
+  node   docs/audits/v1-timeout/identity/capture.mjs before repro
+  # apply or check out the change under test, restart the API, repeat with "after"
+  diff -r before after

@@ -1,0 +1,101 @@
+PYTEST_EXIT=1
+FF...FF....                                                              [100%]
+=================================== FAILURES ===================================
+_ TestTheSearchStatusIsCarried.test_a_cancelled_search_is_unresolved_and_not_an_empty_result _
+
+self = <test_corridor_timeout.TestTheSearchStatusIsCarried object at 0x7703fe71bd40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7703c9ef9f40>
+
+    def test_a_cancelled_search_is_unresolved_and_not_an_empty_result(
+            self, monkeypatch):
+        from nzcl import routing
+    
+        monkeypatch.setattr(routing.db, "connection",
+                            lambda: _Raising(self.CANCELLED))
+        res = route_many("any-snapshot", [1], [2], statement_timeout_ms=1)
+    
+>       assert res.status == "UNRESOLVED_TIMEOUT"
+E       AssertionError: assert 'OK' == 'UNRESOLVED_TIMEOUT'
+E         
+E         - UNRESOLVED_TIMEOUT
+E         + OK
+
+tests/test_corridor_timeout.py:103: AssertionError
+_ TestTheSearchStatusIsCarried.test_a_failed_search_is_an_api_error_and_not_an_empty_result _
+
+self = <test_corridor_timeout.TestTheSearchStatusIsCarried object at 0x7703c9ef8a40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7703c9ef9d60>
+
+    def test_a_failed_search_is_an_api_error_and_not_an_empty_result(
+            self, monkeypatch):
+        from nzcl import routing
+    
+        monkeypatch.setattr(
+            routing.db, "connection",
+            lambda: _Raising('relation "arcs" does not exist'))
+        res = route_many("any-snapshot", [1], [2])
+    
+>       assert res.status == "API_ERROR"
+E       AssertionError: assert 'OK' == 'API_ERROR'
+E         
+E         - API_ERROR
+E         + OK
+
+tests/test_corridor_timeout.py:118: AssertionError
+____ TestARealStatementTimeout.test_a_cancelled_multi_target_search_says_so ____
+
+self = <test_corridor_timeout.TestARealStatementTimeout object at 0x7703c9ef9040>
+synthetic = <function synthetic.<locals>.build at 0x7703fc1dd4e0>
+
+    def test_a_cancelled_multi_target_search_says_so(self, synthetic):
+        """A genuine PostgreSQL cancellation, no patching anywhere.
+    
+        The second half is what makes the first half mean something: the SAME
+        call, on the SAME graph, resolves with an adequate budget. So the
+        1 ms result is about the clock and not about the network.
+        """
+        net = synthetic(_grid(12))
+        nodes = list(range(len(net.node_coords)))
+    
+        cancelled = route_many(net.snapshot_id, nodes, nodes,
+                               statement_timeout_ms=1)
+>       assert cancelled.status == "UNRESOLVED_TIMEOUT"
+E       AssertionError: assert 'OK' == 'UNRESOLVED_TIMEOUT'
+E         
+E         - UNRESOLVED_TIMEOUT
+E         + OK
+
+tests/test_corridor_timeout.py:227: AssertionError
+_ TestARealStatementTimeout.test_a_cancelled_corridor_search_is_not_reported_as_no_route _
+
+self = <test_corridor_timeout.TestARealStatementTimeout object at 0x7703c9ef92e0>
+synthetic = <function synthetic.<locals>.build at 0x7703fc1de2a0>
+
+    def test_a_cancelled_corridor_search_is_not_reported_as_no_route(
+            self, synthetic):
+        """The defect itself.
+    
+        Under the old implementation this returns DISCONNECTED with the detail
+        "search space exhausted with no route to target" - a claim about the
+        road network, made about a query the database killed.
+        """
+        net = synthetic(BYPASS)
+        snap = net.snapshot_id
+        u, v = net.nodes_of("EB2")
+        excluded = _closure_arcs(snap, net.link_id("EB2"))
+    
+        cancelled = detour._corridor(snap, u, v, excluded, "distance", "car",
+                                     300.0, 1)
+>       assert cancelled.status == "UNRESOLVED_TIMEOUT"
+E       AssertionError: assert 'DISCONNECTED' == 'UNRESOLVED_TIMEOUT'
+E         
+E         - UNRESOLVED_TIMEOUT
+E         + DISCONNECTED
+
+tests/test_corridor_timeout.py:251: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_corridor_timeout.py::TestTheSearchStatusIsCarried::test_a_cancelled_search_is_unresolved_and_not_an_empty_result
+FAILED tests/test_corridor_timeout.py::TestTheSearchStatusIsCarried::test_a_failed_search_is_an_api_error_and_not_an_empty_result
+FAILED tests/test_corridor_timeout.py::TestARealStatementTimeout::test_a_cancelled_multi_target_search_says_so
+FAILED tests/test_corridor_timeout.py::TestARealStatementTimeout::test_a_cancelled_corridor_search_is_not_reported_as_no_route
+4 failed, 7 passed in 2.58s

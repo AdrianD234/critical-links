@@ -1,0 +1,12 @@
+tests executed          : 329
+skipped                 : 0
+database-backed modules :
+    test_closure_v2                  22
+    test_closure_v2_components       12
+    test_closure_v2_identity         17
+    test_corridor_timeout            11
+    test_fixture_contract            12
+    test_routing                     28
+    test_tiles                       19
+database-backed total   : 121
+realdata tests are deselected by -m 'not realdata', by design: they need an ingested national snapshot, which CI must not download.

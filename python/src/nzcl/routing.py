@@ -293,6 +293,32 @@ def _run_dijkstra(snapshot_id: str, u: int, v: int, metric: Metric,
     return RouteResult("OK", cost, distance, time_s, arc_ids=arc_ids)
 
 
+@dataclass
+class ManyCostResult:
+    """Costs for every requested pair, and the status of the SEARCH.
+
+    `status` is about the search, never about a pair. `costs` holds only the
+    pairs that were reached, so an absent pair means "no path" if and only if
+    the search resolved.
+
+    That distinction is the entire reason this is not a bare mapping. It used
+    to be one, returned empty on any exception, and a caller therefore could
+    not tell a cancelled statement from a graph with no route. V1's corridor
+    search read the empty mapping as "no route" and reported DISCONNECTED - a
+    finding about the road network - for a query the database had killed.
+    Recorded, with the timings and the screenshots, in docs/audits/v1-timeout/.
+    """
+
+    status: Status
+    costs: dict[tuple[int, int], float] = field(default_factory=dict)
+    detail: str | None = None
+
+    @property
+    def resolved(self) -> bool:
+        """True when an absent pair may be read as 'no route'."""
+        return self.status == "OK"
+
+
 def route_many(
     snapshot_id: str,
     sources: Sequence[int],
@@ -302,7 +328,7 @@ def route_many(
     profile: Profile = "car",
     excluded_arcs: Sequence[int] = (),
     statement_timeout_ms: int = 20_000,
-) -> dict[tuple[int, int], float]:
+) -> ManyCostResult:
     """Shortest-path cost for every (source, target) pair, in ONE call.
 
     Each pgr_dijkstra invocation reloads the whole edge set - measured at 39.9 ms
@@ -310,10 +336,11 @@ def route_many(
     would otherwise loop over pairs. pgRouting accepts array endpoints, so the
     corridor search pays that load once instead of once per probe.
 
-    Returns agg_cost keyed by (start_vid, end_vid); pairs with no path are absent.
+    `costs` is agg_cost keyed by (start_vid, end_vid); pairs with no path are
+    absent. Read it only when `resolved` - see `ManyCostResult`.
     """
     if not sources or not targets:
-        return {}
+        return ManyCostResult("OK", detail="no source or no target was requested")
     sql = _edge_sql(snapshot_id, profile, metric, excluded_arcs)
     try:
         with db.connection() as conn:
@@ -330,9 +357,17 @@ def route_many(
                         (sql, list(sources), list(targets)),
                     )
                     rows = cur.fetchall()
-    except Exception:  # noqa: BLE001 - caller falls back to per-pair routing
-        return {}
-    return {(int(r["start_vid"]), int(r["end_vid"])): float(r["cost"]) for r in rows}
+    except Exception as exc:  # noqa: BLE001
+        # The same reading `_run_dijkstra` above has always applied to the
+        # single-pair search: a timeout is NOT a finding about the network.
+        if "statement timeout" in str(exc).lower() or "canceling" in str(exc).lower():
+            return ManyCostResult(
+                "UNRESOLVED_TIMEOUT",
+                detail=f"statement timeout after {statement_timeout_ms} ms")
+        return ManyCostResult("API_ERROR", detail=str(exc))
+    return ManyCostResult("OK", costs={
+        (int(r["start_vid"]), int(r["end_vid"])): float(r["cost"]) for r in rows
+    })
 
 
 def _run_expanded(snapshot_id: str, u: int, v: int, metric: Metric,

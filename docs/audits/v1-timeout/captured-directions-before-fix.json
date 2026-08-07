@@ -1,0 +1,55 @@
+{
+  "adequateBudget": {
+    "corridor": {
+      "alternativeDistanceM": 1500.0,
+      "detail": null,
+      "entryNode": 256,
+      "exitNode": 11,
+      "exitReachable": true,
+      "normalDistanceM": 1240.3124237432849,
+      "penaltyM": 259.68757625671515,
+      "status": "OK",
+      "truncated": false
+    },
+    "errorDetail": "search space exhausted with no route to target",
+    "isolation": {
+      "pocketLengthM": 0.0,
+      "pocketLinkCount": 0
+    },
+    "qualityFlags": [
+      "SPEED_ESTIMATED",
+      "CLIPPED_EXTRACT",
+      "DISCONNECTED_UNVERIFIED_OUTSIDE_EXTRACT",
+      "ISOLATES_CUL_DE_SAC",
+      "ENDPOINT_MEASURE_UNDEFINED_CORRIDOR_USED"
+    ],
+    "status": "DISCONNECTED",
+    "uiHeadline": "Added distance - through trip: +0.26 km"
+  },
+  "corridorTimedOut": {
+    "corridor": {
+      "alternativeDistanceM": null,
+      "detail": "search space exhausted with no route to target",
+      "entryNode": 240,
+      "exitNode": 160,
+      "exitReachable": true,
+      "normalDistanceM": null,
+      "penaltyM": null,
+      "status": "DISCONNECTED",
+      "truncated": true
+    },
+    "errorDetail": "search space exhausted with no route to target",
+    "isolation": {
+      "pocketLengthM": 0.0,
+      "pocketLinkCount": 0
+    },
+    "qualityFlags": [
+      "SPEED_ESTIMATED",
+      "CLIPPED_EXTRACT",
+      "DISCONNECTED_UNVERIFIED_OUTSIDE_EXTRACT",
+      "ISOLATES_CUL_DE_SAC"
+    ],
+    "status": "DISCONNECTED",
+    "uiHeadline": "No replacement path"
+  }
+}
