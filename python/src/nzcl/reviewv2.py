@@ -256,15 +256,103 @@ def _explain(case: dict) -> str:
         f"nobody was making.")
 
 
+def render_case_map(snapshot_id: str, case: dict, out_path: Path) -> None:
+    """A small SVG map of one case: context grey, closure red, ports marked.
+
+    Raw geometry straight from the database, scaled in EPSG:2193 - a metric
+    CRS, so proportions are honest. No external renderer: an SVG a reviewer
+    can open in a browser is the whole ambition, and inventing nothing means
+    drawing links exactly as stored.
+    """
+    import math
+
+    removed = case["closure"]["removedLinkIds"]
+    bbox = db.query_one(
+        "SELECT ST_XMin(e) x0, ST_YMin(e) y0, ST_XMax(e) x1, ST_YMax(e) y1 "
+        "  FROM (SELECT ST_Expand(ST_Extent(geom_2193), 500) e FROM links "
+        "         WHERE snapshot_id=%s AND link_id = ANY(%s)) q",
+        (snapshot_id, removed))
+    x0, y0 = float(bbox["x0"]), float(bbox["y0"])
+    x1, y1 = float(bbox["x1"]), float(bbox["y1"])
+    w, h = x1 - x0, y1 - y0
+    scale = 900.0 / max(w, h)
+
+    def pts_of(geojson: str) -> str:
+        coords = json.loads(geojson)["coordinates"]
+        return " ".join(f"{(float(x) - x0) * scale:.1f},"
+                        f"{(y1 - float(y)) * scale:.1f}" for x, y in coords)
+
+    rows = db.query(
+        """
+        SELECT link_id, ST_AsGeoJSON(geom_2193, 1) AS g,
+               (link_id = ANY(%s)) AS closed
+          FROM links
+         WHERE snapshot_id = %s
+           AND geom_2193 && ST_MakeEnvelope(%s, %s, %s, %s, 2193)
+         ORDER BY closed, link_id
+        """,
+        (removed, snapshot_id, x0, y0, x1, y1))
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="0 0 {w * scale:.0f} {h * scale:.0f}" '
+        f'style="background:#101418;font-family:sans-serif">',
+    ]
+    for r in rows:
+        style = ('stroke="#e5484d" stroke-width="4"' if r["closed"]
+                 else 'stroke="#4b5563" stroke-width="1.5"')
+        parts.append(f'<polyline points="{pts_of(r["g"])}" fill="none" '
+                     f'{style} stroke-linecap="round"/>')
+
+    node_ids = sorted({p["closureNode"] for p in case.get("boundaryPorts", [])})
+    if node_ids:
+        nodes = {int(n["node_id"]): (float(n["x"]), float(n["y"]))
+                 for n in db.query(
+                     "SELECT node_id, ST_X(geom_2193) x, ST_Y(geom_2193) y "
+                     "  FROM nodes WHERE snapshot_id=%s AND node_id=ANY(%s)",
+                     (snapshot_id, node_ids))}
+        for p in case.get("boundaryPorts", []):
+            xy = nodes.get(p["closureNode"])
+            if xy is None:
+                continue
+            colour = "#30a46c" if p["kind"] == "entry" else "#f5a524"
+            parts.append(
+                f'<circle cx="{(xy[0] - x0) * scale:.1f}" '
+                f'cy="{(y1 - xy[1]) * scale:.1f}" r="6" fill="{colour}" '
+                f'stroke="#101418" stroke-width="1.5"/>')
+
+    bar_m = 10 ** round(math.log10(max(w, h) / 5))
+    parts.append(
+        f'<line x1="20" y1="{h * scale - 20:.0f}" '
+        f'x2="{20 + bar_m * scale:.1f}" y2="{h * scale - 20:.0f}" '
+        f'stroke="#e5e7eb" stroke-width="2"/>'
+        f'<text x="20" y="{h * scale - 28:.0f}" fill="#e5e7eb" '
+        f'font-size="13">{bar_m:,.0f} m</text>'
+        f'<text x="20" y="24" fill="#e5e7eb" font-size="15">link '
+        f'{case["linkId"]} — red: closure, green dot: entry, amber dot: exit'
+        f'</text>')
+    parts.append("</svg>")
+    out_path.write_text("\n".join(parts), encoding="utf-8")
+
+
 def run(snapshot_id: str, link_ids: list[int], out_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
+    maps_dir = out_dir / "maps"
+    maps_dir.mkdir(exist_ok=True)
     print(f"reviewing {len(link_ids)} case(s) on {snapshot_id}", flush=True)
     g = load_oracle_graph(snapshot_id)
 
     cases = []
     for i, lid in enumerate(link_ids, 1):
         try:
-            cases.append(review_one(snapshot_id, int(lid), g))
+            case = review_one(snapshot_id, int(lid), g)
+            try:
+                render_case_map(snapshot_id, case, maps_dir / f"link-{lid}.svg")
+                case["mapImage"] = f"maps/link-{lid}.svg"
+            except Exception as exc:  # noqa: BLE001
+                case["mapImage"] = None
+                case["mapError"] = f"{type(exc).__name__}: {exc}"
+            cases.append(case)
         except Exception as exc:  # noqa: BLE001
             cases.append({"linkId": int(lid),
                           "error": f"{type(exc).__name__}: {exc}"})

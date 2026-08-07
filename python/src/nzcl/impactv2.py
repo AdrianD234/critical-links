@@ -293,7 +293,17 @@ def _classify(ms: MovementSet, rs: ReplacementSet,
     flags: list[str] = []
     if ms.truncated or not ms.exhaustive:
         flags.append("MOVEMENT_CANDIDATES_TRUNCATED")
-    if corridor_result is not None and corridor_result.truncated:
+    # `evaluation_truncated`, NOT `truncated`. The corridor's `truncated` says
+    # a search bound acted - the beam pruned, the hop limit ended the walk -
+    # which on a real network is nearly always, because that is what a bounded
+    # search is. Gating the headline on it made 382 of 500 sampled national
+    # links read "Partial analysis", almost all from routine beam pruning: a
+    # warning on 77% of the network teaches people to ignore it, which is the
+    # geometry-gap lesson again. The headline gate fires on candidates that
+    # were GENERATED and never evaluated, because only such a candidate could
+    # have been the better answer nobody looked at.
+    if (corridor_result is not None
+            and getattr(corridor_result, "evaluation_truncated", False)):
         flags.append("CORRIDOR_CANDIDATES_TRUNCATED")
     if corridor_result is not None and corridor_result.confidence == "low":
         flags.append("CORRIDOR_CONFIDENCE_LOW")

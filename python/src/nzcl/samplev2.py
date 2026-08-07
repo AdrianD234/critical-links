@@ -481,7 +481,60 @@ def review_pack(rows: list[dict], limit: int = 25) -> list[dict]:
     ]
 
 
-def run(snapshot_id: str, size: int, out_dir: Path) -> int:
+def _checkpointed_rows(snapshot_id: str, plan: list[tuple[int, dict | None]],
+                       checkpoint: Path, *, resume: bool) -> list[dict]:
+    """Compute one row per planned link, appending each to disk AS COMPUTED.
+
+    A kill costs one link, not the run: a previous run of this chain died at
+    stage two of seven with an hour of computed rows buffered in a process
+    that no longer existed.
+
+    `resume=True` reuses checkpoint rows whose link is in the current plan. It
+    is only safe while the ENGINE is unchanged - resuming across an engine
+    change would silently mix two measurements in one file - which is why it
+    is an explicit flag and not the default.
+    """
+    done: dict[int, dict] = {}
+    if resume and checkpoint.exists():
+        wanted = {lid for lid, _s in plan}
+        for line in checkpoint.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue  # a line cut off mid-write; recompute that link
+            if int(row.get("linkId", -1)) in wanted:
+                done[int(row["linkId"])] = row
+        if done:
+            print(f"  resuming: {len(done)} row(s) from the checkpoint",
+                  flush=True)
+    elif checkpoint.exists():
+        checkpoint.unlink()
+
+    rows: list[dict] = []
+    started = time.perf_counter()
+    computed = 0
+    with open(checkpoint, "a", encoding="utf-8", newline="\n") as ck:
+        for i, (lid, strata) in enumerate(plan, 1):
+            if lid in done:
+                rows.append(done[lid])
+            else:
+                row = compare_one(snapshot_id, lid)
+                if strata is not None:
+                    row["strata"] = strata
+                rows.append(row)
+                ck.write(json.dumps(row, sort_keys=True, default=str) + "\n")
+                ck.flush()
+                computed += 1
+            if i % 25 == 0 or i == len(plan):
+                rate = ((time.perf_counter() - started) / max(computed, 1))
+                remaining = sum(1 for l, _ in plan[i:] if l not in done)
+                print(f"  {i}/{len(plan)}  {rate:.2f} s/link  "
+                      f"eta {rate * remaining / 60:.1f} min", flush=True)
+    return rows
+
+
+def run(snapshot_id: str, size: int, out_dir: Path, *,
+        resume: bool = False) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"snapshot {snapshot_id}: drawing {size} links "
           f"(seed {SAMPLE_SEED!r})", flush=True)
@@ -493,15 +546,10 @@ def run(snapshot_id: str, size: int, out_dir: Path) -> int:
     # the first link and make every stage figure a lie.
     physical.get(snapshot_id, "car")
 
-    rows: list[dict] = []
-    started = time.perf_counter()
-    for i, r in enumerate(sample, 1):
-        rows.append({**compare_one(snapshot_id, int(r["link_id"])),
-                     "strata": r["_strata"]})
-        if i % 25 == 0 or i == len(sample):
-            rate = (time.perf_counter() - started) / i
-            print(f"  {i}/{len(sample)}  {rate:.2f} s/link  "
-                  f"eta {rate * (len(sample) - i) / 60:.1f} min", flush=True)
+    rows = _checkpointed_rows(
+        snapshot_id,
+        [(int(r["link_id"]), r["_strata"]) for r in sample],
+        out_dir / "sample-rows.partial.jsonl", resume=resume)
 
     digest = replay_digest(rows)
     summary = summarise(rows, coverage, snapshot_id)
@@ -517,6 +565,8 @@ def run(snapshot_id: str, size: int, out_dir: Path) -> int:
     (out_dir / "review-pack.json").write_text(
         json.dumps(pack, indent=2, sort_keys=True, default=str) + "\n",
         encoding="utf-8")
+    # The final files are complete, so the checkpoint has served its purpose.
+    (out_dir / "sample-rows.partial.jsonl").unlink(missing_ok=True)
 
     print(json.dumps(summary, indent=2, sort_keys=True, default=str))
     print(f"\nreplay digest: {digest}")
@@ -589,7 +639,7 @@ def _turn_restricted_links(snapshot_id: str) -> set[int]:
 
 
 def run_cohort(snapshot_id: str, cohort: str, size: int, out_dir: Path,
-               rows_path: str | None = None) -> int:
+               rows_path: str | None = None, *, resume: bool = False) -> int:
     ids, what = cohort_links(snapshot_id, cohort, size, rows_path)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"\n=== cohort {cohort}: {len(ids)} link(s) ===\n{what}", flush=True)
@@ -597,13 +647,9 @@ def run_cohort(snapshot_id: str, cohort: str, size: int, out_dir: Path,
     rows: list[dict] = []
     if ids:
         physical.get(snapshot_id, "car")
-        started = time.perf_counter()
-        for i, lid in enumerate(ids, 1):
-            rows.append(compare_one(snapshot_id, int(lid)))
-            if i % 25 == 0 or i == len(ids):
-                rate = (time.perf_counter() - started) / i
-                print(f"  {i}/{len(ids)}  {rate:.2f} s/link  "
-                      f"eta {rate * (len(ids) - i) / 60:.1f} min", flush=True)
+        rows = _checkpointed_rows(
+            snapshot_id, [(int(lid), None) for lid in ids],
+            out_dir / f"cohort-{cohort}.partial.jsonl", resume=resume)
         summary = summarise(rows, {"cohort": cohort, "size": len(rows)},
                             snapshot_id)
     else:
@@ -622,6 +668,7 @@ def run_cohort(snapshot_id: str, cohort: str, size: int, out_dir: Path,
         (out_dir / f"cohort-{cohort}-rows.jsonl").write_text(
             "\n".join(json.dumps(r, sort_keys=True, default=str) for r in rows)
             + "\n", encoding="utf-8")
+    (out_dir / f"cohort-{cohort}.partial.jsonl").unlink(missing_ok=True)
     (out_dir / f"cohort-{cohort}.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n",
         encoding="utf-8")
@@ -640,24 +687,29 @@ def run_cohort(snapshot_id: str, cohort: str, size: int, out_dir: Path,
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
+    # --resume reuses checkpoint rows from an interrupted run of the SAME
+    # engine. Never the default: resuming across an engine change would mix
+    # two measurements in one file.
+    resume = "--resume" in argv
+    argv = [a for a in argv if a != "--resume"]
     if not argv or argv[0] not in ("run", "cohort"):
         print(__doc__)
         return 2
 
     if argv[0] == "cohort":
-        # cohort <snapshot> <name> <size> <outDir> [priorRows.jsonl]
+        # cohort <snapshot> <name> <size> <outDir> [priorRows.jsonl] [--resume]
         if len(argv) < 5:
             print(__doc__)
             return 2
         return run_cohort(argv[1], argv[2], int(argv[3]), Path(argv[4]),
-                          argv[5] if len(argv) > 5 else None)
+                          argv[5] if len(argv) > 5 else None, resume=resume)
 
     snapshot = argv[1] if len(argv) > 1 else db.query_one(
         "SELECT snapshot_id FROM network_snapshots WHERE coverage_kind='national'"
         " ORDER BY retrieved_at_utc DESC LIMIT 1")["snapshot_id"]
     size = int(argv[2]) if len(argv) > 2 else TARGET_SIZE
     out = Path(argv[3]) if len(argv) > 3 else Path("docs/audits/detour-v2")
-    return run(snapshot, size, out)
+    return run(snapshot, size, out, resume=resume)
 
 
 if __name__ == "__main__":

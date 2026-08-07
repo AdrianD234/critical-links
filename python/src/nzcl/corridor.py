@@ -351,7 +351,21 @@ class CorridorResult:
 
     status: str = "OK"
     detail: str = ""
+    #: A SEARCH BOUND was touched - the beam pruned, the hop limit ended the
+    #: walk, the expansion bound stopped a step. On a real network this is
+    #: nearly always true, because that is what a bounded search is; the
+    #: bounds are declared in `searchBounds` and this says one of them acted.
     truncated: bool = False
+    #: The sharper claim, and the one the HEADLINE gate uses: candidates were
+    #: GENERATED and then never evaluated - ports beyond the per-side cap that
+    #: were never paired, or pairs beyond the pair cap that were never routed.
+    #: Only then could an unevaluated candidate have been the better corridor.
+    #:
+    #: The distinction has teeth: gating the headline on `truncated` made 382
+    #: of 500 sampled national links read "Partial analysis", almost all of
+    #: them from routine beam pruning. A warning on 77% of the network teaches
+    #: people to ignore it - the geometry-gap lesson again.
+    evaluation_truncated: bool = False
     truncation_detail: str = ""
     bounds: dict = field(default_factory=dict)
     stage_ms: dict[str, int] = field(default_factory=dict)
@@ -448,13 +462,17 @@ def select(
         return out
 
     t = time.perf_counter()
-    up, up_trunc = _expand(snap, boundary, seeds_in, "upstream",
-                           removed_link_ids, profile, beam_width, max_hops,
-                           max_expansion_outward_m, max_candidates_per_side)
-    down, down_trunc = _expand(snap, boundary, seeds_out, "downstream",
-                               removed_link_ids, profile, beam_width, max_hops,
-                               max_expansion_outward_m, max_candidates_per_side)
+    up, up_trunc, up_eval = _expand(snap, boundary, seeds_in, "upstream",
+                                    removed_link_ids, profile, beam_width,
+                                    max_hops, max_expansion_outward_m,
+                                    max_candidates_per_side)
+    down, down_trunc, down_eval = _expand(snap, boundary, seeds_out,
+                                          "downstream", removed_link_ids,
+                                          profile, beam_width, max_hops,
+                                          max_expansion_outward_m,
+                                          max_candidates_per_side)
     out.truncated = up_trunc or down_trunc
+    out.evaluation_truncated = up_eval or down_eval
     # A seed is admitted whatever its length; flag it rather than drop it.
     for p in up + down:
         p.beyond_search_bound = p.outward_distance_m > max_expansion_outward_m
@@ -496,6 +514,9 @@ def select(
                     "claim is made about it")
     if dropped:
         out.truncated = True
+        # Pairs that exist and were never routed: the evaluation itself is
+        # incomplete, not merely bounded.
+        out.evaluation_truncated = True
         out.truncation_detail = (
             f"{len(dropped)} of {len(pairs)} candidate pair(s) were beyond the "
             f"bound of {max_pairs} and were not routed")
@@ -881,8 +902,6 @@ def _expand(snapshot_id: str, boundary: ClosureBoundary, seeds: Sequence[Port],
         p.reason_code = "NOT_EVALUATED_TRUNCATED"
         p.reason = (f"beyond the bound of {max_candidates} candidate(s) per "
                     "side; not paired and no claim is made about it")
-    if rest:
-        truncated = True
     for p in kept:
         p.reason_code = "CANDIDATE"
         p.reason = (f"reached {p.outward_distance_m:,.0f} m and {p.hops} hop(s) "
@@ -890,7 +909,13 @@ def _expand(snapshot_id: str, boundary: ClosureBoundary, seeds: Sequence[Port],
                     + (" - a genuine choice of route exists here"
                        if p.is_decision_point else
                        " - a through point, not a place to decide"))
-    return kept, truncated
+    # Two different facts, returned separately. `truncated` says a SEARCH
+    # BOUND was touched - the beam pruned, the hop limit ended the walk, the
+    # expansion bound stopped a step. Every bounded search does that on almost
+    # every real closure, and it is declared in `searchBounds`. `rest` is the
+    # sharper claim: candidates were GENERATED and then never evaluated, so an
+    # unevaluated candidate could have been the better corridor.
+    return kept, truncated, bool(rest)
 
 
 def _arc_lengths(snapshot_id: str, arc_ids: Sequence[int]) -> dict[int, float]:
@@ -1118,6 +1143,7 @@ def as_dict(c: CorridorResult) -> dict:
         "vehicleProfile": c.profile,
         "searchBounds": c.bounds,
         "truncated": c.truncated,
+        "evaluationTruncated": c.evaluation_truncated,
         "truncationDetail": c.truncation_detail,
         "upstreamCandidates": [port_dict(p) for p in c.upstream],
         "downstreamCandidates": [port_dict(p) for p in c.downstream],
