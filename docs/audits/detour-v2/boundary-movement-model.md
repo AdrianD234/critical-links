@@ -356,6 +356,62 @@ a ban would invent a constraint AMDS did not publish.
 This does not make any route road-legal, and nothing in the interface says it
 does.
 
+## Adjudication: what withholds a headline, and what does not
+
+**Coordinator adjudication, 2026-08-08. Open to reviewer override.**
+
+The rule: **corridor truncation — both `truncated` and `evaluationTruncated` —
+does not gate the top-level headline. Movement-candidate truncation gates
+"Partial analysis" unconditionally, unchanged.**
+
+The reasoning, recorded so a future reader can re-derive rather than obey:
+
+1. A gate belongs exactly where an unexamined candidate could change the claim
+   being gated. The headline's claims are MOVEMENT-level — whether a through
+   trip exists and what replaces it — and no corridor candidate can change
+   them. A corridor candidate can only change where the diversion is *said to
+   start*.
+2. Empirically, gating on corridor truncation made "Partial analysis" the
+   majority national headline: 386/500 under the first implementation
+   (`truncated`), still 291/500 after narrowing to `evaluationTruncated`, and
+   42/60 under the DEFAULT segment scope — because the walk by design
+   generates more candidates (beam 6 × 12 hops) than the 20-per-side pairing
+   cap evaluates. A warning the majority of results carry is not a warning: it
+   makes the genuinely partial cases — the 10 movement-truncated links, the
+   one flagged disagreement-review case — indistinguishable from routine
+   bounded search.
+3. The original concern ("an unexamined candidate could contain the only
+   disconnected movement or a worse detour") is about movement candidates, and
+   those still gate.
+
+Where the corridor incompleteness now lives, all of it in the corridor
+sub-result: `truncated` (a search bound acted), `evaluationTruncated`
+(candidates generated then never evaluated), the generated-versus-evaluated
+counts per side so the flag can be checked as a subtraction, `confidence: low`
+whenever evaluation truncated, and a **visible caveat line in the DEV panel** —
+"This starting point is provisional" — with the counts, wherever the corridor's
+start point is shown.
+
+Two tests pin the boundary of the rule: a real corridor whose evaluation
+truncates leaves the definitive headline standing while the corridor block
+carries the caveat material, and a spotless corridor cannot rescue a truncated
+movement search from "Partial analysis".
+
+### Digest mapping for this change
+
+The committed evidence was regenerated so it matches the shipped semantics.
+Old → new replay digests, with the cause being exactly this adjudication (plus
+the V1 timeout hotfix merge, which changed no sampled figure):
+
+| artefact | old digest | new digest |
+| --- | --- | --- |
+| stratified 500 | `428556bb…` | _regenerated below_ |
+| state_highway cohort | `e32f70ff…` | _regenerated below_ |
+| one_way cohort | `c6c07d08…` | _regenerated below_ |
+| truncated cohort | `457da3be…` | _regenerated below_ |
+| v1_cutoff_nonbridge cohort | `865a79cd…` | _regenerated below_ |
+| restricted_turn cohort | `92b2a05b…` | _regenerated below_ |
+
 ## The national sample
 
 500 links from the 374,786-link frame, drawn deterministically by

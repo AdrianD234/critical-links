@@ -733,12 +733,19 @@ export interface V2Corridor {
    */
   truncated: boolean;
   /**
-   * The sharper claim, and the one that withholds a definitive headline:
-   * candidates were GENERATED and then never evaluated. Only such a candidate
-   * could have been the better corridor nobody looked at. Gating on
-   * `truncated` instead made 382 of 500 sampled links read "Partial analysis".
+   * The sharper claim: candidates were GENERATED and then never evaluated, so
+   * an unexamined candidate could have made a better pair. By coordinator
+   * adjudication this does NOT gate the top-level headline — the headline's
+   * claims are movement-level and no corridor candidate can change them — but
+   * it lowers this block's `confidence` to `low` and MUST render as a visible
+   * caveat wherever the corridor's start point is shown.
    */
   evaluationTruncated: boolean;
+  /** The arithmetic behind the flag: check a subtraction, not a boolean. */
+  candidatesGeneratedUpstream: number;
+  candidatesGeneratedDownstream: number;
+  candidatesEvaluatedUpstream: number;
+  candidatesEvaluatedDownstream: number;
   truncationDetail: string;
   upstreamCandidates: V2CorridorPort[];
   downstreamCandidates: V2CorridorPort[];

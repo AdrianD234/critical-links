@@ -1036,42 +1036,92 @@ class TestTruncationWithholdsADefinitiveHeadline:
         assert "MOVEMENT_CANDIDATES_TRUNCATED" in flags
         assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in flags
 
-    def test_an_evaluation_truncated_corridor_also_downgrades(self, synthetic):
+    def test_corridor_truncation_never_gates_the_headline(self, synthetic):
+        """Coordinator adjudication: the gate belongs where an unexamined
+        candidate could change the claim being gated.
+
+        The headline's claims are MOVEMENT-level, and no corridor candidate
+        can change them - it can only change where the diversion is said to
+        start. Both flavours of corridor truncation therefore stay in the
+        corridor block (evaluationTruncated, generated-vs-evaluated counts,
+        confidence low, and a visible caveat in the panel) and neither
+        withholds a definitive headline. Empirically the alternative made
+        "Partial analysis" the majority national headline - 291/500 sampled,
+        42/60 under the default scope - which buries the genuinely partial
+        cases. Recorded in the audit doc; open to reviewer override.
+        """
         net = synthetic(FRONTAGE)
         c, b, ms, rs = stages(net, "M3")
+        assert ms.exhaustive, "this fixture's movement search is complete"
 
         class _EvalTruncated:
             truncated = True
             evaluation_truncated = True
-            confidence = "high"
+            confidence = "low"
 
         headline, flags = impactv2._classify(ms, rs, rs.paths[0],
                                              _EvalTruncated())
-        assert headline == "Partial analysis"
-        assert "CORRIDOR_CANDIDATES_TRUNCATED" in flags
+        # The definitive movement headline SURVIVES corridor truncation...
+        assert headline in impactv2.DEFINITIVE_HEADLINES
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" not in flags
+        # ...and the corridor's lowered confidence is still visible up top.
+        assert "CORRIDOR_CONFIDENCE_LOW" in flags
 
-    def test_a_merely_bounded_corridor_does_not_downgrade(self, synthetic):
-        """Beam pruning is the search working, not the search failing.
+    def test_the_corridor_caveat_is_in_the_corridor_block_not_the_headline(
+            self, synthetic):
+        """The end-to-end form: a real corridor whose evaluation truncates.
 
-        Gating the headline on the corridor's `truncated` flag made 382 of 500
-        sampled national links read "Partial analysis", almost all from routine
-        beam pruning. A warning firing on 77% of the network teaches people to
-        ignore it - the geometry-gap lesson again. Only candidates GENERATED
-        and never evaluated withhold the headline, because only such a
-        candidate could have been the better answer nobody looked at.
+        One candidate per side forces `rest` to be non-empty on both sides, so
+        this is genuine evaluation truncation, not a stub. The headline stays
+        definitive; the corridor block carries the caveat material the panel
+        renders - the flag, the arithmetic behind it, and confidence low.
         """
         net = synthetic(FRONTAGE)
-        c, b, ms, rs = stages(net, "M3")
+        lid = net.link_id("M3")
+        c = closure_mod.resolve(net.snapshot_id, lid)
+        b = ports.derive(net.snapshot_id, c.removed_link_ids, lid,
+                         c.fingerprint, shape=c.shape)
+        ms = movements.identify(b, c.removed_arc_ids)
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+        by_id = {p.port_id: p for p in b.ports}
+        m = ms.included[0]
+        cr = corridor.select(
+            b, c.removed_link_ids, c.removed_arc_ids,
+            entry_ports=[by_id[m.entry_port_id]],
+            exit_ports=[by_id[m.exit_port_id]],
+            witness_arcs=m.intact_arc_ids, max_candidates_per_side=1)
 
-        class _MerelyBounded:
-            truncated = True              # the beam pruned somewhere
-            evaluation_truncated = False  # but everything found was evaluated
+        assert cr.evaluation_truncated is True
+        assert cr.candidates_generated_upstream > \
+            cr.candidates_evaluated_upstream
+        assert cr.confidence == "low"
+
+        headline, flags = impactv2._classify(ms, rs, rs.paths[0], cr)
+        assert headline in impactv2.DEFINITIVE_HEADLINES
+        assert "CORRIDOR_CONFIDENCE_LOW" in flags
+
+    def test_movement_truncation_gates_regardless_of_a_clean_corridor(
+            self, synthetic):
+        """The other required direction: a spotless corridor cannot rescue a
+        truncated movement search."""
+        net = synthetic(FRONTAGE)
+        c, b, _, _ = stages(net, "M3")
+        ms = movements.identify(b, c.removed_arc_ids, max_ports_per_side=2)
+        rs = repl_mod.compute(ms, c.removed_arc_ids, c.removed_arc_ids,
+                              c.selected_segment_length_m)
+        assert not ms.exhaustive
+
+        class _CleanCorridor:
+            truncated = False
+            evaluation_truncated = False
             confidence = "high"
 
         headline, flags = impactv2._classify(ms, rs, rs.paths[0],
-                                             _MerelyBounded())
-        assert headline in impactv2.DEFINITIVE_HEADLINES
-        assert "CORRIDOR_CANDIDATES_TRUNCATED" not in flags
+                                             _CleanCorridor())
+        assert headline == "Partial analysis"
+        assert "MOVEMENT_CANDIDATES_TRUNCATED" in flags
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in flags
 
     def test_the_resolved_sub_results_stay_visible(self, synthetic):
         """Downgrading the headline must not hide what WAS established.

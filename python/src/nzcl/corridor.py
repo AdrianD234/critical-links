@@ -366,6 +366,12 @@ class CorridorResult:
     #: them from routine beam pruning. A warning on 77% of the network teaches
     #: people to ignore it - the geometry-gap lesson again.
     evaluation_truncated: bool = False
+    #: The arithmetic behind `evaluation_truncated`, so a reader checks a
+    #: subtraction instead of trusting a flag.
+    candidates_generated_upstream: int = 0
+    candidates_generated_downstream: int = 0
+    candidates_evaluated_upstream: int = 0
+    candidates_evaluated_downstream: int = 0
     truncation_detail: str = ""
     bounds: dict = field(default_factory=dict)
     stage_ms: dict[str, int] = field(default_factory=dict)
@@ -462,17 +468,27 @@ def select(
         return out
 
     t = time.perf_counter()
-    up, up_trunc, up_eval = _expand(snap, boundary, seeds_in, "upstream",
+    up, up_trunc, up_gen = _expand(snap, boundary, seeds_in, "upstream",
                                     removed_link_ids, profile, beam_width,
                                     max_hops, max_expansion_outward_m,
                                     max_candidates_per_side)
-    down, down_trunc, down_eval = _expand(snap, boundary, seeds_out,
-                                          "downstream", removed_link_ids,
-                                          profile, beam_width, max_hops,
-                                          max_expansion_outward_m,
-                                          max_candidates_per_side)
+    down, down_trunc, down_gen = _expand(snap, boundary, seeds_out,
+                                         "downstream", removed_link_ids,
+                                         profile, beam_width, max_hops,
+                                         max_expansion_outward_m,
+                                         max_candidates_per_side)
     out.truncated = up_trunc or down_trunc
-    out.evaluation_truncated = up_eval or down_eval
+    out.candidates_generated_upstream = up_gen
+    out.candidates_generated_downstream = down_gen
+    out.candidates_evaluated_upstream = len(up)
+    out.candidates_evaluated_downstream = len(down)
+    out.evaluation_truncated = (up_gen > len(up) or down_gen > len(down))
+    if out.evaluation_truncated:
+        # An incompletely evaluated candidate set cannot support a confident
+        # "the diversion starts here": a dropped candidate could have formed a
+        # better pair. The chosen pair is still real - witnessed, routed - but
+        # its selection is provisional, and the confidence says so.
+        out.confidence = "low"
     # A seed is admitted whatever its length; flag it rather than drop it.
     for p in up + down:
         p.beyond_search_bound = p.outward_distance_m > max_expansion_outward_m
@@ -909,13 +925,15 @@ def _expand(snapshot_id: str, boundary: ClosureBoundary, seeds: Sequence[Port],
                     + (" - a genuine choice of route exists here"
                        if p.is_decision_point else
                        " - a through point, not a place to decide"))
-    # Two different facts, returned separately. `truncated` says a SEARCH
-    # BOUND was touched - the beam pruned, the hop limit ended the walk, the
-    # expansion bound stopped a step. Every bounded search does that on almost
-    # every real closure, and it is declared in `searchBounds`. `rest` is the
-    # sharper claim: candidates were GENERATED and then never evaluated, so an
-    # unevaluated candidate could have been the better corridor.
-    return kept, truncated, bool(rest)
+    # Two different facts, returned separately, plus the arithmetic behind
+    # them. `truncated` says a SEARCH BOUND was touched - the beam pruned, the
+    # hop limit ended the walk, the expansion bound stopped a step. Every
+    # bounded search does that on almost every real closure, and it is
+    # declared in `searchBounds`. The generated TOTAL is returned so the
+    # result reports generated-versus-evaluated as numbers a reader can check,
+    # not as a bare flag: `rest` non-empty is the sharper claim that
+    # candidates were generated and then never evaluated.
+    return kept, truncated, len(ports)
 
 
 def _arc_lengths(snapshot_id: str, arc_ids: Sequence[int]) -> dict[int, float]:
@@ -1144,6 +1162,10 @@ def as_dict(c: CorridorResult) -> dict:
         "searchBounds": c.bounds,
         "truncated": c.truncated,
         "evaluationTruncated": c.evaluation_truncated,
+        "candidatesGeneratedUpstream": c.candidates_generated_upstream,
+        "candidatesGeneratedDownstream": c.candidates_generated_downstream,
+        "candidatesEvaluatedUpstream": c.candidates_evaluated_upstream,
+        "candidatesEvaluatedDownstream": c.candidates_evaluated_downstream,
         "truncationDetail": c.truncation_detail,
         "upstreamCandidates": [port_dict(p) for p in c.upstream],
         "downstreamCandidates": [port_dict(p) for p in c.downstream],

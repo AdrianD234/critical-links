@@ -293,18 +293,23 @@ def _classify(ms: MovementSet, rs: ReplacementSet,
     flags: list[str] = []
     if ms.truncated or not ms.exhaustive:
         flags.append("MOVEMENT_CANDIDATES_TRUNCATED")
-    # `evaluation_truncated`, NOT `truncated`. The corridor's `truncated` says
-    # a search bound acted - the beam pruned, the hop limit ended the walk -
-    # which on a real network is nearly always, because that is what a bounded
-    # search is. Gating the headline on it made 382 of 500 sampled national
-    # links read "Partial analysis", almost all from routine beam pruning: a
-    # warning on 77% of the network teaches people to ignore it, which is the
-    # geometry-gap lesson again. The headline gate fires on candidates that
-    # were GENERATED and never evaluated, because only such a candidate could
-    # have been the better answer nobody looked at.
-    if (corridor_result is not None
-            and getattr(corridor_result, "evaluation_truncated", False)):
-        flags.append("CORRIDOR_CANDIDATES_TRUNCATED")
+    # CORRIDOR truncation - either flavour - does NOT gate the headline.
+    #
+    # Coordinator adjudication, 2026-08-08, recorded in
+    # docs/audits/detour-v2/boundary-movement-model.md and open to reviewer
+    # override. A gate belongs exactly where an unexamined candidate could
+    # change the claim being gated. The headline's claims are MOVEMENT-level -
+    # whether a through trip exists and what replaces it - and no corridor
+    # candidate can change them; it can only change where the diversion is
+    # SAID TO START. That incompleteness lives in the corridor block itself:
+    # `evaluationTruncated`, the generated-versus-evaluated counts,
+    # `confidence: low`, and a visible caveat line in the panel.
+    #
+    # The empirical half: gating on corridor truncation made "Partial
+    # analysis" the MAJORITY national headline (291/500 sampled; 42/60 under
+    # the default scope), which buried the genuinely partial cases. Alarm
+    # fatigue is how real warnings die. Movement truncation still gates
+    # unconditionally below.
     if corridor_result is not None and corridor_result.confidence == "low":
         flags.append("CORRIDOR_CONFIDENCE_LOW")
 
@@ -324,12 +329,11 @@ def _classify(ms: MovementSet, rs: ReplacementSet,
     else:
         headline = "Through movement diverts"
 
-    # A definitive sentence needs an exhaustive search behind it. The resolved
-    # sub-results stay visible either way; what changes is that nothing claims
-    # to have looked at everything.
-    incomplete = ("MOVEMENT_CANDIDATES_TRUNCATED" in flags
-                  or "CORRIDOR_CANDIDATES_TRUNCATED" in flags)
-    if incomplete and headline in DEFINITIVE_HEADLINES:
+    # A definitive sentence needs an exhaustive MOVEMENT search behind it.
+    # Resolved sub-results stay visible either way; what changes is that
+    # nothing claims to have looked at every movement.
+    if ("MOVEMENT_CANDIDATES_TRUNCATED" in flags
+            and headline in DEFINITIVE_HEADLINES):
         return "Partial analysis", flags + ["HEADLINE_WITHHELD_NOT_EXHAUSTIVE"]
     return headline, flags
 

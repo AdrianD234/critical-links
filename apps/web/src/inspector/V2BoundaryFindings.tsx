@@ -232,6 +232,31 @@ function Corridor({ corridor }: { corridor: V2Corridor | null }) {
         <dt>Between them</dt>
         <dd>{km(corridor.chosenPair.replacementCostM)}</dd>
       </dl>
+      {/* An incompletely evaluated candidate set cannot support a confident
+        * "the diversion starts here". A caveat LINE, not a buried JSON field:
+        * the coordinator adjudication that moved corridor truncation out of
+        * the top-level headline requires it to be visibly stated here, where
+        * the corridor is shown. */}
+      {corridor.evaluationTruncated && (
+        <div className="notice notice--warning" role="status">
+          <div className="notice-title">This starting point is provisional</div>
+          <p>
+            The corridor search generated{' '}
+            {count(
+              corridor.candidatesGeneratedUpstream +
+                corridor.candidatesGeneratedDownstream,
+            )}{' '}
+            candidate places and evaluated{' '}
+            {count(
+              corridor.candidatesEvaluatedUpstream +
+                corridor.candidatesEvaluatedDownstream,
+            )}
+            . A candidate it did not evaluate could have made a better pair, so
+            where the diversion is said to start is provisional. The movement
+            figures above are unaffected — they do not depend on the corridor.
+          </p>
+        </div>
+      )}
       {/* The rule that chose it, in the engine's own sentence. A panel that
         * summarised it would be a second implementation of the rule. */}
       <p className="muted">{corridor.explanation}</p>
