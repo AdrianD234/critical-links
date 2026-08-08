@@ -162,6 +162,47 @@ describe('the V2 preview panel', () => {
 });
 
 /*
+ * The corridor caveat.
+ *
+ * The 2026-08-08 coordinator adjudication took corridor truncation OUT of the
+ * top-level headline in exchange for stating it where the corridor is shown.
+ * The engine half of that trade is pinned in python/tests/test_movements.py.
+ * This is the half the engine cannot check: if the caveat line were dropped,
+ * or stopped being gated on `evaluationTruncated`, or stopped quoting the
+ * generated-versus-evaluated counts, the adjudication would have removed a
+ * warning and put nothing in its place — and every Python test would still be
+ * green.
+ */
+describe('the corridor caveat the adjudication traded a headline gate for', () => {
+  const findings = source('inspector/V2BoundaryFindings.tsx');
+  const types = source('api/types.ts');
+
+  it('renders, gated on evaluationTruncated and nothing else', () => {
+    expect(findings).toContain('corridor.evaluationTruncated &&');
+    expect(findings).toContain('This starting point is provisional');
+  });
+
+  it('states the flag as the subtraction behind it', () => {
+    for (const field of [
+      'candidatesGeneratedUpstream',
+      'candidatesGeneratedDownstream',
+      'candidatesEvaluatedUpstream',
+      'candidatesEvaluatedDownstream',
+    ]) {
+      expect(types).toContain(field);
+      expect(findings).toContain(`corridor.${field}`);
+    }
+  });
+
+  it('says the movement figures are unaffected, because they are', () => {
+    /* The whole basis of the adjudication is that no corridor candidate can
+     * change a movement conclusion. The panel has to say so, or a reader sees
+     * a warning above numbers it does not apply to. */
+    expect(findings).toMatch(/movement\s+figures[\s\S]{0,40}unaffected/i);
+  });
+});
+
+/*
  * The boundary engine's vocabulary.
  *
  * Its headlines are the FIRST thing a reader of the new panel sees, and the

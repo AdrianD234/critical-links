@@ -1099,7 +1099,24 @@ class TestTruncationWithholdsADefinitiveHeadline:
 
         headline, flags = impactv2._classify(ms, rs, rs.paths[0], cr)
         assert headline in impactv2.DEFINITIVE_HEADLINES
+        assert headline != "Partial analysis"
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" not in flags
         assert "CORRIDOR_CONFIDENCE_LOW" in flags
+
+        # The caveat has to REACH the panel, not just exist on the dataclass.
+        # The adjudication traded a headline gate for a visible line in the
+        # corridor block; if the wire payload dropped any of the four fields
+        # that line is built from, the trade would be silently one-sided and
+        # every assertion above would still pass.
+        wire = corridor.as_dict(cr)
+        assert wire["evaluationTruncated"] is True
+        assert wire["confidence"] == "low"
+        generated = (wire["candidatesGeneratedUpstream"]
+                     + wire["candidatesGeneratedDownstream"])
+        evaluated = (wire["candidatesEvaluatedUpstream"]
+                     + wire["candidatesEvaluatedDownstream"])
+        assert generated > evaluated, (
+            "the panel states the flag as a subtraction; it has to be one")
 
     def test_movement_truncation_gates_regardless_of_a_clean_corridor(
             self, synthetic):
