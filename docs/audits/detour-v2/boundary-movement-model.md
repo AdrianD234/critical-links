@@ -276,8 +276,14 @@ reader cares about.
 
 Now: `MovementSet.exhaustive`, and any headline in `DEFINITIVE_HEADLINES` is
 downgraded to **Partial analysis** with `HEADLINE_WITHHELD_NOT_EXHAUSTIVE`
-whenever movement or corridor generation truncated. Resolved sub-results stay
-visible.
+whenever the MOVEMENT search truncated. Resolved sub-results stay visible.
+
+The first version of this fix also gated on corridor truncation. It no longer
+does — see [the adjudication below](#adjudication-what-withholds-a-headline-and-what-does-not),
+which narrowed the gate to movement truncation and moved the corridor's
+incompleteness into the corridor block. The 10 links that prompted this defect
+are movement-truncated and still read "Partial analysis"; what changed is the
+several hundred that were only ever corridor-truncated.
 
 Separately, the routing was bounded at 20×20 per side but the AUDIT PAYLOAD was
 not: `_truncation_rows` built the entire dropped cross-product as JSON. A
@@ -396,25 +402,77 @@ whenever evaluation truncated, and a **visible caveat line in the DEV panel** �
 "This starting point is provisional" — with the counts, wherever the corridor's
 start point is shown.
 
-Two tests pin the boundary of the rule: a real corridor whose evaluation
+Three tests pin the boundary of the rule. A real corridor whose evaluation
 truncates leaves the definitive headline standing while the corridor block
-carries the caveat material, and a spotless corridor cannot rescue a truncated
-movement search from "Partial analysis".
+carries the caveat material — flag, `confidence: low`, and generated-versus-
+evaluated counts that survive the trip to the client. A spotless corridor
+cannot rescue a truncated movement search from "Partial analysis". And the
+panel is asserted to render the caveat, gated on `evaluationTruncated`,
+quoting all four counts and stating that the movement figures are unaffected;
+without that assertion the trade could have been made one-sided — the warning
+removed, nothing put in its place — with every Python test still green.
+
+The first of those was mutation-verified: restoring the old gate makes it fail
+on the headline assertion, while the movement-truncation test keeps passing,
+so the two directions are pinned independently and neither is vacuous.
 
 ### Digest mapping for this change
 
-The committed evidence was regenerated so it matches the shipped semantics.
-Old → new replay digests, with the cause being exactly this adjudication (plus
-the V1 timeout hotfix merge, which changed no sampled figure):
+The committed evidence was regenerated so that it matches the shipped
+semantics. The cause of every change below is exactly this adjudication; the
+V1 timeout hotfix merge changed no sampled figure.
 
-| artefact | old digest | new digest |
+| artefact | superseded digest | shipped digest |
 | --- | --- | --- |
-| stratified 500 | `428556bb…` | _regenerated below_ |
-| state_highway cohort | `e32f70ff…` | _regenerated below_ |
-| one_way cohort | `c6c07d08…` | _regenerated below_ |
-| truncated cohort | `457da3be…` | _regenerated below_ |
-| v1_cutoff_nonbridge cohort | `865a79cd…` | _regenerated below_ |
-| restricted_turn cohort | `92b2a05b…` | _regenerated below_ |
+| stratified 500 | `bb7681d2…` → `428556bb…` | **`ad6c6454…`** |
+| state_highway cohort | `e32f70ff…` | **`7a1182b6…`** |
+| one_way cohort | `c6c07d08…` | **`58664a89…`** |
+| truncated cohort | `457da3be…` | **`d067dc46…`** |
+| v1_cutoff_nonbridge cohort | `865a79cd…` | **`f308c406…`** |
+| restricted_turn cohort | `92b2a05b…` | **`7e3c17ab…`** |
+| disagreement review (sha256, it carries no replay digest) | `32c2cdbb…` | **`ffde26b0…`** |
+
+The stratified sample carries two superseded digests because it has been
+regenerated twice. `bb7681d2…` was the figure this document quoted; it was
+already superseded by `428556bb…` when the sample was regenerated in `7aca13d`
+and the document was not updated to match. Both are kept here rather than
+dropped, because a digest that once appeared in a report is the thing a reader
+returns with, and silently deleting it makes their copy unexplainable. The
+stale runtime figures that travelled with `bb7681d2…` have been corrected in
+the same pass.
+
+The disagreement review was not part of the original regeneration list. It had
+to be regenerated anyway: 24 of its 26 cases carried "Partial analysis" and 23
+mentioned `CORRIDOR_CANDIDATES_TRUNCATED`, a flag the engine no longer emits,
+so it contradicted the engine it exists to audit. Its 26 case ids, its oracle
+verdicts (26 agree, 0 disagree) and its 26 rendered maps are unchanged — the
+adjudication does not touch corridor selection.
+
+### What changed in the evidence, and what did not
+
+Every cohort now shows "Partial analysis" equal to its movement-truncated
+count **exactly**, which is the invariant the rule predicts:
+
+| cohort | Partial analysis, superseded → shipped | movement-truncated |
+| --- | --- | --- |
+| stratified 500 | 291 → **10** | 10 |
+| state_highway | 157 → **17** | 17 |
+| one_way | 187 → **1** | 1 |
+| truncated | 10 → **10** | 10 |
+| v1_cutoff_nonbridge | 72 → **8** | 8 |
+| restricted_turn | 2 → **0** | 0 |
+
+A field-by-field diff of every row of all six artefacts against the superseded
+output finds **no difference outside two things**: headlines moving off
+"Partial analysis" — never onto it — and `qualityFlags` swapping
+`CORRIDOR_CANDIDATES_TRUNCATED` for `CORRIDOR_CONFIDENCE_LOW`. Every V1
+result, endpoint result, movement count, distance, penalty, port, corridor
+choice and isolation verdict is unchanged. The adjudication accounts for the
+whole delta and nothing else moved.
+
+`truncated` is the cohort that proves the gate still bites: all 10 of its
+links are movement-truncated, all 10 keep "Partial analysis", and only its
+`qualityFlags` changed.
 
 ## The national sample
 
@@ -447,9 +505,36 @@ question specifically about one-way behaviour needs its own sample.
 | errored | **0** |
 | geometry gaps in a replacement route | **0** |
 | movement candidate searches truncated by the bound | 10 |
-| replay digest | `bb7681d22afda98320a52630ed5314ffba6e329a099fcfbe033c549be040cab7` |
+| replay digest | `ad6c645422369f3cce3ead92f8a985ff1aca8f73affbe55ba974ec0725087610` |
 
-Runtime per request: p50 1,543 ms, p95 2,359 ms, max 2,725 ms.
+Runtime of the boundary request: p50 1,913 ms, p95 2,711 ms, max 3,468 ms.
+
+That is the boundary engine's own `total` stage and nothing else. A row of this
+sample runs THREE engines — V1, the endpoint measure and the boundary measure —
+and takes p50 6,915 ms end to end, which is what the batch progress line
+reports. The two are not comparable, and reading one as the other has already
+produced a false slowdown report once.
+
+### Headlines, and what the adjudication moved
+
+| headline | superseded rule | shipped rule |
+| --- | --- | --- |
+| Through movement has no represented replacement | 104 | **257** |
+| Through movement diverts | 27 | **155** |
+| No through movement identified | 78 | 78 |
+| Partial analysis | 291 | **10** |
+
+The 10 are exactly the 10 movement-truncated links — the gate the
+[adjudication](#adjudication-what-withholds-a-headline-and-what-does-not) kept.
+281 links left "Partial analysis" and **none moved onto it**.
+
+A field-by-field diff of all 500 rows against the superseded output finds no
+difference outside those headlines and a `qualityFlags` swap of
+`CORRIDOR_CANDIDATES_TRUNCATED` for `CORRIDOR_CONFIDENCE_LOW` on 285 rows.
+Every V1 result, endpoint result, movement count, distance, penalty, port,
+corridor choice and isolation verdict is unchanged, as are the status
+transitions, corridor port distances and topology confidence reported below.
+The adjudication accounts for the entire delta.
 
 ### Endpoint measure versus boundary measure
 
