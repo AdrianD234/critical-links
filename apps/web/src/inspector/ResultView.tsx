@@ -295,7 +295,7 @@ function Hero({
   if (kind === 'fault') {
     return (
       <div className="headline">
-        <div className="lab">No result</div>
+        <div className="lab">Analysis unresolved</div>
         <p className="sub" style={{ marginTop: 8 }}>
           {result.errorDetail ||
             'The analysis did not produce a result for this direction. The ' +
@@ -347,7 +347,28 @@ function Hero({
       );
     }
 
-    /* 2. Something really is stranded. */
+    /* 2. The through-trip search did not settle — it timed out, or the service
+     *    failed. Nothing below may run: "Road cut off" and "no replacement
+     *    path" both assert that traffic cannot get past, and the one search
+     *    that could have shown otherwise never finished. The endpoint measure
+     *    being DISCONNECTED does not settle it either; on a one-way
+     *    carriageway that result is routine and traffic gets past anyway. */
+    if (corridor && statusKindOf(corridor.status) === 'fault') {
+      return (
+        <div className="headline">
+          <div className="lab">Analysis unresolved</div>
+          <p className="sub" style={{ marginTop: 8 }}>
+            The endpoint measure found no path from the link&rsquo;s start back
+            to its own end, which is routine on a one-way carriageway. The
+            through-trip comparison that would say whether traffic still gets
+            past did not finish, so whether it does is unknown. This is not a
+            finding that the road is cut off.
+          </p>
+        </div>
+      );
+    }
+
+    /* 3. Something really is stranded. */
     if (hasPocket) {
       const len = distance(stranded!.pocketLengthM);
       return (
@@ -366,8 +387,8 @@ function Hero({
       );
     }
 
-    /* 3. Neither. There is no number to give, and inventing a zero would say
-     *    something false about what was found. */
+    /* 4. None of those. There is no number to give, and inventing a zero would
+     *    say something false about what was found. */
     return (
       <div className="headline">
         <div className="lab">No replacement path</div>

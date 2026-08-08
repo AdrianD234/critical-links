@@ -1,0 +1,67 @@
+fixture snapshot test-4f47d46714d6: 484 links, 259 nodes, 966 arcs
+
+========================================================================
+1. What the database actually does when the corridor query runs out of time
+========================================================================
+   raised psycopg.errors.QueryCanceled: canceling statement due to statement timeout
+
+   routing.route_many with the same 1 ms budget:
+     pairs   0
+     status  UNRESOLVED_TIMEOUT   (4.0 ms)
+   routing.route_many with a 60 s budget:
+     pairs   66564
+     status  OK   (447.5 ms)
+
+   Before the fix both calls returned a bare mapping, so a search that
+   found nothing and a search that never finished were the same value and
+   no caller could tell them apart.
+
+========================================================================
+2. What the V1 corridor search makes of that
+========================================================================
+
+   statement_timeout = 60000 ms
+     status  OK
+     detail  None
+     penalty 259.68757625671515
+
+   statement_timeout = 20 ms
+     status  OK
+     detail  None
+     penalty 259.68757625671515
+
+   statement_timeout = 5 ms
+     status  UNRESOLVED_TIMEOUT
+     detail  'statement timeout after 5 ms'
+     penalty None
+
+   statement_timeout = 1 ms
+     status  UNRESOLVED_TIMEOUT
+     detail  'statement timeout after 1 ms'
+     penalty None
+
+   Same network. Same closure. Same code. The only thing that changed is
+   how long the database was allowed to take.
+   Before the fix the tight budgets read DISCONNECTED, 'search space
+   exhausted with no route to target' - a claim about the road network.
+   After it they read UNRESOLVED_TIMEOUT, which is a claim about the search.
+
+========================================================================
+3. What the user is told
+========================================================================
+
+   -- adequate budget --
+     direction status  DISCONNECTED
+     corridor          {"status": "OK", "entryNode": 256, "exitNode": 11, "normalDistanceM": 1240.3124237432849, "alternativeDistanceM": 1500.0, "penaltyM": 259.68757625671515, "truncated": false, "exitReachable": true, "detail": null}
+     qualityFlags      ['SPEED_ESTIMATED', 'CLIPPED_EXTRACT', 'DISCONNECTED_UNVERIFIED_OUTSIDE_EXTRACT', 'ISOLATES_CUL_DE_SAC', 'ENDPOINT_MEASURE_UNDEFINED_CORRIDOR_USED']
+     isolation pocket  0 links, 0.0 m
+     UI headline       Added distance - through trip: +0.26 km
+
+   -- corridor squeezed to 5 ms --
+     direction status  DISCONNECTED
+     corridor          {"status": "UNRESOLVED_TIMEOUT", "entryNode": 240, "exitNode": 160, "normalDistanceM": null, "alternativeDistanceM": null, "penaltyM": null, "truncated": false, "exitReachable": true, "detail": "statement timeout after 5 ms"}
+     qualityFlags      ['SPEED_ESTIMATED', 'CLIPPED_EXTRACT', 'DISCONNECTED_UNVERIFIED_OUTSIDE_EXTRACT', 'ISOLATES_CUL_DE_SAC']
+     isolation pocket  0 links, 0.0 m
+     UI headline       Analysis unresolved
+
+   written: /mnt/c/Users/Adrian Desilvestro/Repos/Critical links-v1-timeout/python/../docs/audits/v1-timeout/captured-directions.json

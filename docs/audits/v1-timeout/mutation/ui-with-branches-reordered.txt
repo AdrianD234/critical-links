@@ -1,0 +1,26 @@
+
+ RUN  v2.1.9 C:/Users/Adrian Desilvestro/Repos/Critical links-v1-timeout
+
+ ❯ tests/unit/unresolved-headline.test.ts (4 tests | 1 failed) 4ms
+   × the unresolved headline > is decided before anything that claims traffic cannot get past 3ms
+     → "Road cut off" would be reached for a corridor search that never finished: expected 12840 to be less than 12452
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/unresolved-headline.test.ts > the unresolved headline > is decided before anything that claims traffic cannot get past
+AssertionError: "Road cut off" would be reached for a corridor search that never finished: expected 12840 to be less than 12452
+ ❯ tests/unit/unresolved-headline.test.ts:62:7
+     60|       unresolved,
+     61|       '"Road cut off" would be reached for a corridor search that neve…
+     62|     ).toBeLessThan(cutOff);
+       |       ^
+     63|     expect(
+     64|       unresolved,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  09:30:29
+   Duration  213ms (transform 21ms, setup 0ms, collect 20ms, tests 4ms, environment 0ms, prepare 57ms)
+
