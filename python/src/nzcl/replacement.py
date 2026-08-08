@@ -31,10 +31,14 @@ A search that did not finish is UNRESOLVED. It is never DISCONNECTED, and it is
 never a finding about a road. This is a stop-condition contract, and it is
 enforced structurally rather than by convention: `route_many_paths` returns a
 search STATUS alongside its paths, and this module refuses to read an absent
-pair as "no route" unless that status is OK. The older `routing.route_many`
-returns a bare dict that cannot express the difference, which is how V1's
-corridor search turns a statement timeout into `Corridor("DISCONNECTED", ...)`.
-Nothing here uses it.
+pair as "no route" unless that status is OK.
+
+V1 shipped the violation this structure prevents: `routing.route_many` then
+returned a bare dict that could not express the difference, and V1's corridor
+search read its emptiness as `Corridor("DISCONNECTED", ...)`. The V1 timeout
+hotfix (docs/audits/v1-timeout/, merged from main) has since given `route_many`
+the same status-beside-the-data shape. This module still does not use it: the
+movement model needs the ordered arc paths, not just costs.
 """
 
 from __future__ import annotations

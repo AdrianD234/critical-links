@@ -139,11 +139,15 @@ finding about a road. This is enforced structurally rather than by convention:
 `routing.route_many_paths` returns a search STATUS alongside its paths, and no
 V2 code may read an absent pair as "no route" unless that status is OK.
 
-**The older `routing.route_many` cannot express the difference**, and V1's
-corridor search reads its empty return as failure — `detour._corridor` falls
-through to `Corridor("DISCONNECTED", ...)` when a statement timeout is swallowed.
-V1 is frozen, so that behaviour is recorded here and left alone. Nothing in V2
-uses `route_many`.
+V1 shipped the violation this structure prevents: `routing.route_many` then
+returned a bare dict that could not express the difference, and V1's corridor
+search read its emptiness as `Corridor("DISCONNECTED", ...)`. This audit
+recorded that defect, and it has since been FIXED on main by the V1 timeout
+hotfix (PR #5, `docs/audits/v1-timeout/`, merged into this branch):
+`route_many` now returns `ManyCostResult` with the same status-beside-the-data
+shape, and `detour._corridor` carries UNRESOLVED_TIMEOUT / API_ERROR through.
+V2 still does not call `route_many` — the movement model needs ordered arc
+paths, not just costs.
 
 ## What is bounded, and what the bound costs
 

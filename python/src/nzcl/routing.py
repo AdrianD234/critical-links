@@ -378,14 +378,16 @@ class ManyRouteResult:
     pairs that were reached; a pair absent from `paths` means "no path" if and
     only if `status == "OK"`.
 
-    That distinction is the whole reason this type exists rather than a bare
-    dict. `route_many` above returns `{}` on any exception, so a caller cannot
-    tell a statement timeout from a graph with no route - and a caller that
-    reads an absent pair as "no route" turns a timeout into DISCONNECTED. V1's
-    corridor search does exactly that (`detour._corridor` falls through to
-    `Corridor("DISCONNECTED", ...)` when `route_many` swallows a timeout). V1
-    is frozen, so that behaviour is left alone and recorded; nothing in V2 is
-    allowed to inherit it.
+    The status-beside-the-data shape exists because a bare mapping cannot tell
+    a cancelled statement from a graph with no route, and a caller that reads
+    an absent pair as "no route" turns a timeout into DISCONNECTED. V1's
+    corridor search shipped that exact defect on `route_many`, which then
+    returned a bare dict; the V1 timeout hotfix (docs/audits/v1-timeout/,
+    merged from main) gave `route_many` its own `ManyCostResult` above. The
+    two types stay separate because they answer different questions -
+    `ManyCostResult` carries costs for ranking, this carries the ORDERED ARC
+    PATHS the movement model interrogates - and V1 and V2 must be able to
+    change shape independently while V1 is frozen.
     """
 
     status: Status
