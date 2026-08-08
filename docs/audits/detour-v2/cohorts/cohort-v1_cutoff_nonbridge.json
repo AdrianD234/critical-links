@@ -13,8 +13,8 @@
   },
   "endpointVsBoundary": {
     "boundaryHeadlines": {
-      "Partial analysis": 72,
-      "Through movement has no represented replacement": 42
+      "Partial analysis": 8,
+      "Through movement has no represented replacement": 106
     },
     "endpointDisconnectedButBoundaryDiverts": 0,
     "endpointDivertsButBoundaryDisconnected": 0,
@@ -36,47 +36,47 @@
   "isNationalEstimate": false,
   "movementCandidatesTruncated": 8,
   "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
-  "replayDigest": "865a79cdefc472d3e91205c286905d580affcef04c9aeab59d3062a222803636",
+  "replayDigest": "f308c40698995a76361d4168c84e47790e981e1363ec2211f17d71c70b12c7c7",
   "runtimeMsByStage": {
     "closure_resolution": {
-      "max": 4.0,
+      "max": 3.0,
       "p50": 1.0,
       "p95": 2.0
     },
     "corridor_expansion": {
-      "max": 1283.0,
-      "p50": 599.0,
-      "p95": 1195.0
+      "max": 1328.0,
+      "p50": 576.0,
+      "p95": 1227.0
     },
     "geometry_assembly": {
-      "max": 20.0,
+      "max": 3.0,
       "p50": 1.0,
       "p95": 2.0
     },
     "intact_movements": {
-      "max": 599.0,
-      "p50": 477.0,
-      "p95": 560.0
+      "max": 569.0,
+      "p50": 493.0,
+      "p95": 551.0
     },
     "isolation": {
-      "max": 1020.0,
-      "p50": 261.0,
-      "p95": 772.0
+      "max": 1060.0,
+      "p50": 268.0,
+      "p95": 814.0
     },
     "port_generation": {
-      "max": 20.0,
-      "p50": 1.0,
-      "p95": 4.0
+      "max": 8.0,
+      "p50": 2.0,
+      "p95": 6.0
     },
     "replacement_paths": {
-      "max": 853.0,
-      "p50": 567.0,
-      "p95": 725.0
+      "max": 866.0,
+      "p50": 583.0,
+      "p95": 755.0
     },
     "total": {
-      "max": 3251.0,
-      "p50": 2049.0,
-      "p95": 2746.0
+      "max": 3505.0,
+      "p50": 2057.0,
+      "p95": 2765.0
     }
   },
   "sampleSeed": "detour-v2-pr2-boundary-sample-1",

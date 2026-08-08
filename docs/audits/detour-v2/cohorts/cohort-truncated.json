@@ -36,47 +36,47 @@
   "isNationalEstimate": false,
   "movementCandidatesTruncated": 10,
   "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
-  "replayDigest": "457da3be3280d32d4b292c19aaa8fff1b144e51829c82a0baa1706ed1d5b795b",
+  "replayDigest": "d067dc461e081ea3578d768ec211cef58b4e3bc9d10e7aa247b7f4f6004441cc",
   "runtimeMsByStage": {
     "closure_resolution": {
       "max": 2.0,
-      "p50": 2.0,
+      "p50": 1.0,
       "p95": 2.0
     },
     "corridor_expansion": {
-      "max": 1351.0,
-      "p50": 652.0,
-      "p95": 1351.0
+      "max": 1226.0,
+      "p50": 529.0,
+      "p95": 1226.0
     },
     "geometry_assembly": {
-      "max": 4.0,
+      "max": 3.0,
       "p50": 2.0,
-      "p95": 4.0
+      "p95": 3.0
     },
     "intact_movements": {
-      "max": 626.0,
-      "p50": 591.0,
-      "p95": 626.0
+      "max": 542.0,
+      "p50": 522.0,
+      "p95": 542.0
     },
     "isolation": {
-      "max": 1762.0,
-      "p50": 982.0,
-      "p95": 1762.0
+      "max": 1740.0,
+      "p50": 960.0,
+      "p95": 1740.0
     },
     "port_generation": {
-      "max": 9.0,
-      "p50": 6.0,
-      "p95": 9.0
+      "max": 12.0,
+      "p50": 7.0,
+      "p95": 12.0
     },
     "replacement_paths": {
-      "max": 971.0,
-      "p50": 784.0,
-      "p95": 971.0
+      "max": 888.0,
+      "p50": 732.0,
+      "p95": 888.0
     },
     "total": {
-      "max": 3797.0,
-      "p50": 3157.0,
-      "p95": 3797.0
+      "max": 3509.0,
+      "p50": 2931.0,
+      "p95": 3509.0
     }
   },
   "sampleSeed": "detour-v2-pr2-boundary-sample-1",

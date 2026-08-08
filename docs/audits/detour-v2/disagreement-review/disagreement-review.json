@@ -5,14 +5,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 1484.6222014491716,
         "movementsConsidered": 36,
         "movementsIncluded": 28,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -256,14 +255,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 402.50832581810073,
         "movementsConsidered": 16,
         "movementsIncluded": 12,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -453,14 +451,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 68.18786642186888,
         "movementsConsidered": 16,
         "movementsIncluded": 14,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -658,14 +655,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 1179.2540398019648,
         "movementsConsidered": 144,
         "movementsIncluded": 132,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -1069,14 +1065,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 266.39651385812033,
         "movementsConsidered": 169,
         "movementsIncluded": 142,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -1476,14 +1471,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 310.8253501053867,
         "movementsConsidered": 49,
         "movementsIncluded": 42,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -1753,14 +1747,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 133.94460715356396,
         "movementsConsidered": 9,
         "movementsIncluded": 6,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -2149,14 +2142,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 1644.256620862783,
         "movementsConsidered": 25,
         "movementsIncluded": 20,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -2372,14 +2364,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 480.99553879335485,
         "movementsConsidered": 36,
         "movementsIncluded": 28,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -2616,14 +2607,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 162.00667124337366,
         "movementsConsidered": 110,
         "movementsIncluded": 63,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -3166,14 +3156,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 7.720883564255762,
         "movementsConsidered": 9,
         "movementsIncluded": 5,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -3337,14 +3326,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 109.56283177662655,
         "movementsConsidered": 25,
         "movementsIncluded": 20,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -3560,14 +3548,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 352.5361908366045,
         "movementsConsidered": 16,
         "movementsIncluded": 12,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -3756,14 +3743,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 954.5121381597164,
         "movementsConsidered": 121,
         "movementsIncluded": 108,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -4126,14 +4112,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 4175.248969173034,
         "movementsConsidered": 36,
         "movementsIncluded": 28,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -4370,14 +4355,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 28.759946671391244,
         "movementsConsidered": 81,
         "movementsIncluded": 68,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -4685,14 +4669,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 146.80590498200814,
         "movementsConsidered": 90,
         "movementsIncluded": 81,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -5663,14 +5646,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 1960.7149747609556,
         "movementsConsidered": 289,
         "movementsIncluded": 268,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -6181,14 +6163,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 37.365777387168976,
         "movementsConsidered": 49,
         "movementsIncluded": 38,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -6446,14 +6427,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 200.2016091680357,
         "movementsConsidered": 16,
         "movementsIncluded": 10,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -6639,14 +6619,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 115.93706360924628,
         "movementsConsidered": 25,
         "movementsIncluded": 16,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -6860,14 +6839,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 130.11710632260878,
         "movementsConsidered": 169,
         "movementsIncluded": 150,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
@@ -7272,14 +7250,13 @@
       "boundaryMeasure": {
         "closureComponents": 1,
         "exhaustive": true,
-        "headline": "Partial analysis",
+        "headline": "Through movement has no represented replacement",
         "intactDistanceM": 261.21049077024384,
         "movementsConsidered": 6,
         "movementsIncluded": 3,
         "omittedPairCount": 0,
         "qualityFlags": [
-          "CORRIDOR_CANDIDATES_TRUNCATED",
-          "HEADLINE_WITHHELD_NOT_EXHAUSTIVE"
+          "CORRIDOR_CONFIDENCE_LOW"
         ],
         "replacementDistanceM": null,
         "replacementStatus": "DISCONNECTED"
