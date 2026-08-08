@@ -1,0 +1,102 @@
+{
+  "cohort": "v1_cutoff_nonbridge",
+  "cohortDefinition": "every link where V1 says 'Road cut off' on a link that is NOT an undirected bridge - the shape the V1 audit found in 96.6% of state-highway cut-off results",
+  "corridorPortDistanceFromClosureM": {
+    "max": 212.7,
+    "n": 1,
+    "p50": 212.7,
+    "p95": 212.7
+  },
+  "coverage": {
+    "cohort": "v1_cutoff_nonbridge",
+    "size": 114
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "Partial analysis": 8,
+      "Through movement has no represented replacement": 106
+    },
+    "endpointDisconnectedButBoundaryDiverts": 0,
+    "endpointDivertsButBoundaryDisconnected": 0,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": null,
+      "min": null,
+      "n": 0,
+      "p50": null,
+      "p95": null
+    },
+    "statusTransitions": {
+      "DISCONNECTED -> DISCONNECTED": 114
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 8,
+  "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "f308c40698995a76361d4168c84e47790e981e1363ec2211f17d71c70b12c7c7",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 3.0,
+      "p50": 1.0,
+      "p95": 2.0
+    },
+    "corridor_expansion": {
+      "max": 1328.0,
+      "p50": 576.0,
+      "p95": 1227.0
+    },
+    "geometry_assembly": {
+      "max": 3.0,
+      "p50": 1.0,
+      "p95": 2.0
+    },
+    "intact_movements": {
+      "max": 569.0,
+      "p50": 493.0,
+      "p95": 551.0
+    },
+    "isolation": {
+      "max": 1060.0,
+      "p50": 268.0,
+      "p95": 814.0
+    },
+    "port_generation": {
+      "max": 8.0,
+      "p50": 2.0,
+      "p95": 6.0
+    },
+    "replacement_paths": {
+      "max": 866.0,
+      "p50": 583.0,
+      "p95": 755.0
+    },
+    "total": {
+      "max": 3505.0,
+      "p50": 2057.0,
+      "p95": 2765.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 114,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "low": 19,
+    "medium": 95
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 3,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "Directional access loss": 1,
+      "No endpoint route": 2,
+      "Road cut off": 111
+    },
+    "v1Wordings": {
+      "Road cut off": 114
+    }
+  }
+}

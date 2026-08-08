@@ -1,0 +1,477 @@
+[
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 17097,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 82299,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 114903,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement diverts",
+    "boundaryStatus": "OK",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": false,
+      "endpointSaysDisconnectedBoundaryDiverts": true,
+      "endpointVsBoundaryStatus": "DISCONNECTED -> OK",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "DISCONNECTED",
+    "linkId": 132419,
+    "penaltyDeltaM": null,
+    "v1": "No endpoint route",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 137185,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 147489,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 157091,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 163154,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 169247,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 235718,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 247514,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 271073,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 271735,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 278894,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 285616,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Partial analysis",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 295128,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 306020,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 313963,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 319571,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 327209,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 344869,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": true,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Road cut off",
+    "endpointStatus": "OK",
+    "linkId": 375011,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1001000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": false,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Through route found",
+    "endpointStatus": "OK",
+    "linkId": 8887,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1000000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": false,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Through route found",
+    "endpointStatus": "OK",
+    "linkId": 27644,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1000000000.0
+  },
+  {
+    "boundary": "Through movement has no represented replacement",
+    "boundaryStatus": "DISCONNECTED",
+    "differences": {
+      "classificationChanged": false,
+      "closureSetChanged": false,
+      "endpointDivertsBoundarySaysDisconnected": true,
+      "endpointSaysDisconnectedBoundaryDiverts": false,
+      "endpointVsBoundaryStatus": "OK -> DISCONNECTED",
+      "isolationChanged": false,
+      "penaltyDeltaM": null
+    },
+    "endpoint": "Through route found",
+    "endpointStatus": "OK",
+    "linkId": 29348,
+    "penaltyDeltaM": null,
+    "v1": "Through route found",
+    "weight": 1000000000.0
+  }
+]

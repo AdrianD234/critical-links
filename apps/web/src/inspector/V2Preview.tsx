@@ -28,8 +28,10 @@ import {
   MUTUAL_REACHABILITY_UNKNOWN_REASON,
   mutualReachability,
 } from '../v2Wording.js';
+import V2BoundaryFindings from './V2BoundaryFindings.js';
 import type {
   NetworkMetadata,
+  V2BoundaryAnalysis,
   V2Capabilities,
   V2ClosureAnalysis,
   V2DirectionResult,
@@ -37,6 +39,10 @@ import type {
 
 export default function V2Preview({
   analysis,
+  boundary,
+  boundaryLoading,
+  boundaryError,
+  onBoundaryRetry,
   capabilities,
   meta,
   pendingName,
@@ -48,6 +54,11 @@ export default function V2Preview({
   onRetry,
 }: {
   analysis: V2ClosureAnalysis | null;
+  /** The boundary-movement measure. A third question, not a better answer. */
+  boundary: V2BoundaryAnalysis | null;
+  boundaryLoading: boolean;
+  boundaryError: Error | null;
+  onBoundaryRetry: () => void;
   capabilities: V2Capabilities | null;
   meta: NetworkMetadata | null;
   pendingName: string | null;
@@ -96,6 +107,18 @@ export default function V2Preview({
       ) : (
         <Findings analysis={analysis} />
       )}
+
+      {/* The boundary measure comes AFTER the endpoint one, deliberately.
+        * The endpoint block above is what PR 1 shipped and what the shadow
+        * comparison is built on; this is the new question. Leading with it
+        * would imply the block above had been superseded, and it has not -
+        * they measure different things and both are reported. */}
+      <V2BoundaryFindings
+        analysis={boundary}
+        loading={boundaryLoading}
+        error={boundaryError}
+        onRetry={onBoundaryRetry}
+      />
 
       {/* The scope control belongs with the V2 figures: segment scope is the
         * whole reason this engine exists and it cannot be reached from the V1

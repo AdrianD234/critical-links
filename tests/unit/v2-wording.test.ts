@@ -25,7 +25,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  BOUNDARY_VS_ENDPOINT,
+  V2_BOUNDARY_DEFINITIVE_HEADLINES,
   MUTUAL_REACHABILITY_UNKNOWN,
+  V2_BOUNDARY_HEADLINES,
   V2_HEADLINES,
   mutualReachability,
 } from '../../apps/web/src/v2Wording.js';
@@ -155,5 +158,110 @@ describe('the V2 preview panel', () => {
     expect(types).toContain(
       'No isolation in the represented physical-access graph',
     );
+  });
+});
+
+/*
+ * The corridor caveat.
+ *
+ * The 2026-08-08 coordinator adjudication took corridor truncation OUT of the
+ * top-level headline in exchange for stating it where the corridor is shown.
+ * The engine half of that trade is pinned in python/tests/test_movements.py.
+ * This is the half the engine cannot check: if the caveat line were dropped,
+ * or stopped being gated on `evaluationTruncated`, or stopped quoting the
+ * generated-versus-evaluated counts, the adjudication would have removed a
+ * warning and put nothing in its place — and every Python test would still be
+ * green.
+ */
+describe('the corridor caveat the adjudication traded a headline gate for', () => {
+  const findings = source('inspector/V2BoundaryFindings.tsx');
+  const types = source('api/types.ts');
+
+  it('renders, gated on evaluationTruncated and nothing else', () => {
+    expect(findings).toContain('corridor.evaluationTruncated &&');
+    expect(findings).toContain('This starting point is provisional');
+  });
+
+  it('states the flag as the subtraction behind it', () => {
+    for (const field of [
+      'candidatesGeneratedUpstream',
+      'candidatesGeneratedDownstream',
+      'candidatesEvaluatedUpstream',
+      'candidatesEvaluatedDownstream',
+    ]) {
+      expect(types).toContain(field);
+      expect(findings).toContain(`corridor.${field}`);
+    }
+  });
+
+  it('says the movement figures are unaffected, because they are', () => {
+    /* The whole basis of the adjudication is that no corridor candidate can
+     * change a movement conclusion. The panel has to say so, or a reader sees
+     * a warning above numbers it does not apply to. */
+    expect(findings).toMatch(/movement\s+figures[\s\S]{0,40}unaffected/i);
+  });
+});
+
+/*
+ * The boundary engine's vocabulary.
+ *
+ * Its headlines are the FIRST thing a reader of the new panel sees, and the
+ * whole point of PR 2 is that they answer a different question from the
+ * endpoint ones. The two lists must therefore stay disjoint: a boundary
+ * headline appearing in the endpoint list would be a claim about the closed
+ * segment's own ends, made by an engine that never measured them.
+ */
+describe('boundary headlines', () => {
+  it('are exactly the four the engine documents', () => {
+    expect([...V2_BOUNDARY_HEADLINES].sort()).toEqual(
+      [
+        'Analysis unresolved',
+        'No through movement identified',
+        'Partial analysis',
+        'Through movement diverts',
+        'Through movement has no represented replacement',
+      ].sort(),
+    );
+  });
+
+  /*
+   * A bounded search may report what it found; it may not imply it found
+   * everything. The national sample recorded 10 truncated analyses that still
+   * carried a definitive sentence, which is why the two lists are separate.
+   */
+  it('separate the sentences that assert something about the road', () => {
+    for (const h of V2_BOUNDARY_DEFINITIVE_HEADLINES) {
+      expect(V2_BOUNDARY_HEADLINES).toContain(h);
+    }
+    expect(V2_BOUNDARY_DEFINITIVE_HEADLINES).not.toContain('Partial analysis');
+    expect(V2_BOUNDARY_DEFINITIVE_HEADLINES).not.toContain(
+      'Analysis unresolved',
+    );
+  });
+
+  it('share only the two non-findings with the endpoint vocabulary', () => {
+    const shared = V2_BOUNDARY_HEADLINES.filter((h) =>
+      (V2_HEADLINES as string[]).includes(h),
+    );
+    /* Both engines may fail to resolve or run out of budget, and both must say
+     * so in the same words. Everything else is a claim only one of them is
+     * entitled to make. */
+    expect([...shared].sort()).toEqual(
+      ['Analysis unresolved', 'Partial analysis'].sort(),
+    );
+  });
+
+  it('never describe a movement result as a road losing access', () => {
+    /* "Cut off" belongs to the undirected isolation result alone. A routing
+     * headline borrowing it is precisely the V1 defect PR 1 catalogued. */
+    for (const h of V2_BOUNDARY_HEADLINES) {
+      expect(h.toLowerCase()).not.toContain('cut off');
+      expect(h.toLowerCase()).not.toContain('isolat');
+    }
+  });
+
+  it('explains that a boundary/endpoint difference is not a disagreement', () => {
+    expect(BOUNDARY_VS_ENDPOINT).toContain('different quantities');
+    expect(BOUNDARY_VS_ENDPOINT).toContain('not a disagreement');
   });
 });

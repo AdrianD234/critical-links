@@ -560,3 +560,315 @@ export interface V2ClosureAnalysis {
   attribution?: string;
   limitations?: string[];
 }
+
+/* ------------------------------------------------------------------------
+ * V2 boundary-movement analysis.
+ *
+ * A THIRD measure, and the distinction matters more than the type does.
+ * `V2ClosureAnalysis` above measures between the closed segment's own two
+ * nodes. This measures trips ACROSS the closure boundary — which crossings
+ * genuinely went through here, and what each has to do instead.
+ *
+ * They are not two versions of one number. A client that showed them side by
+ * side under one label would be presenting a disagreement that does not exist,
+ * so `comparableToV1` is `false` here by construction and the response carries
+ * its own sentence saying why.
+ */
+
+/** Every headline the boundary engine may report. Exhaustive. */
+export type V2BoundaryHeadline =
+  | 'Through movement has no represented replacement'
+  | 'Through movement diverts'
+  | 'No through movement identified'
+  /**
+   * The search was BOUNDED and did not evaluate every candidate pair. The
+   * sub-results it did establish stay visible; what is withheld is any
+   * sentence that would imply it had looked at everything.
+   */
+  | 'Partial analysis'
+  | 'Analysis unresolved';
+
+/**
+ * Ordered geometry, split at every discontinuity.
+ *
+ * `geometry` is a MultiLineString even when there is one piece, so a client
+ * cannot flatten it into a single coordinate list and thereby draw a straight
+ * line across a gap. `animationSafe` is false whenever that would matter.
+ */
+export interface V2RouteGeometry {
+  geometry: GeoJSON.MultiLineString | null;
+  /**
+   * `route` is an ordered path, where two pieces that do not meet are a defect
+   * worth warning about. `collection` is a set of links - the closure, the
+   * selected segment - with no order at all, where the space between two of
+   * them is not a gap in anything. A collection always reports `hasGaps:
+   * false`, and is never animation-safe: sweeping along it would animate an
+   * order that means nothing.
+   */
+  kind: "route" | "collection";
+  pieceCount: number;
+  continuous: boolean;
+  hasGaps: boolean;
+  /** False for a gapped route: a reveal animation implies one unbroken line. */
+  animationSafe: boolean;
+  gapCount: number;
+  gaps: {
+    afterArcId: number;
+    beforeArcId: number;
+    atNode: number;
+    distanceM: number;
+    fromLonLat: [number, number];
+    toLonLat: [number, number];
+  }[];
+  missingArcIds: number[];
+  totalDrawnLengthM: number;
+  qualityFlags: string[];
+  gapToleranceM: number;
+}
+
+export interface V2Movement {
+  movementId: string;
+  entryPortId: string;
+  exitPortId: string;
+  fromNode: number;
+  toNode: number;
+  entryNode: number;
+  exitNode: number;
+  entryLinkId: number;
+  exitLinkId: number;
+  entryDirection: string;
+  exitDirection: string;
+  included: boolean;
+  reasonCode: string;
+  reason: string;
+  intactDistanceM: number | null;
+  intactTimeS: number | null;
+  removedArcIdsUsed: number[];
+  staysWithinClosure: boolean;
+  evidence: string[];
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface V2ReplacementPath {
+  movementId: string;
+  status: string;
+  resolved: boolean;
+  detail: string;
+  intactDistanceM: number | null;
+  replacementDistanceM: number | null;
+  networkPenaltyM: number | null;
+  addedVsSegmentM: number | null;
+  ratio: number | null;
+  addedTimeS: number | null;
+  arcIds: number[];
+  linkIds: number[];
+  /** True would be a stop condition: a replacement using the road it replaces. */
+  traversesOwnClosure: boolean;
+  topologyConfidence: string;
+  /**
+   * The route checked against the restricted-turn table. `ok: false` means the
+   * route uses a prohibited turn and is NOT offered as the replacement.
+   */
+  turnCheck: {
+    checked: boolean;
+    ok: boolean;
+    applicableRestrictions: number;
+    violationCount: number;
+    violations: number[][];
+    detail: string;
+  } | null;
+  qualityFlags: string[];
+  movement?: V2Movement | null;
+}
+
+export interface V2CorridorPort {
+  candidateId: string;
+  side: 'upstream' | 'downstream';
+  node: number;
+  outwardDistanceM: number;
+  hops: number;
+  stableKey: string;
+  continuityRank: number[];
+  evidence: string[];
+  roadName: string | null;
+  routeDesignation: string | null;
+  isStateHighway: boolean;
+  nodeDegree: number;
+  /** Three or more open links meet here, so a driver has a choice to make. */
+  isDecisionPoint: boolean;
+  /** Further from the closure than the walk expands. Only a seed can be. */
+  beyondSearchBound: boolean;
+  included: boolean;
+  reasonCode: string;
+  reason: string;
+}
+
+export interface V2CorridorPair {
+  pairId: string;
+  upstreamId: string;
+  downstreamId: string;
+  upstreamNode: number;
+  downstreamNode: number;
+  upstreamOutwardM: number;
+  downstreamOutwardM: number;
+  maxOutwardM: number;
+  combinedOutwardM: number;
+  replacementCostM: number | null;
+  bothDecisionPoints: boolean;
+  valid: boolean;
+  reasonCode: string;
+  reason: string;
+}
+
+export interface V2Corridor {
+  corridorModelVersion: string;
+  status: string;
+  resolved: boolean;
+  detail: string;
+  searchBounds: Record<string, number>;
+  /**
+   * A SEARCH BOUND acted — the beam pruned, the hop limit ended the walk. On a
+   * real network this is nearly always true, because that is what a bounded
+   * search is; the bounds themselves are declared in `searchBounds`.
+   */
+  truncated: boolean;
+  /**
+   * The sharper claim: candidates were GENERATED and then never evaluated, so
+   * an unexamined candidate could have made a better pair. By coordinator
+   * adjudication this does NOT gate the top-level headline — the headline's
+   * claims are movement-level and no corridor candidate can change them — but
+   * it lowers this block's `confidence` to `low` and MUST render as a visible
+   * caveat wherever the corridor's start point is shown.
+   */
+  evaluationTruncated: boolean;
+  /** The arithmetic behind the flag: check a subtraction, not a boolean. */
+  candidatesGeneratedUpstream: number;
+  candidatesGeneratedDownstream: number;
+  candidatesEvaluatedUpstream: number;
+  candidatesEvaluatedDownstream: number;
+  truncationDetail: string;
+  upstreamCandidates: V2CorridorPort[];
+  downstreamCandidates: V2CorridorPort[];
+  candidatePairs: V2CorridorPair[];
+  candidatePairCount: number;
+  validPairCount: number;
+  chosenPair: V2CorridorPair | null;
+  /** `decision_points` or `all_candidates` — which tier the choice came from. */
+  admissibilityLevel: string;
+  /**
+   * `low` when the chosen pair reaches further from the closure than the walk
+   * was allowed to expand. The corridor is real; it is just not the near,
+   * recognisable place the rule aims for.
+   */
+  confidence: string;
+  seedBeyondSearchBound: boolean;
+  /**
+   * The INTACT trip the chosen pair is built on. Without it a pair can have a
+   * good post-closure route while the cheapest intact route between those two
+   * nodes never used the closure — a diversion nobody needs to make.
+   */
+  witness: {
+    arcIds: number[];
+    fromNode: number;
+    toNode: number;
+    continuous: boolean;
+    connectsChosenNodes: boolean;
+    traversesClosure: boolean;
+    closureArcsUsed: number[];
+    valid: boolean;
+    detail: string;
+  } | null;
+  witnessRejections: { pairId: string; detail: string }[];
+  explanation: string;
+  continuityEvidenceUsed: string[];
+  continuityEvidenceExcluded: { evidence: string; reason: string }[];
+}
+
+export interface V2BoundaryAnalysis {
+  snapshotId: string;
+  linkId: number;
+  engine: 'v2-boundary';
+  algorithm: string;
+  algorithmVersion: string;
+  stability: string;
+  request: { scope: V2ClosureScope; metric: string; vehicle: string };
+  headline: V2BoundaryHeadline;
+  qualityFlags: string[];
+  closure: V2Closure;
+  boundary: {
+    portModelVersion: string;
+    shape: string;
+    closureNodes: number[];
+    interiorNodes: number[];
+    boundaryNodes: number[];
+    entryPortCount: number;
+    exitPortCount: number;
+    /** True when the port measure and the endpoint measure coincide. */
+    reducesToEndpoints: boolean;
+    selectedComponentId: number;
+    closureComponentCount: number;
+    closureIsDisjoint: boolean;
+    detail: string;
+  };
+  movements: {
+    status: string;
+    resolved: boolean;
+    detail: string;
+    candidatePairs: number;
+    candidateBound: number;
+    truncated: boolean;
+    /**
+     * True only when every candidate pair was actually evaluated. When false,
+     * no headline may imply the search looked at everything.
+     */
+    exhaustive: boolean;
+    /** Disconnected pieces of the closure. Pairs form WITHIN a piece. */
+    closureComponents: number;
+    componentsConsidered: number;
+    omittedPairCount: number;
+    omittedEntryPorts: number;
+    omittedExitPorts: number;
+    crossComponentPairCount: number;
+    /** Bounded worked examples, never the whole omitted cross-product. */
+    omittedPairSampleLimit: number;
+    omittedPairSample: {
+      entryStableKey: string;
+      exitStableKey: string;
+      entryComponent: number;
+      exitComponent: number;
+      reason: string;
+    }[];
+    includedCount: number;
+    movements: V2Movement[];
+  };
+  replacements: {
+    algorithm: string;
+    canonicalAnswer: string;
+    status: string;
+    resolved: boolean;
+    detail: string;
+    pathCount: number;
+    resolvedCount: number;
+    disconnectedCount: number;
+    unresolvedCount: number;
+    paths: V2ReplacementPath[];
+  };
+  principal: V2ReplacementPath | null;
+  corridor: V2Corridor | null;
+  /** Kept in its own block. Never folded into the routing result. */
+  isolation: V2Isolation | null;
+  geometry: {
+    selectedSegment?: V2RouteGeometry;
+    closure?: V2RouteGeometry;
+    intactMovement?: V2RouteGeometry;
+    replacement?: V2RouteGeometry;
+  } | null;
+  stageMs: Record<string, number>;
+  runtimeMs: number;
+  /** Always false: this asks a different question from V1, not a better one. */
+  comparableToV1: boolean;
+  comparableToV1Detail: string;
+  selectedLink: LinkSummary;
+  attribution?: string;
+  limitations?: string[];
+}

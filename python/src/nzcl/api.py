@@ -1186,6 +1186,67 @@ def _links_geojson_v2(snap: str, link_ids: list[int]) -> dict[str, Any] | None:
     }
 
 
+@app.get("/api/v2/links/{link_ref:path}/boundary-analysis")
+def boundary_analysis_v2(
+    link_ref: str,
+    scope: Literal["segment", "direction", "source_feature"] = "segment",
+    direction: Literal["forward", "reverse"] | None = None,
+    metric: Metric = "distance",
+    vehicle: Profile = "car",
+    geometry: bool = True,
+    corridor: bool = True,
+    isolation: bool = True,
+    allMovements: bool = True,
+) -> dict[str, Any]:
+    """Closure impact measured across the closure BOUNDARY, not between the
+    closed segment's own two nodes.
+
+    A third path, beside V1 and beside `/closure-analysis`. It is not a
+    replacement for either: `/closure-analysis` answers the endpoint question
+    under an explicit scope, this answers the through-movement question, and a
+    client that wants both asks for both. Nothing above this line changed.
+
+    `geometry` defaults to TRUE here, unlike everywhere else in this API. The
+    principal claim of this endpoint is that a trip diverted along a particular
+    route, and a route without its geometry cannot be checked by looking at it.
+    """
+    from . import impactv2
+
+    link = _resolve(link_ref)
+    snap = snapshot_id()
+
+    if scope == "direction" and direction is None:
+        raise HTTPException(
+            422, "scope=direction needs direction=forward or direction=reverse: "
+                 "a single directed traversal has to say which one")
+
+    try:
+        result = impactv2.analyse(
+            snap, int(link["link_id"]), scope=scope, direction=direction,
+            metric=metric, profile=vehicle, with_geometry=geometry,
+            with_corridor=corridor, with_isolation=isolation)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+    body = impactv2.as_dict(result, include_all_movements=allMovements)
+    body["snapshotId"] = snap
+    body["attribution"] = _ACTIVE["meta"]["attribution"]
+    body["limitations"] = LIMITATIONS
+    # V1 answers a different question by a different measure. Saying so here
+    # stops a client presenting the two side by side as though they disagreed.
+    body["comparableToV1"] = False
+    body["comparableToV1Detail"] = (
+        "V1 measures between the closed segment's own two nodes. This measures "
+        "trips across the closure boundary. The two are not the same quantity "
+        "and a difference between them is not evidence that either is wrong.")
+    body["selectedLink"] = _link_summary(
+        link, _locality_lookup(snap, [int(link["link_id"])]).get(
+            int(link["link_id"])), labels=True)
+    return body
+
+
 @app.get("/api/v2/links/{link_ref:path}/shadow-comparison")
 def shadow_comparison(
     link_ref: str,

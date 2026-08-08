@@ -54,6 +54,7 @@ import {
 import type { LinkSummary } from './api/types.js';
 import {
   resultVersion,
+  useBoundaryAnalysisV2,
   useClosureAnalysisV2,
   useDetour,
   useMetadata,
@@ -351,6 +352,69 @@ export default function ExploreScreen() {
   );
   const analysis = v2Q.data ?? null;
 
+  /* The boundary-movement request, on its own query key. See queries.ts for
+   * why it must never share a cache entry with the endpoint analysis above. */
+  const boundaryQ = useBoundaryAnalysisV2(
+    {
+      link,
+      scenario,
+      direction: focusKey,
+      version: v2ResultVersion(v2CapsQ.data),
+    },
+    v2,
+  );
+  const boundary = boundaryQ.data ?? null;
+
+  /*
+   * What the map draws under the V2 engine.
+   *
+   * Built from the boundary result rather than the V1 one. Under V2 the panel
+   * is describing the boundary measure, and drawing V1's route beside V2's
+   * figures would attribute one engine's line to the other's numbers.
+   *
+   * The geometry arrives as a MultiLineString of contiguous PIECES and is
+   * expanded into one LineString feature per piece. That is what lets the
+   * map's existing gap handling work on it: it merges consecutive features
+   * only where they actually meet, and turns the reveal animation off where
+   * they do not. Handing it one flattened line would draw straight across
+   * every gap, which is the single thing this must never do.
+   */
+  const v2MapResult: MapResult | null = useMemo(() => {
+    if (!v2 || !boundary) return null;
+    const pieces = (g?: { geometry: GeoJSON.MultiLineString | null }) =>
+      g?.geometry
+        ? ({
+            type: 'FeatureCollection',
+            features: g.geometry.coordinates.map((coordinates, i) => ({
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates },
+              properties: { piece: i },
+            })),
+          } as GeoJSON.FeatureCollection)
+        : null;
+    return {
+      closure: pieces(
+        boundary.geometry?.closure ?? boundary.geometry?.selectedSegment,
+      ),
+      focus: pieces(boundary.geometry?.replacement),
+      compare: null,
+      corridor: null,
+      stranded: null,
+      /* Framed on the closure AND the replacement together, computed from the
+       * drawn pieces. The V2 endpoint returns no bounds of its own, and with
+       * none the map stays wherever it was - which on a national snapshot
+       * means the answer is drawn somewhere off screen. */
+      fitBounds: boundsOf([
+        boundary.geometry?.closure,
+        boundary.geometry?.selectedSegment,
+        boundary.geometry?.replacement,
+      ]),
+      /* Carries the engine name, so switching engines cannot replay a V1
+       * reveal over a V2 line. */
+      revealKey: `v2b:${boundary.snapshotId}:${boundary.linkId}:${scenario.metric}:${scenario.vehicle}:${scenario.closureScope}`,
+    };
+  }, [v2, boundary, scenario]);
+
   const mapResult: MapResult | null = useMemo(() => {
     if (!detour) return null;
     const focused = detour[focusKey];
@@ -471,6 +535,10 @@ export default function ExploreScreen() {
     ) : v2 ? (
       <V2Preview
         analysis={analysis}
+        boundary={boundary}
+        boundaryLoading={boundaryQ.isPending}
+        boundaryError={(boundaryQ.error as Error) ?? null}
+        onBoundaryRetry={() => boundaryQ.refetch()}
         capabilities={v2Caps}
         meta={meta}
         pendingName={pendingName}
@@ -589,7 +657,7 @@ export default function ExploreScreen() {
           <NetworkMap
             snapshotId={meta?.snapshotId ?? null}
             tileSchemaVersion={meta?.tileSchemaVersion ?? 2}
-            result={mapResult}
+            result={v2 ? v2MapResult : mapResult}
             onPickLink={onPickLink}
             onHoverChange={setHover}
             onScaleChange={setScale}
@@ -667,3 +735,30 @@ export default function ExploreScreen() {
 }
 
 export { INSPECTOR_MIN };
+
+/**
+ * A bounding box over several route geometries, or null if none has any.
+ *
+ * Computed from the DRAWN pieces rather than from a separate extent field, so
+ * the frame can never include ground that is not on screen — a gapped route
+ * whose pieces are far apart frames all of them, and nothing between.
+ */
+function boundsOf(
+  geoms: ({ geometry: GeoJSON.MultiLineString | null } | undefined)[],
+): [number, number, number, number] | null {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  for (const g of geoms) {
+    for (const piece of g?.geometry?.coordinates ?? []) {
+      for (const [lon, lat] of piece) {
+        if (lon < west) west = lon;
+        if (lon > east) east = lon;
+        if (lat < south) south = lat;
+        if (lat > north) north = lat;
+      }
+    }
+  }
+  return Number.isFinite(west) ? [west, south, east, north] : null;
+}

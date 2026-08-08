@@ -1,0 +1,128 @@
+{
+  "corridorPortDistanceFromClosureM": {
+    "max": 10582.8,
+    "n": 168,
+    "p50": 126.3,
+    "p95": 3131.4
+  },
+  "coverage": {
+    "bridge=bridge": 195,
+    "bridge=not_bridge": 305,
+    "children=multi_child": 250,
+    "children=single_child": 250,
+    "direction=one_way": 21,
+    "direction=two_way": 479,
+    "distinct_authorities": 70,
+    "feature_size=long": 98,
+    "feature_size=medium": 104,
+    "feature_size=short": 298,
+    "frame_size": 374786,
+    "island=north": 325,
+    "island=south": 175,
+    "naming=named": 412,
+    "naming=unresolved": 88,
+    "road_class=local": 485,
+    "road_class=state_highway": 15,
+    "urban_rural=rural": 238,
+    "urban_rural=urban": 232
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "No through movement identified": 78,
+      "Partial analysis": 10,
+      "Through movement diverts": 155,
+      "Through movement has no represented replacement": 257
+    },
+    "endpointDisconnectedButBoundaryDiverts": 3,
+    "endpointDivertsButBoundaryDisconnected": 26,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": 12723.8,
+      "min": 0.0,
+      "n": 152,
+      "p50": 0.0,
+      "p95": 727.6
+    },
+    "statusTransitions": {
+      "DISCONNECTED -> DISCONNECTED": 241,
+      "DISCONNECTED -> None": 74,
+      "DISCONNECTED -> OK": 3,
+      "OK -> DISCONNECTED": 26,
+      "OK -> None": 4,
+      "OK -> OK": 152
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 10,
+  "note": "A stratified sample chosen to span awkward cases. Every proportion below is a proportion OF THIS SAMPLE and is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "ad6c645422369f3cce3ead92f8a985ff1aca8f73affbe55ba974ec0725087610",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 4.0,
+      "p50": 1.0,
+      "p95": 3.0
+    },
+    "corridor_expansion": {
+      "max": 1477.0,
+      "p50": 639.0,
+      "p95": 1277.0
+    },
+    "geometry_assembly": {
+      "max": 5.0,
+      "p50": 0.0,
+      "p95": 2.0
+    },
+    "intact_movements": {
+      "max": 679.0,
+      "p50": 540.0,
+      "p95": 623.0
+    },
+    "isolation": {
+      "max": 866.0,
+      "p50": 117.0,
+      "p95": 348.0
+    },
+    "port_generation": {
+      "max": 28.0,
+      "p50": 3.0,
+      "p95": 8.0
+    },
+    "replacement_paths": {
+      "max": 993.0,
+      "p50": 575.0,
+      "p95": 746.0
+    },
+    "total": {
+      "max": 3468.0,
+      "p50": 1913.0,
+      "p95": 2711.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 500,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "low": 81,
+    "medium": 419
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 45,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "Directional access loss": 2,
+      "Network split into two represented components": 4,
+      "No endpoint route": 82,
+      "Road cut off": 254,
+      "Through route found": 158
+    },
+    "v1Wordings": {
+      "No endpoint route": 94,
+      "Road cut off": 224,
+      "Through route found": 182
+    }
+  }
+}
