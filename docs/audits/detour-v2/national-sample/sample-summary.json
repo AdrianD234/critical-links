@@ -29,8 +29,9 @@
   "endpointVsBoundary": {
     "boundaryHeadlines": {
       "No through movement identified": 78,
-      "Through movement diverts": 155,
-      "Through movement has no represented replacement": 267
+      "Partial analysis": 291,
+      "Through movement diverts": 27,
+      "Through movement has no represented replacement": 104
     },
     "endpointDisconnectedButBoundaryDiverts": 3,
     "endpointDivertsButBoundaryDisconnected": 26,
@@ -57,17 +58,17 @@
   "isNationalEstimate": false,
   "movementCandidatesTruncated": 10,
   "note": "A stratified sample chosen to span awkward cases. Every proportion below is a proportion OF THIS SAMPLE and is not an estimate of the national network. No human has reviewed these results.",
-  "replayDigest": "bb7681d22afda98320a52630ed5314ffba6e329a099fcfbe033c549be040cab7",
+  "replayDigest": "428556bb676fc35190d5a245123995a8408e9ebd59be17c32cd20dad1f15427f",
   "runtimeMsByStage": {
     "closure_resolution": {
       "max": 3.0,
       "p50": 1.0,
-      "p95": 2.0
+      "p95": 3.0
     },
     "corridor_expansion": {
-      "max": 1182.0,
-      "p50": 484.0,
-      "p95": 1123.0
+      "max": 1526.0,
+      "p50": 675.0,
+      "p95": 1374.0
     },
     "geometry_assembly": {
       "max": 4.0,
@@ -75,29 +76,29 @@
       "p95": 2.0
     },
     "intact_movements": {
-      "max": 557.0,
-      "p50": 450.0,
-      "p95": 482.0
+      "max": 701.0,
+      "p50": 577.0,
+      "p95": 636.0
     },
     "isolation": {
-      "max": 777.0,
-      "p50": 111.0,
-      "p95": 306.0
+      "max": 913.0,
+      "p50": 115.0,
+      "p95": 378.0
     },
     "port_generation": {
-      "max": 5.0,
-      "p50": 1.0,
-      "p95": 2.0
+      "max": 36.0,
+      "p50": 2.0,
+      "p95": 7.0
     },
     "replacement_paths": {
-      "max": 789.0,
-      "p50": 477.0,
-      "p95": 594.0
+      "max": 975.0,
+      "p50": 604.0,
+      "p95": 758.0
     },
     "total": {
-      "max": 2725.0,
-      "p50": 1543.0,
-      "p95": 2359.0
+      "max": 3428.0,
+      "p50": 1965.0,
+      "p95": 2920.0
     }
   },
   "sampleSeed": "detour-v2-pr2-boundary-sample-1",

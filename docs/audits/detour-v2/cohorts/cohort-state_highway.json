@@ -1,0 +1,109 @@
+{
+  "cohort": "state_highway",
+  "cohortDefinition": "state-highway links (rca_code = 1). The stratified sample carried only 15, too thin to say anything about them.",
+  "corridorPortDistanceFromClosureM": {
+    "max": 2945.6,
+    "n": 74,
+    "p50": 215.8,
+    "p95": 1302.6
+  },
+  "coverage": {
+    "cohort": "state_highway",
+    "size": 200
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "No through movement identified": 1,
+      "Partial analysis": 157,
+      "Through movement has no represented replacement": 42
+    },
+    "endpointDisconnectedButBoundaryDiverts": 0,
+    "endpointDivertsButBoundaryDisconnected": 31,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": 30743.6,
+      "min": 0.0,
+      "n": 31,
+      "p50": 428.5,
+      "p95": 17337.0
+    },
+    "statusTransitions": {
+      "DISCONNECTED -> DISCONNECTED": 137,
+      "DISCONNECTED -> None": 1,
+      "OK -> DISCONNECTED": 31,
+      "OK -> OK": 31
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 17,
+  "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "e32f70ff3fc9c4443b9e5c7d33767105552bbff6d8a7e12474199f6bfa8d959e",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 4.0,
+      "p50": 1.0,
+      "p95": 3.0
+    },
+    "corridor_expansion": {
+      "max": 1593.0,
+      "p50": 702.0,
+      "p95": 1430.0
+    },
+    "geometry_assembly": {
+      "max": 3.0,
+      "p50": 1.0,
+      "p95": 2.0
+    },
+    "intact_movements": {
+      "max": 663.0,
+      "p50": 603.0,
+      "p95": 642.0
+    },
+    "isolation": {
+      "max": 1094.0,
+      "p50": 289.0,
+      "p95": 695.0
+    },
+    "port_generation": {
+      "max": 21.0,
+      "p50": 3.0,
+      "p95": 8.0
+    },
+    "replacement_paths": {
+      "max": 1092.0,
+      "p50": 686.0,
+      "p95": 944.0
+    },
+    "total": {
+      "max": 3948.0,
+      "p50": 2325.0,
+      "p95": 3163.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 200,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "low": 71,
+    "medium": 129
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 35,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "Directional access loss": 4,
+      "No endpoint route": 30,
+      "Road cut off": 130,
+      "Through route found": 36
+    },
+    "v1Wordings": {
+      "No endpoint route": 37,
+      "Road cut off": 101,
+      "Through route found": 62
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "cohort": "one_way",
+  "cohortDefinition": "one-way links. The stratified sample carried only 21, and the V1 audit reports the highest DISCONNECTED rate on exactly these.",
+  "corridorPortDistanceFromClosureM": {
+    "max": 2937.1,
+    "n": 142,
+    "p50": 160.8,
+    "p95": 670.2
+  },
+  "coverage": {
+    "cohort": "one_way",
+    "size": 200
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "No through movement identified": 3,
+      "Partial analysis": 187,
+      "Through movement has no represented replacement": 10
+    },
+    "endpointDisconnectedButBoundaryDiverts": 12,
+    "endpointDivertsButBoundaryDisconnected": 28,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": 12950.5,
+      "min": 0.0,
+      "n": 55,
+      "p50": 350.4,
+      "p95": 3321.8
+    },
+    "statusTransitions": {
+      "DISCONNECTED -> DISCONNECTED": 102,
+      "DISCONNECTED -> None": 2,
+      "DISCONNECTED -> OK": 12,
+      "OK -> DISCONNECTED": 28,
+      "OK -> None": 1,
+      "OK -> OK": 55
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 1,
+  "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "c6c07d084ee339206c36e6f7843cea50ab34d97846adb29c63965718f5cd4f7a",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 2.0,
+      "p50": 1.0,
+      "p95": 2.0
+    },
+    "corridor_expansion": {
+      "max": 1625.0,
+      "p50": 753.0,
+      "p95": 1503.0
+    },
+    "geometry_assembly": {
+      "max": 2.0,
+      "p50": 1.0,
+      "p95": 2.0
+    },
+    "intact_movements": {
+      "max": 757.0,
+      "p50": 612.0,
+      "p95": 663.0
+    },
+    "isolation": {
+      "max": 664.0,
+      "p50": 297.0,
+      "p95": 417.0
+    },
+    "port_generation": {
+      "max": 6.0,
+      "p50": 2.0,
+      "p95": 3.0
+    },
+    "replacement_paths": {
+      "max": 990.0,
+      "p50": 645.0,
+      "p95": 746.0
+    },
+    "total": {
+      "max": 3358.0,
+      "p50": 2288.0,
+      "p95": 3116.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 200,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "low": 72,
+    "medium": 128
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 36,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "No endpoint route": 69,
+      "Road cut off": 63,
+      "Through route found": 68
+    },
+    "v1Wordings": {
+      "No endpoint route": 73,
+      "Road cut off": 43,
+      "Through route found": 84
+    }
+  }
+}

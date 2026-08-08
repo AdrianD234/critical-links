@@ -1,0 +1,101 @@
+{
+  "cohort": "truncated",
+  "cohortDefinition": "every link whose movement search was truncated in the stratified sample",
+  "corridorPortDistanceFromClosureM": {
+    "max": null,
+    "n": 0,
+    "p50": null,
+    "p95": null
+  },
+  "coverage": {
+    "cohort": "truncated",
+    "size": 10
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "Partial analysis": 10
+    },
+    "endpointDisconnectedButBoundaryDiverts": 0,
+    "endpointDivertsButBoundaryDisconnected": 1,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": null,
+      "min": null,
+      "n": 0,
+      "p50": null,
+      "p95": null
+    },
+    "statusTransitions": {
+      "DISCONNECTED -> DISCONNECTED": 9,
+      "OK -> DISCONNECTED": 1
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 10,
+  "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "457da3be3280d32d4b292c19aaa8fff1b144e51829c82a0baa1706ed1d5b795b",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 2.0,
+      "p50": 2.0,
+      "p95": 2.0
+    },
+    "corridor_expansion": {
+      "max": 1351.0,
+      "p50": 652.0,
+      "p95": 1351.0
+    },
+    "geometry_assembly": {
+      "max": 4.0,
+      "p50": 2.0,
+      "p95": 4.0
+    },
+    "intact_movements": {
+      "max": 626.0,
+      "p50": 591.0,
+      "p95": 626.0
+    },
+    "isolation": {
+      "max": 1762.0,
+      "p50": 982.0,
+      "p95": 1762.0
+    },
+    "port_generation": {
+      "max": 9.0,
+      "p50": 6.0,
+      "p95": 9.0
+    },
+    "replacement_paths": {
+      "max": 971.0,
+      "p50": 784.0,
+      "p95": 971.0
+    },
+    "total": {
+      "max": 3797.0,
+      "p50": 3157.0,
+      "p95": 3797.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 10,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "low": 1,
+    "medium": 9
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 1,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "Road cut off": 10
+    },
+    "v1Wordings": {
+      "Road cut off": 9,
+      "Through route found": 1
+    }
+  }
+}

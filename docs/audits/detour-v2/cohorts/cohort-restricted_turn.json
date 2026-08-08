@@ -1,0 +1,98 @@
+{
+  "cohort": "restricted_turn",
+  "cohortDefinition": "links named in a restricted-turn sequence that applies to a car. AMDS publishes 43 such records nationally, of which one restricts any modelled vehicle class, involving 2 link(s).",
+  "corridorPortDistanceFromClosureM": {
+    "max": 77.6,
+    "n": 2,
+    "p50": 77.6,
+    "p95": 77.6
+  },
+  "coverage": {
+    "cohort": "restricted_turn",
+    "size": 2
+  },
+  "endpointVsBoundary": {
+    "boundaryHeadlines": {
+      "Partial analysis": 2
+    },
+    "endpointDisconnectedButBoundaryDiverts": 0,
+    "endpointDivertsButBoundaryDisconnected": 0,
+    "isolationChanged": 0,
+    "note": "These two measure DIFFERENT quantities. A difference is not evidence that either is wrong.",
+    "penaltyDeltaM": {
+      "max": 0.0,
+      "min": 0.0,
+      "n": 2,
+      "p50": 0.0,
+      "p95": 0.0
+    },
+    "statusTransitions": {
+      "OK -> OK": 2
+    }
+  },
+  "errored": 0,
+  "geometryGapped": 0,
+  "isNationalEstimate": false,
+  "movementCandidatesTruncated": 0,
+  "note": "An ASSURANCE sample, deliberately all of one kind. Every proportion below describes this cohort and nothing else; it is not an estimate of the national network. No human has reviewed these results.",
+  "replayDigest": "92b2a05b12086d7fcac877329f6387cbc2db209a36f143700d35af0ea3e3fc80",
+  "runtimeMsByStage": {
+    "closure_resolution": {
+      "max": 1.0,
+      "p50": 1.0,
+      "p95": 1.0
+    },
+    "corridor_expansion": {
+      "max": 715.0,
+      "p50": 715.0,
+      "p95": 715.0
+    },
+    "geometry_assembly": {
+      "max": 1.0,
+      "p50": 1.0,
+      "p95": 1.0
+    },
+    "intact_movements": {
+      "max": 571.0,
+      "p50": 571.0,
+      "p95": 571.0
+    },
+    "isolation": {
+      "max": 124.0,
+      "p50": 124.0,
+      "p95": 124.0
+    },
+    "port_generation": {
+      "max": 2.0,
+      "p50": 2.0,
+      "p95": 2.0
+    },
+    "replacement_paths": {
+      "max": 604.0,
+      "p50": 604.0,
+      "p95": 604.0
+    },
+    "total": {
+      "max": 2005.0,
+      "p50": 2005.0,
+      "p95": 2005.0
+    }
+  },
+  "sampleSeed": "detour-v2-pr2-boundary-sample-1",
+  "sampleSize": 2,
+  "snapshotId": "amds-national-2026-07-28-5b359d84",
+  "topologyConfidence": {
+    "medium": 2
+  },
+  "unresolvedOrTimeout": 0,
+  "v1VsEndpoint": {
+    "classificationChanged": 0,
+    "closureSetChanged": 0,
+    "endpointHeadlines": {
+      "Through route found": 2
+    },
+    "v1Wordings": {
+      "Through route found": 2
+    }
+  }
+}
