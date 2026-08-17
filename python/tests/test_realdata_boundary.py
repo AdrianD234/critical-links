@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from nzcl import closure as closure_mod
-from nzcl import db, detourv2, impactv2, reviewv2
+from nzcl import db, detourv2, impactv2, reviewv2, turns
 
 from conftest import requires_db
 
@@ -98,6 +98,112 @@ class TestLyonStreet375011:
         pm = r.principal_movement
         assert reviewv2.oracle_distance(
             parallel, pm.from_node, pm.to_node, removed) is None
+
+
+class TestTheOnlyRestrictionThatRestrictsAnything:
+    """Every published restriction that applies to a modelled vehicle class.
+
+    That is one record. The figure is small enough to be worth stating exactly
+    rather than gesturing at, and small enough that it invites being assumed to
+    be zero and skipped - which is how a validator that never runs against real
+    data ends up shipping.
+
+    AMDS publishes 60 restricted turns for the whole country. 16 could not be
+    resolved to a connected chain of graph links after junction splitting and 1
+    referenced links outside the extract, leaving 43 in this snapshot. Of those
+    43, exactly ONE sets any of restricted_vehicle, restricted_heavy or
+    restricted_emergency, and it sets all three.
+
+    These assertions are the ones that fail loudly if a re-ingest changes the
+    data underneath the validator, which is the case that would otherwise leave
+    `applicableRestrictions: 0` on every route and nobody any the wiser.
+    """
+
+    def test_the_snapshot_holds_the_records_this_suite_assumes(self):
+        _skip_without_snapshot()
+        row = db.query_one(
+            "SELECT count(*) AS total, "
+            "       count(*) FILTER (WHERE restricted_vehicle) AS car, "
+            "       count(*) FILTER (WHERE restricted_heavy) AS heavy, "
+            "       count(*) FILTER (WHERE restricted_emergency) AS emergency, "
+            "       count(*) FILTER (WHERE restricted_vehicle "
+            "                          OR restricted_heavy "
+            "                          OR restricted_emergency) AS any_class "
+            "  FROM turn_restrictions WHERE snapshot_id=%s", (NATIONAL,))
+
+        assert row["total"] == 43
+        assert row["any_class"] == 1, (
+            "the count of restrictions that restrict anything has changed; "
+            "every figure in this class is derived from it")
+        # All three flags land on the same single record.
+        assert row["car"] == 1
+        assert row["heavy"] == 1
+        assert row["emergency"] == 1
+
+    def test_it_is_a_two_link_sequence_and_so_exactly_enforceable(self):
+        """Sequence length decides how exact the check can be.
+
+        A two-link restriction is a single turn and is matched exactly. Longer
+        sequences are approximated against the predecessor chain. The one
+        record that restricts anything is two links, so the only restriction
+        this engine can actually act on is also the one it can act on exactly -
+        which is worth knowing, and worth being told when it stops being true.
+        """
+        _skip_without_snapshot()
+        rows = db.query(
+            "SELECT link_seq FROM turn_restrictions WHERE snapshot_id=%s "
+            "   AND (restricted_vehicle OR restricted_heavy "
+            "        OR restricted_emergency)", (NATIONAL,))
+        assert len(rows) == 1
+        assert len(rows[0]["link_seq"]) == 2
+
+    def test_every_modelled_profile_sees_exactly_that_one(self):
+        """The loader is per-profile, so each profile is asked separately.
+
+        A column mapped to the wrong profile would show up here as a profile
+        seeing zero, and nowhere else: with 42 of 43 records restricting
+        nothing, a validator loading the wrong column still returns a plausible
+        empty list.
+        """
+        _skip_without_snapshot()
+        for profile in ("car", "heavy", "emergency"):
+            seqs = turns.restricted_sequences(NATIONAL, profile)
+            assert len(seqs) == 1, f"{profile} saw {len(seqs)} restrictions"
+            assert len(seqs[0]) == 2
+
+    def test_a_route_over_the_restricted_pair_is_refused_and_not_drawn(self):
+        """The whole chain, on the real record, end to end.
+
+        The restricted pair is two adjacent links. Closing the first one forces
+        any replacement to reach the second some other way; whether that route
+        happens to use the banned turn depends on the local network, so the
+        assertion is conditional on it - what must NOT be conditional is that if
+        the check fires, the result fails closed in every respect.
+        """
+        _skip_without_snapshot()
+        row = db.query_one(
+            "SELECT link_seq FROM turn_restrictions WHERE snapshot_id=%s "
+            "   AND (restricted_vehicle OR restricted_heavy "
+            "        OR restricted_emergency)", (NATIONAL,))
+        first, second = (int(x) for x in row["link_seq"])
+
+        for link_id in (first, second):
+            r = impactv2.analyse(NATIONAL, link_id, scope="segment",
+                                 with_geometry=True, with_isolation=False)
+            if r.principal is None:
+                continue
+            assert r.principal.turn_check is not None, (
+                "a replacement route was produced without being checked "
+                "against the restriction table at all")
+            assert r.principal.turn_check.checked is True
+            assert r.principal.turn_check.applicable_restrictions == 1
+
+            if r.principal.status == "TURN_RESTRICTION_UNSUPPORTED":
+                assert r.principal.resolved is False
+                assert r.headline == "Analysis unresolved"
+                assert r.replacement_geometry is None
+                body = impactv2.as_dict(r)
+                assert "replacement" not in (body["geometry"] or {})
 
 
 class TestTheOracleHandlesParallelArcs:

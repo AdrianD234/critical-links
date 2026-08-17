@@ -214,7 +214,26 @@ def analyse(
             if out.principal_movement is not None:
                 out.intact_geometry = routegeom.assemble(
                     snapshot_id, out.principal_movement.intact_arc_ids)
-            if out.principal is not None and out.principal.arc_ids:
+            # ONLY a replacement this engine is prepared to offer is drawn.
+            #
+            # `arc_ids` is populated before the path is adjudicated, so it is
+            # set even when the path is afterwards ruled out - most importantly
+            # by the banned-manoeuvre check in `replacement`, which finds a real
+            # route and then rejects it because it makes a prohibited turn.
+            #
+            # This used to test `arc_ids` alone. The headline correctly became
+            # "Analysis unresolved" while the geometry of the rejected route was
+            # still emitted and drawn, so a prohibited route appeared on the map
+            # as the replacement under a headline saying no replacement had been
+            # established. Drawing is the strongest assertion this system makes
+            # about a route - it is the form in which someone might act on it -
+            # so it fails closed with everything else.
+            #
+            # `resolved` rather than a check against the turn status: any status
+            # that means the search did not conclude means there is nothing here
+            # anyone should be looking at a line for.
+            if (out.principal is not None and out.principal.resolved
+                    and out.principal.arc_ids):
                 out.replacement_geometry = routegeom.assemble(
                     snapshot_id, out.principal.arc_ids)
         timed("geometry_assembly", _geom)

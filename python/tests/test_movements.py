@@ -1371,6 +1371,102 @@ class TestBannedManoeuvres:
         _, _, _, rs = stages(net, "S")
         assert all(p.status == "OK" for p in rs.paths)
 
+    # ---------------------------------------------------------------- drawing
+    #
+    # Failing closed has to reach the map, and it did not.
+    #
+    # `arc_ids` is populated before the path is adjudicated, so a route that is
+    # afterwards rejected for making a banned manoeuvre still carries the arcs
+    # it was found along. The geometry step tested only whether those arcs
+    # existed, so the rejected route was assembled and returned under a headline
+    # of "Analysis unresolved" - and the client drew it.
+    #
+    # Drawing is the strongest assertion this system makes about a route: it is
+    # the form in which someone might follow it. These tests pin the whole
+    # chain, from the engine's own field to the wire body a browser receives,
+    # because each layer could restore the defect on its own.
+
+    def _all_banned(self, synthetic):
+        """Both replacements banned, so nothing legal is available to prefer."""
+        return synthetic(SQUARE, restrictions=[
+            {"seq": ["W", "N", "E"], "vehicle": True, "heavy": True},
+            {"seq": ["E", "N", "W"], "vehicle": True, "heavy": True},
+        ])
+
+    def test_a_banned_route_is_never_assembled_as_geometry(self, synthetic):
+        net = self._all_banned(synthetic)
+        r = impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_geometry=True, with_isolation=False)
+
+        assert r.principal is not None
+        assert r.principal.status == "TURN_RESTRICTION_UNSUPPORTED"
+        assert r.principal.resolved is False
+        # The arcs are still known - the route WAS found. That is exactly why
+        # the geometry gate cannot be "are there arcs".
+        assert r.principal.arc_ids
+        assert r.replacement_geometry is None, (
+            "a route rejected for a banned manoeuvre was assembled for drawing")
+
+    def test_the_wire_body_carries_no_replacement_line(self, synthetic):
+        """What a browser actually receives.
+
+        The engine field being None is not sufficient on its own: `as_dict`
+        builds the geometry block separately, and a key present with a null
+        geometry is a different thing for a client to handle than an absent one.
+        """
+        net = self._all_banned(synthetic)
+        body = impactv2.as_dict(
+            impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_geometry=True, with_isolation=False))
+
+        assert body["headline"] == "Analysis unresolved"
+        assert "replacement" not in (body["geometry"] or {}), (
+            "the response offered a line for a route it refused to offer")
+        # The closure itself is still drawn. Withholding the replacement must
+        # not withhold what was closed, or the reader loses the one thing on
+        # the map that is not in doubt.
+        assert "selectedSegment" in (body["geometry"] or {})
+
+    def test_the_refusal_is_disclosed_rather_than_silent(self, synthetic):
+        """A withheld route that says nothing reads as no route existing.
+
+        The two are different findings: "there is no way round" and "this
+        engine did not establish one that clears the published restrictions".
+        The response has to carry enough for a reader to tell them apart.
+        """
+        net = self._all_banned(synthetic)
+        body = impactv2.as_dict(
+            impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_geometry=True, with_isolation=False))
+
+        principal = body["principal"]
+        assert principal["status"] == "TURN_RESTRICTION_UNSUPPORTED"
+        assert principal["resolved"] is False
+        tc = principal["turnCheck"]
+        assert tc["checked"] is True
+        assert tc["ok"] is False
+        assert tc["violationCount"] >= 1
+        assert tc["applicableRestrictions"] >= 1
+        assert "TURN_RESTRICTION_VIOLATED" in principal["qualityFlags"]
+
+    def test_a_legal_route_is_still_drawn(self, synthetic):
+        """The gate must not withhold the ordinary case.
+
+        Only the westbound replacement runs W->N->E here, so a legal route
+        exists and is preferred. A fail-closed rule that also suppressed this
+        would have removed the map's answer from every result.
+        """
+        net = self._net(synthetic)
+        r = impactv2.analyse(net.snapshot_id, net.link_id("S"),
+                             with_geometry=True, with_isolation=False)
+
+        assert r.principal is not None and r.principal.status == "OK"
+        assert r.replacement_geometry is not None
+        assert r.replacement_geometry.pieces, "a legal route was not drawn"
+
+        body = impactv2.as_dict(r)
+        assert body["geometry"]["replacement"]["geometry"] is not None
+
 
 class TestTimeoutIsNeverDisconnected:
     """The stop-condition contract, exercised end to end.

@@ -455,6 +455,30 @@ function Measures({
   const p = analysis.principal;
   if (!p) return null;
 
+  /*
+   * A path that did not resolve has no figures, and it has them in the
+   * response.
+   *
+   * The distance, penalty and ratio are computed before the path is
+   * adjudicated, so they are still populated on a route the engine afterwards
+   * refused — a route using a prohibited turn is the case that matters. Reading
+   * them off the response would print "350 m further" beside a headline saying
+   * nothing was established, which is the fail-open this panel exists to avoid.
+   * The route was found; it is not one this engine will offer.
+   */
+  if (!p.resolved) {
+    return (
+      <dl className="kv">
+        <dt>With the road in place</dt>
+        <dd>{km(p.intactDistanceM)}</dd>
+        <dt>Replacement route</dt>
+        <dd>not established ({p.status})</dd>
+        <dt>Network penalty</dt>
+        <dd>not established</dd>
+      </dl>
+    );
+  }
+
   const r = ratio(p.ratio);
   return (
     <dl className="kv">
@@ -462,11 +486,9 @@ function Measures({
       <dd>{km(p.intactDistanceM)}</dd>
       <dt>Replacement route</dt>
       <dd>
-        {p.status === 'OK'
-          ? km(p.replacementDistanceM)
-          : p.status === 'DISCONNECTED'
-            ? 'none in the represented network'
-            : `not established (${p.status})`}
+        {p.status === 'DISCONNECTED'
+          ? 'none in the represented network'
+          : km(p.replacementDistanceM)}
       </dd>
       <dt>Network penalty</dt>
       <dd>
