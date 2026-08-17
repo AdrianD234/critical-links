@@ -38,14 +38,22 @@ test.describe('review screenshots', () => {
     });
   });
 
-  test('compare state', async ({ page, twoWayLink }, testInfo) => {
-    await page.goto(exploreUrl(twoWayLink.amdsId, { focus: 'reverse', compare: '1' }));
+  /*
+   * The advanced scope, where the closure is larger than the selection.
+   *
+   * This slot used to photograph the forward/reverse comparison. That view
+   * belonged to the endpoint measure, which computed both directions of one
+   * link; this engine measures trips across a boundary, where "the other
+   * direction" is a different crossing rather than the same one reversed. The
+   * state worth photographing in its place is the one where the panel has to
+   * warn before it reports.
+   */
+  test('source-feature scope', async ({ page, twoWayLink }, testInfo) => {
+    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'amds-feature' }));
     await waitForResult(page);
-    const compare = page.getByRole('tab', { name: 'Compare' });
-    if (await compare.isEnabled()) await compare.click();
     await settle(page);
     await page.screenshot({
-      path: `${OUT}/stage2-compare-${testInfo.project.name}.png`,
+      path: `${OUT}/stage2-source-feature-${testInfo.project.name}.png`,
     });
   });
 
@@ -72,7 +80,7 @@ test.describe('review screenshots', () => {
   test('calculating', async ({ page, twoWayLink }, testInfo) => {
     /* Hold the response open so the loading state can actually be photographed
      * rather than raced against. */
-    await page.route('**/api/v1/links/**/detour**', async (route) => {
+    await page.route('**/api/v2/links/**/boundary-analysis**', async (route) => {
       await new Promise((r) => setTimeout(r, 8000));
       await route.continue();
     });
@@ -82,7 +90,7 @@ test.describe('review screenshots', () => {
     await page.screenshot({
       path: `${OUT}/stage2-calculating-${testInfo.project.name}.png`,
     });
-    await page.unroute('**/api/v1/links/**/detour**');
+    await page.unroute('**/api/v2/links/**/boundary-analysis**');
   });
 
   test('search results', async ({ page, twoWayLink }, testInfo) => {
@@ -96,7 +104,7 @@ test.describe('review screenshots', () => {
     });
   });
 
-  test('disconnected or isolation', async ({ page, request }, testInfo) => {
+  test('no represented replacement', async ({ page, request }, testInfo) => {
     /* Find a link the engine actually reports as disconnected, rather than
      * assuming one. If the snapshot has none, say so instead of shipping a
      * screenshot of a different state under this name. */
@@ -110,15 +118,15 @@ test.describe('review screenshots', () => {
       await page.goto(exploreUrl(link.amdsId));
       await waitForResult(page);
       const status = await page.locator('.status-pill').first().innerText();
-      if (/no replacement path/i.test(status)) {
+      if (/has no represented replacement/i.test(status)) {
         await settle(page);
         await page.screenshot({
-          path: `${OUT}/stage2-disconnected-${testInfo.project.name}.png`,
+          path: `${OUT}/stage2-no-replacement-${testInfo.project.name}.png`,
         });
         return;
       }
     }
-    test.skip(true, 'no disconnected link found in the active snapshot');
+    test.skip(true, 'no link without a represented replacement in this snapshot');
   });
 
   /*

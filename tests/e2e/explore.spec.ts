@@ -9,6 +9,7 @@
 import {
   exploreUrl,
   expect,
+  legacyUrl,
   panel,
   renderedCount,
   test,
@@ -315,6 +316,14 @@ test.describe('history', () => {
   });
 });
 
+/** The snapshot-mismatch notice, told apart from every other warning. */
+function mismatchNotice(page: import('@playwright/test').Page) {
+  return page
+    .locator('.notice--warn')
+    .filter({ hasText: /snapshot/i })
+    .filter({ hasText: /reproduced/i });
+}
+
 test.describe('snapshot permalinks', () => {
   test('flags a permalink made against a different snapshot', async ({
     page,
@@ -328,7 +337,7 @@ test.describe('snapshot permalinks', () => {
     );
     await waitForResult(page);
 
-    const notice = page.locator('.notice--warn').first();
+    const notice = mismatchNotice(page);
     await expect(notice).toBeVisible();
     await expect(notice).toContainText(/not been reproduced/i);
   });
@@ -339,7 +348,18 @@ test.describe('snapshot permalinks', () => {
   }) => {
     await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
-    await expect(page.locator('.notice--warn')).toHaveCount(0);
+    /*
+     * The mismatch notice specifically, not every warning on the panel.
+     *
+     * This asserted that NO `.notice--warn` was present, which was true when
+     * the only warning a result could carry was this one. The panel now warns
+     * about several things a reader has to meet before the figures — a
+     * source-feature closure's size, a low topology confidence, a bounded
+     * search, a withheld route — so counting them all would fail on a result
+     * that is behaving correctly, and would have to be deleted rather than
+     * fixed the first time it did.
+     */
+    await expect(mismatchNotice(page)).toHaveCount(0);
   });
 });
 
