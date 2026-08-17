@@ -84,6 +84,17 @@ class BoundaryImpact:
 
     isolation: physical.IsolationResult | None = None
 
+    #: Display names for the links a movement enters and leaves by, keyed by
+    #: link id.
+    #:
+    #: A movement is identified in the response by node numbers, which are
+    #: internal graph identifiers and mean nothing to a reader. Where a closure
+    #: has a hundred included movements, "entering at node 214883" cannot be
+    #: checked against anything; "entering from Bluff Highway" can be checked
+    #: against a map. The engine picked one movement out of many and the reader
+    #: has to be able to see which, or the figure is a number with no subject.
+    link_names: dict[int, str] = field(default_factory=dict)
+
     headline: str = ""
     stage_ms: dict[str, int] = field(default_factory=dict)
     runtime_ms: int = 0
@@ -238,12 +249,41 @@ def analyse(
                     snapshot_id, out.principal.arc_ids)
         timed("geometry_assembly", _geom)
 
+    # Named after the movements are settled, so exactly the links a reader can
+    # be shown are looked up and no more.
+    out.link_names = _link_display_names(
+        snapshot_id,
+        [m.entry_link_id for m in ms.included]
+        + [m.exit_link_id for m in ms.included])
+
     out.headline, out.quality_flags = _classify(ms, rs, out.principal,
                                                 out.corridor)
     stage["total"] = int((time.perf_counter() - t0) * 1000)
     out.stage_ms = stage
     out.runtime_ms = stage["total"]
     return out
+
+
+def _link_display_names(snapshot_id: str, link_ids) -> dict[int, str]:
+    """Display names for a set of links, in one query.
+
+    The same `coalesce(display_name, road_name)` the rest of the application
+    resolves a label through, so a movement's entry road is named exactly as
+    the search result and the inspector heading name it. A second spelling of
+    the same road, arrived at by reading `links.road_name` directly, is the
+    kind of difference a reader reasonably reads as a different road.
+    """
+    ids = sorted({int(i) for i in link_ids})
+    if not ids:
+        return {}
+    rows = db.query(
+        "SELECT l.link_id, coalesce(dn.display_name, l.road_name) AS name "
+        "  FROM links l "
+        "  LEFT JOIN link_display_names dn "
+        "    ON dn.snapshot_id = l.snapshot_id AND dn.link_id = l.link_id "
+        " WHERE l.snapshot_id=%s AND l.link_id = ANY(%s)",
+        (snapshot_id, ids))
+    return {int(r["link_id"]): r["name"] for r in rows if r["name"]}
 
 
 def _selected_road_name(snapshot_id: str, link_id: int) -> str:
@@ -379,14 +419,27 @@ def as_dict(out: BoundaryImpact, *, include_all_movements: bool = True) -> dict:
         "stageMs": out.stage_ms,
         "runtimeMs": out.runtime_ms,
     }
-    if not include_all_movements:
-        body["movements"]["movements"] = [
-            movements.movement_dict(m) for m in out.movement_set.included]
+    def _named(m) -> dict:
+        """A movement dict with the roads it enters and leaves by.
+
+        Null where the link has no resolved name - about a third of AMDS
+        vehicle links carry one - rather than a placeholder. "entering from
+        (unnamed)" is honest; inventing a label so the sentence reads well
+        would put a name on a road that has none.
+        """
+        d = movements.movement_dict(m)
+        d["entryRoadName"] = out.link_names.get(int(m.entry_link_id))
+        d["exitRoadName"] = out.link_names.get(int(m.exit_link_id))
+        return d
+
+    body["movements"]["movements"] = [
+        _named(m) for m in (out.movement_set.movements if include_all_movements
+                            else out.movement_set.included)]
 
     body["principal"] = (
         None if out.principal is None else {
             **replacement.path_dict(out.principal),
-            "movement": (movements.movement_dict(out.principal_movement)
+            "movement": (_named(out.principal_movement)
                          if out.principal_movement else None),
         })
     body["corridor"] = (corridor_mod.as_dict(out.corridor)

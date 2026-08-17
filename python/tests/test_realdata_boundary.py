@@ -100,6 +100,150 @@ class TestLyonStreet375011:
             parallel, pm.from_node, pm.to_node, removed) is None
 
 
+class TestStBathansLoopRoadStaysPartial:
+    """295128 must keep saying it did not look at everything.
+
+    The candidate bound acts here: 400 pairs considered, 84 left unevaluated.
+    That withholds the definitive headline and substitutes "Partial analysis",
+    which is the correct answer — an unevaluated crossing could hold a longer
+    diversion, or the only one with no replacement at all.
+
+    Raising the bound until this case resolves would make the panel read
+    better and would be the wrong change to make before production: it would
+    remove the visible instance of a class of results that still exists, and
+    leave nothing to notice the class by. Merge condition, 2026-08-18.
+    """
+
+    LINK = 295128
+
+    def test_it_reports_partial_analysis(self):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, self.LINK, scope="source_feature")
+        assert r.headline == "Partial analysis"
+        assert r.headline not in impactv2.DEFINITIVE_HEADLINES
+
+    def test_the_bound_really_acted_and_is_reported(self):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, self.LINK, scope="source_feature")
+        ms = r.movement_set
+        assert ms.exhaustive is False
+        assert ms.candidate_pairs == 400
+        assert ms.omitted_pair_count == 84
+        assert "HEADLINE_WITHHELD_NOT_EXHAUSTIVE" in r.quality_flags
+        assert "MOVEMENT_CANDIDATES_TRUNCATED" in r.quality_flags
+
+    def test_the_wire_body_says_so_too(self):
+        """The panel gates its caveat on `exhaustive`, so the field has to
+        survive serialisation as well as exist on the dataclass."""
+        _skip_without_snapshot()
+        body = impactv2.as_dict(
+            impactv2.analyse(NATIONAL, self.LINK, scope="source_feature"))
+        assert body["headline"] == "Partial analysis"
+        assert body["movements"]["exhaustive"] is False
+        assert body["movements"]["omittedPairCount"] == 84
+
+
+class TestALostCrossingIsNotARoadCutOff:
+    """Five closures where one crossing loses its route and nothing is cut off.
+
+    A highway pair, a roundabout arm, a one-way carriageway, a city street and
+    a motorway connector. In every one the principal movement is DISCONNECTED
+    and the undirected isolation result finds nothing separated at all.
+
+    "Road cut off" here would be false about the place while being true about
+    the crossing, and the place is what a reader acts on. The engine must keep
+    these two apart in the response; the panel test in tests/e2e asserts the
+    words the reader sees.
+    """
+
+    CASES = {
+        8887: "Bluff Highway East",
+        33082: "Titahi Bay roundabout",
+        27644: "The Boulevard eastbound",
+        29348: "Swanston Street",
+        51258: "SH74 connector",
+    }
+
+    @pytest.mark.parametrize("link_id", sorted(CASES))
+    def test_a_lost_crossing_with_nothing_separated(self, link_id):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, link_id, scope="source_feature",
+                             with_isolation=True)
+        where = self.CASES[link_id]
+
+        assert r.headline == "Through movement has no represented replacement", (
+            f"{link_id} ({where}) no longer reports a lost crossing")
+        assert r.principal is not None
+        assert r.principal.status == "DISCONNECTED"
+
+        # The half that matters: nothing is separated, so nothing may be
+        # headlined as cut off.
+        assert r.isolation is not None, (
+            f"{link_id} ({where}) returned no isolation result, so the panel "
+            "has nothing to distinguish a lost crossing from a cut-off road")
+        assert r.isolation.physically_isolates is False
+        assert r.isolation.separated_link_count == 0
+        assert r.isolation.separated_length_m == 0
+
+    @pytest.mark.parametrize("link_id", sorted(CASES))
+    def test_the_response_carries_no_cut_off_wording(self, link_id):
+        """No string anywhere in the body says the road is cut off.
+
+        Headline vocabulary alone is not enough — `detail` fields are free
+        prose and are rendered verbatim, so a sentence added to one of them
+        would reach the reader without any headline changing.
+        """
+        _skip_without_snapshot()
+        body = impactv2.as_dict(
+            impactv2.analyse(NATIONAL, link_id, scope="source_feature",
+                             with_isolation=True))
+        for key in ("headline",):
+            assert "cut off" not in body[key].lower()
+        for block in ("movements", "replacements"):
+            assert "cut off" not in (body[block]["detail"] or "").lower()
+        assert "cut off" not in (body["principal"]["detail"] or "").lower()
+        assert "cut off" not in (body["isolation"]["detail"] or "").lower()
+
+
+class TestLowTopologyConfidenceKeepsItsReason:
+    """The seven cases review singled out.
+
+    V2 asks the better question on each of these and the local graph is
+    uncertain, so the real-world reading has to stay caveated. A label is not a
+    caveat: "topology confidence: low" says there is a scale and this is the
+    bad end of it, and nothing about why. The REASON is the part that says the
+    connectivity may be an artefact of an ingest tolerance rather than a
+    property of the roads.
+    """
+
+    LINKS = (375011, 157091, 169247, 17097, 313963, 147489, 114903)
+
+    @pytest.mark.parametrize("link_id", LINKS)
+    def test_the_reason_is_present_and_substantive(self, link_id):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, link_id, scope="source_feature",
+                             with_isolation=True)
+        assert r.isolation is not None
+        assert r.isolation.topology_confidence == "low"
+
+        reason = r.isolation.topology_confidence_reason or ""
+        assert reason.strip(), f"{link_id} is low confidence with no reason"
+        # It must say what is uncertain, not merely that something is.
+        assert "near-miss" in reason
+        assert len(reason) > 80, (
+            "a reason short enough to be a label is a label")
+
+    @pytest.mark.parametrize("link_id", LINKS)
+    def test_the_reason_survives_serialisation(self, link_id):
+        _skip_without_snapshot()
+        body = impactv2.as_dict(
+            impactv2.analyse(NATIONAL, link_id, scope="source_feature",
+                             with_isolation=True))
+        iso = body["isolation"]
+        assert iso["topologyConfidence"] == "low"
+        assert (iso["topologyConfidenceReason"] or "").strip()
+
+
 class TestTheOnlyRestrictionThatRestrictsAnything:
     """Every published restriction that applies to a modelled vehicle class.
 

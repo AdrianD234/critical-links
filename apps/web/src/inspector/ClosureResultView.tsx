@@ -200,12 +200,25 @@ export default function ClosureResultView({
       ) : showSkeleton ? (
         <HeroSkeleton />
       ) : (
-        <Hero analysis={analysis} revealKey={revealKey} />
+        <>
+          {/*
+            BEFORE the result, both of these, and deliberately.
+
+            What was removed, and how sure the graph is, are the two things
+            that decide what the figures below mean. A reader who meets either
+            after the number has already read the number as the answer, and
+            neither is recoverable by re-reading.
+          */}
+          <ClosureCost analysis={analysis} />
+          <TopologyConfidence isolation={analysis.isolation} />
+          <Hero analysis={analysis} revealKey={revealKey} />
+        </>
       )}
 
       {analysis && !error && (
         <>
           <Measures analysis={analysis} metric={scenario.metric} />
+          <MovementContext analysis={analysis} />
           <Exhaustiveness analysis={analysis} />
           <TurnCheck path={analysis.principal} />
           <Isolation isolation={analysis.isolation} />
@@ -295,6 +308,82 @@ export default function ClosureResultView({
   );
 }
 
+/* ------------------------------------------------- what is being removed */
+
+/**
+ * The cost of the closure, before any result.
+ *
+ * Source-feature scope is the advanced choice, and its cost is that it removes
+ * an AMDS source record's every graph child rather than the stretch of road
+ * that was clicked. That cost has to be legible at the point of use — the
+ * kilometres AND the number of segments, in the panel, above the figures they
+ * qualify. In a tooltip it is something a reader discovers after acting.
+ *
+ * Both numbers, not one. A reader shown "1.4 km" cannot tell whether that is
+ * one road or thirteen fragments of one maintenance record, and the second
+ * reading is the one that explains why the figures below are not about the
+ * road they pointed at.
+ */
+function ClosureCost({ analysis }: { analysis: V2BoundaryAnalysis }) {
+  const { closure } = analysis;
+  const scope = scopeOfResponse(closure.scope);
+  if (scope !== 'amds-feature') return null;
+
+  return (
+    <div className="notice notice--warn" role="status">
+      <div className="notice-title">
+        This closes {km(closure.totalClosureLengthM)} across{' '}
+        {count(closure.removedLinkCount)} graph segment
+        {closure.removedLinkCount === 1 ? '' : 's'}
+      </div>
+      <p>
+        {closure.warning?.detail ??
+          'An AMDS source feature is a data-maintenance unit. Closing one ' +
+            'removes every graph segment derived from that record, which may ' +
+            'end where an authority’s responsibility ends rather than where ' +
+            'the road does.'}
+      </p>
+      <p>
+        The selected stretch of road is{' '}
+        {km(closure.selectedSegmentLengthM)}
+        {closure.excessLengthM > 0 && (
+          <> — {inlineMetres(closure.excessLengthM)} beyond it is also removed</>
+        )}
+        . Every figure below describes the larger closure.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Low topology confidence, with its reason, above the figures.
+ *
+ * A label alone is not a caveat. "Topology confidence: low" tells a reader
+ * there is a scale and that this is the bad end of it, and nothing about what
+ * to do with that; the REASON is the part that says the connectivity these
+ * figures rest on may be an artefact of an ingest tolerance rather than a
+ * property of the roads, so the result can change without any road changing.
+ */
+function TopologyConfidence({ isolation }: { isolation: V2Isolation | null }) {
+  if (!isolation || isolation.topologyConfidence !== 'low') return null;
+  return (
+    <div className="notice notice--warn" role="status">
+      <div className="notice-title">
+        Topology confidence low — treat the real-world reading with care
+      </div>
+      <p>{isolation.topologyConfidenceReason}</p>
+      <p>
+        Unresolved near-miss endpoints sit close to this closure. Whether the
+        two sides join at all may follow from the tolerance used when the
+        network was ingested rather than from the roads, so this result can
+        change without any road changing. What follows describes the
+        represented network; the confidence that it describes the road network
+        here is lower than usual.
+      </p>
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------- headline */
 
 /**
@@ -357,11 +446,21 @@ function Hero({
 
   if (headline === 'Through movement has no represented replacement') {
     /*
-     * Two different findings share this headline, and the difference is the
-     * one a reader most needs. A trip having no replacement is a statement
-     * about that trip. Links losing access altogether is a statement about a
-     * place, it is computed on the undirected graph, and it does not depend on
-     * the routing above — so where it holds, it is the headline.
+     * TWO DIFFERENT FINDINGS SHARE THIS HEADLINE, and telling them apart is
+     * the whole job here.
+     *
+     * One modelled crossing having no replacement is a statement about that
+     * crossing. Links losing access altogether is a statement about a place:
+     * it is computed on the undirected graph, it does not depend on the
+     * routing, and where it holds it is the stronger finding and the headline.
+     *
+     * Where it does NOT hold, nothing here may read as "traffic cannot get
+     * past". Review found five closures in this state — a highway pair, a
+     * roundabout arm, a one-way carriageway, a city street and a motorway
+     * connector — where a single crossing loses its route and the surrounding
+     * network is entirely intact. "Road cut off" on any of those would be
+     * false about the place while being true about the crossing, and it is the
+     * place a reader acts on.
      */
     if (isolation?.physicallyIsolates && isolation.separatedLinkCount > 0) {
       const len = distance(isolation.separatedLengthM);
@@ -385,12 +484,14 @@ function Hero({
     }
     return (
       <div className="headline">
-        <div className="lab">No represented replacement</div>
+        <div className="lab">
+          One modelled through movement has no represented replacement
+        </div>
         <p className="sub" style={{ marginTop: 8 }}>
-          With this modelled closure, the trip that crossed here has no route
-          through the represented network. Nothing is cut off — this is a
-          statement about that crossing, not about access to the surrounding
-          area.
+          No physical isolation is identified in the represented graph. This is
+          a statement about that one crossing, not about access to the
+          surrounding area: the network around this closure is not separated,
+          and other crossings of it may well have replacements.
         </p>
       </div>
     );
@@ -517,6 +618,81 @@ function Measures({
   );
 }
 
+/* ------------------------------------------------ which movement, of how many */
+
+/** A road name, or an honest statement that the link has none. */
+function roadOf(name: string | null | undefined, node: number): string {
+  return name ?? `an unnamed road (node ${node})`;
+}
+
+/**
+ * WHICH crossing the figures describe, and how many there were to choose from.
+ *
+ * The engine picks one movement out of everything crossing the closure and
+ * reports it. An independent oracle confirms the route conclusion FOR THAT
+ * MOVEMENT; it does not establish that it was the movement a reader cares
+ * about. A closure on an ordinary urban street can have a hundred and thirty
+ * included crossings, and "added distance 340 m" with no subject is a number
+ * about an unnamed one of them.
+ *
+ * So the subject is stated in the panel, not in a disclosure: which roads the
+ * crossing enters and leaves by, how many were identified, and — because the
+ * choice is the engine's and a reader may disagree with it — the alternatives,
+ * listed, with the intact distance that ranked them.
+ */
+function MovementContext({ analysis }: { analysis: V2BoundaryAnalysis }) {
+  const m = analysis.principal?.movement ?? null;
+  if (!m) return null;
+
+  const others = analysis.movements.movements.filter(
+    (x) => x.included && x.movementId !== m.movementId,
+  );
+
+  return (
+    <>
+      <p className="note">
+        Measured on one crossing of {count(analysis.movements.includedCount)}{' '}
+        identified here: in from {roadOf(m.entryRoadName, m.entryNode)}, out to{' '}
+        {roadOf(m.exitRoadName, m.exitNode)}. It was chosen as the crossing this
+        closure affects most, not as the busiest — nothing here knows traffic
+        volumes.
+      </p>
+
+      {others.length > 0 && (
+        <details className="disclose">
+          <summary>
+            The other {count(others.length)} crossing
+            {others.length === 1 ? '' : 's'} identified
+          </summary>
+          <div className="body">
+            <p className="note">
+              Every crossing the search included, with the distance it took
+              before the closure. A reader who cares about a different one can
+              see it here rather than take the engine&rsquo;s choice on trust.
+            </p>
+            {others.slice(0, 40).map((o) => (
+              <div className="b-row" key={o.movementId}>
+                <span>
+                  {roadOf(o.entryRoadName, o.entryNode)} &rarr;{' '}
+                  {roadOf(o.exitRoadName, o.exitNode)}
+                  {o.confidence !== 'high' && ` (${o.confidence} confidence)`}
+                </span>
+                <span className="n">{km(o.intactDistanceM)}</span>
+              </div>
+            ))}
+            {others.length > 40 && (
+              <p className="note">
+                {count(others.length - 40)} more not listed. The count above is
+                exact; this list is capped so the panel stays readable.
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
 /* --------------------------------------------------------- exhaustiveness */
 
 /**
@@ -610,25 +786,11 @@ function Isolation({ isolation }: { isolation: V2Isolation | null }) {
   const iso = isolation;
   return (
     <>
-      {/*
-        A low topology confidence goes ABOVE the figures. It says the
-        connectivity those figures describe may be an artefact of how the
-        network was assembled, and a reader who meets that after the numbers
-        has already believed them.
-      */}
-      {iso.topologyConfidence === 'low' && (
-        <div className="notice notice--warn" role="status">
-          <div className="notice-title">Topology confidence low</div>
-          <p>{iso.topologyConfidenceReason}</p>
-          <p>
-            Unresolved near-miss endpoints sit close to this closure. Whether
-            the two sides join at all may follow from the tolerance used when
-            the network was ingested rather than from the roads, so this result
-            can change without any road changing.
-          </p>
-        </div>
-      )}
-
+      {/* A low topology confidence is raised ABOVE the figures, by
+        * `TopologyConfidence`, not here. It says the connectivity these
+        * figures describe may be an artefact of how the network was assembled,
+        * and a reader who meets that after the numbers has already believed
+        * them. It is not repeated here; the flag itself is in the table below. */}
       <h4>Physical isolation — a separate question</h4>
       <p>
         {iso.physicallyIsolates && iso.separatedLinkCount > 0
@@ -870,9 +1032,10 @@ function MovementDetail({ analysis }: { analysis: V2BoundaryAnalysis }) {
   return (
     <>
       <p className="note">
-        One trip through the closure, of {count(analysis.movements.includedCount)}{' '}
-        identified from {count(analysis.movements.candidatePairs)} considered:
-        entering at node {m.entryNode} and leaving at node {m.exitNode}, crossing
+        {count(analysis.movements.includedCount)} crossing
+        {analysis.movements.includedCount === 1 ? '' : 's'} identified from{' '}
+        {count(analysis.movements.candidatePairs)} considered. The one measured
+        enters at node {m.entryNode} and leaves at node {m.exitNode}, crossing
         from {m.fromNode} to {m.toNode}.
       </p>
       <dl className="kv">

@@ -636,6 +636,18 @@ export interface V2Movement {
   exitNode: number;
   entryLinkId: number;
   exitLinkId: number;
+  /**
+   * The roads this crossing enters and leaves by, named as the rest of the
+   * application names them.
+   *
+   * Null where the link has no resolved name — AMDS carries one for about a
+   * third of vehicle links — rather than a placeholder, so a reader is never
+   * shown an invented label. Node numbers alone cannot identify a movement to
+   * anyone: where a closure has a hundred included crossings, "entering at
+   * node 214883" is uncheckable and "entering from Bluff Highway" is not.
+   */
+  entryRoadName: string | null;
+  exitRoadName: string | null;
   entryDirection: string;
   exitDirection: string;
   included: boolean;
