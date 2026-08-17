@@ -120,8 +120,21 @@ export default function ClosureResultView({
       `${scenario.vehicle}:${scenario.closureScope}`
     : 'pending';
 
+  /*
+   * A wrapper, not a fragment.
+   *
+   * Several blocks here — the measures list, the movement context, the
+   * isolation heading — sit at the top level of the panel rather than inside a
+   * disclosure, which is the only place the stylesheet had ever put them. With
+   * no container to hang a rule on they inherited no horizontal padding and
+   * ran out past the panel's edge, over the map.
+   *
+   * A plain div with no overflow or transform, so it does not become a
+   * containing block and the sticky scenario summary still resolves against
+   * the scroll container above it.
+   */
   return (
-    <>
+    <div className="closure-panel">
       <ScenarioSummary
         summary={summary}
         open={scenarioOpen}
@@ -304,7 +317,7 @@ export default function ClosureResultView({
           </details>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -800,10 +813,19 @@ function Isolation({ isolation }: { isolation: V2Isolation | null }) {
           : 'Nothing loses access in the represented physical-access graph.'}
         {iso.separatedTruncated && ' The id list is capped; the counts are exact.'}
       </p>
+      {/*
+        Deliberately does NOT use the phrase "cut off" to explain itself.
+
+        The five reviewed closures that lose one crossing while the network
+        stays intact must show that phrase nowhere at all, and an explanatory
+        sentence sitting under a result is exactly what survives into a
+        screenshot with its qualifier lost. The word belongs to the hero, in
+        the one branch entitled to it, and nowhere else.
+      */}
       <p className="note">
-        Undirected, and independent of the routing above: a trip having no
-        replacement is not the same as a road losing access, and this is the one
-        that says whether anything is cut off.
+        Undirected, and independent of the routing above: one crossing having
+        no replacement is not the same as a road losing access, and this is the
+        block that settles whether anything lost access.
       </p>
 
       <dl className="kv">
@@ -849,15 +871,15 @@ function Isolation({ isolation }: { isolation: V2Isolation | null }) {
       )}
 
       {/*
-        Which side is "cut off" is a policy, not a theorem. Where the policy
+        Which side lost access is a policy, not a theorem. Where the policy
         cannot decide, saying so is the finding — naming a side anyway would
         assert a direction the data does not carry.
       */}
       {iso.principalSideAmbiguous && (
         <p className="note">
-          No side was named as cut off. Neither side carries a decisive anchor,
-          so what is supported is that the network splits into two represented
-          components, not that one of them lost its connection.
+          Neither side was named as the one that lost access: neither carries a
+          decisive anchor, so what is supported is that the network splits into
+          two represented components, not that one of them lost its connection.
         </p>
       )}
 
