@@ -46,7 +46,7 @@ from typing import Literal
 
 from . import closure as closure_mod
 from . import corridor as corridor_mod
-from . import db, movements, physical, ports, replacement, routegeom
+from . import config, db, movements, physical, ports, replacement, routegeom
 from .closure import Closure, Scope
 from .movements import MovementSet
 from .replacement import ReplacementPath, ReplacementSet
@@ -348,7 +348,7 @@ def as_dict(out: BoundaryImpact, *, include_all_movements: bool = True) -> dict:
         "engine": "v2-boundary",
         "algorithm": out.algorithm,
         "algorithmVersion": out.algorithm_version,
-        "stability": "development preview - not a stable 3.0.0",
+        "stability": config.ENGINE_STABILITY,
         "request": {"scope": out.scope, "metric": out.metric,
                     "vehicle": out.profile},
         "headline": out.headline,

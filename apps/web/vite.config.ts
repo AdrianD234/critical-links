@@ -27,6 +27,24 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     envDir: '../..',
     server: {
+      /*
+       * Bind the IPv4 loopback explicitly rather than leaving it to whichever
+       * family `localhost` resolves to first.
+       *
+       * Vite's default `localhost` resolves to ::1 on Windows, and a server
+       * listening only there is unreachable at http://127.0.0.1:5173 — which
+       * is the address the Playwright config probes, and the one anything
+       * IPv4-only reaches for. The failure is confusing rather than loud: the
+       * server prints a healthy banner, a browser still works because it tries
+       * both families, and the test runner waits two minutes before declaring
+       * the server unavailable.
+       *
+       * Deliberately the address and not `true`. `true` (or `0.0.0.0`) would
+       * also fix it, and would additionally publish the dev server on every
+       * network interface the machine has. Pass `--host` on the command line
+       * for the occasion when that is actually wanted; it overrides this.
+       */
+      host: '127.0.0.1',
       port: 5173,
       strictPort: true,
       proxy: {

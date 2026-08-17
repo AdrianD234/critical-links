@@ -256,7 +256,22 @@ export default function ResultView({
           <details className="disclose">
             <summary>Source &amp; methodology</summary>
             <div className="body">
-              <SourceMethodology detour={detour} meta={meta} />
+              <SourceMethodology
+                provenance={{
+                  selectedLink: detour.selectedLink,
+                  closureGroupId: detour.closure.closureGroupId,
+                  snapshotId: detour.snapshotId,
+                  sourceDataset: detour.sourceDataset,
+                  retrievedAtUtc: detour.retrievedAtUtc,
+                  calculatedAtUtc: detour.calculatedAtUtc,
+                  algorithm: detour.algorithm,
+                  algorithmVersion: detour.algorithmVersion,
+                  licence: detour.licence,
+                  limitations: detour.limitations,
+                  attribution: detour.attribution,
+                }}
+                meta={meta}
+              />
             </div>
           </details>
         </div>

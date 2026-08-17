@@ -73,6 +73,27 @@ ALGORITHM = "pgr-dijkstra-arc"
 ALGORITHM_VERSION = "2.0.0"
 PROCESSING_VERSION = "2.0.0"
 
+#: How settled the closure engine is. Rendered verbatim by the interface and
+#: never paraphrased there, which is why it is written as a sentence rather
+#: than a grade.
+#:
+#: This read "development preview - not a stable 3.0.0" while a second engine
+#: was the default and V2 sat behind a development flag. It is now the only
+#: engine the product uses, so that sentence was false in the direction that
+#: matters: it told a reader that the figures in front of them were not the
+#: product's answer, when they are.
+#:
+#: What replaces it names the one method caveat that is still outstanding
+#: rather than claiming none is. Turn restrictions are checked AFTER a route is
+#: found, not enforced while it is being found - see turns.py. The check fails
+#: closed, so a violating route is never offered, but "no route we offer breaks
+#: a published restriction" is a weaker statement than "the search only ever
+#: considered legal routes", and the difference belongs on the screen.
+ENGINE_STABILITY = (
+    "production - turn restrictions are post-validated, not enforced during "
+    "routing"
+)
+
 DEFAULT_ATTRIBUTION = (
     "Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, "
     "maintained by New Zealand Road Controlling Authorities, the Department of "
@@ -88,9 +109,13 @@ LIMITATIONS = [
     "AMDS publishes no speed attribute. Time results are derived from estimated "
     "speeds (urban/rural classification where available, otherwise asset type and "
     "ownership) and are flagged TIME_ESTIMATED. Distance is the defensible metric.",
-    "AMDS publishes only 60 restricted turns nationally. Banned-turn coverage is "
-    "effectively negligible, so routes through complex intersections must not be "
-    "presented as road-legal.",
+    "AMDS publishes only 60 restricted turns nationally, of which 43 resolve to a "
+    "connected chain of graph links and exactly 1 restricts any modelled vehicle "
+    "class. Banned-turn coverage is effectively negligible, so routes through "
+    "complex intersections must not be presented as road-legal. Restrictions are "
+    "checked after a route is found rather than enforced while it is being found: "
+    "a route that uses a published applicable restriction is withheld rather than "
+    "offered, but the search itself was not constrained by them.",
     "Junctions are inferred where one link ends on the interior of another, because "
     "AMDS does not split through roads at side roads. Interior-to-interior crossings "
     "are never noded, which preserves grade separation.",

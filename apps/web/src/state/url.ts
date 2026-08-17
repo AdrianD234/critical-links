@@ -13,6 +13,35 @@
  * `pushState` is used for a change of selection (a new thing to go Back from)
  * and `replaceState` for a change of scenario on the same link, which would
  * otherwise fill the history stack with every toggle of a radio button.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT `v=2` IS FOR
+ *
+ * The URL has to say which engine's semantics it describes, because the scope
+ * names alone cannot. `scope=amds-feature` means one thing in a link made
+ * before the closure engine was promoted — it was the only default the old
+ * engine had, and it measured between the closed feature's own two endpoints —
+ * and something else in a link made after, where it is a deliberate advanced
+ * choice measured across the closure boundary.
+ *
+ * Without a marker the two are indistinguishable, and the app would have to
+ * guess. `v=2` is written on every URL this build produces; a URL carrying a
+ * link and no `v=2` is a pre-promotion link and is treated as one.
+ *
+ * THE POLICY FOR A PRE-PROMOTION LINK IS TO MIGRATE IT, VISIBLY.
+ *
+ * The alternative was to refuse it and ask for the analysis to be re-run. That
+ * was rejected: the link identifies the road unambiguously and that identity is
+ * not in doubt, so refusing would strand every circulating link without telling
+ * the reader anything they did not already know.
+ *
+ * What IS in doubt is the closure scope and the measure, and both are changing.
+ * So the migration is explicit rather than silent: the scope is moved to the
+ * current default — the segment the reader pointed at — and `readUrl` reports
+ * what the link originally asked for so the interface can say so, once, and
+ * offer to restore it. Quietly re-reading an old source-feature link as a
+ * segment closure would change what was analysed while the link still looked
+ * unchanged, which is the one outcome this must not produce.
  */
 
 import {
@@ -36,6 +65,25 @@ export interface ExploreUrlState {
   snapshot: string | null;
 }
 
+/**
+ * What a pre-promotion link asked for, and what it was changed to.
+ *
+ * Present only when the two differ. Equal values are not a migration and must
+ * not produce a notice: a notice that fires when nothing changed teaches the
+ * reader to dismiss the one that fires when something did.
+ */
+export interface LegacyMigration {
+  requestedScope: ClosureScope;
+  appliedScope: ClosureScope;
+}
+
+export interface RestoredUrlState extends ExploreUrlState {
+  migration: LegacyMigration | null;
+}
+
+/** The semantics marker written on every URL this build produces. */
+export const URL_SEMANTICS_VERSION = '2';
+
 const SCOPES: ClosureScope[] = ['amds-feature', 'direction', 'segment'];
 
 function oneOf<T extends string>(
@@ -48,22 +96,40 @@ function oneOf<T extends string>(
     : fallback;
 }
 
-export function readUrl(search = window.location.search): ExploreUrlState {
+export function readUrl(search = window.location.search): RestoredUrlState {
   const p = new URLSearchParams(search);
 
   /*
-   * `scope` accepts both vocabularies. Old links in circulation carry the API
-   * enum (`physical`/`directed`); new ones carry the product scope. Reading
-   * both means a permalink someone shared last month still resolves.
+   * `scope` accepts both vocabularies. Links made before the promotion may
+   * carry the retired wire enum (`physical`/`directed`); ones made since carry
+   * the product scope. Reading both means a permalink someone shared last
+   * month still names a scope rather than falling silently to the default.
    */
   const rawScope = p.get('scope');
-  const closureScope: ClosureScope =
+  const requestedScope: ClosureScope =
     rawScope === 'physical' || rawScope === 'directed'
       ? closureScopeFromWire(rawScope)
       : oneOf(rawScope, SCOPES, DEFAULT_SCENARIO.closureScope);
 
+  const link = p.get('link');
+
+  /*
+   * A link with no semantics marker was made before the promotion. See the
+   * header: the scope is migrated to the current default rather than honoured
+   * as written, and what it asked for is reported so it can be disclosed.
+   *
+   * Only when a link is actually named. A bare `/` is not a stale permalink,
+   * it is someone opening the application, and it has nothing to migrate.
+   */
+  const legacy = link !== null && p.get('v') !== URL_SEMANTICS_VERSION;
+  const closureScope = legacy ? DEFAULT_SCENARIO.closureScope : requestedScope;
+  const migration =
+    legacy && requestedScope !== closureScope
+      ? { requestedScope, appliedScope: closureScope }
+      : null;
+
   return {
-    link: p.get('link'),
+    link,
     scenario: {
       metric: oneOf<Metric>(
         p.get('metric'),
@@ -80,6 +146,7 @@ export function readUrl(search = window.location.search): ExploreUrlState {
     focus: oneOf<DirectionKey>(p.get('focus'), ['forward', 'reverse'], 'reverse'),
     compare: p.get('compare') === '1',
     snapshot: p.get('snapshot'),
+    migration,
   };
 }
 
@@ -92,6 +159,10 @@ export function buildSearch(s: ExploreUrlState): string {
   p.set('focus', s.focus);
   if (s.compare) p.set('compare', '1');
   if (s.snapshot) p.set('snapshot', s.snapshot);
+  /* Last, so it reads as a property of the whole state rather than of the
+   * setting next to it. Written unconditionally: a URL that omits it is, by
+   * this build's own rule, a pre-promotion URL. */
+  p.set('v', URL_SEMANTICS_VERSION);
   return `?${p.toString()}`;
 }
 

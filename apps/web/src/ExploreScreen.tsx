@@ -1,17 +1,23 @@
 /*
  * The Explore screen: state, wiring and the rules about what may be shown when.
  *
- * TWO RULES GOVERN EVERYTHING HERE
+ * THREE RULES GOVERN EVERYTHING HERE
  *
  *   Feedback precedes computation. Selecting a road highlights it, opens the
  *   inspector and clears the previous result synchronously, on the click. The
  *   number arrives when it arrives.
  *
  *   A stale number is worse than no number. A result that no longer matches the
- *   current controls is never presented as the answer. `staleResult` below is
- *   the mechanism: the query key contains the scenario, so a scenario change
- *   produces a key with no data, and the panel shows skeletons rather than the
- *   previous figures.
+ *   current controls is never presented as the answer. The query key contains
+ *   the scenario, so a scenario change produces a key with no data, and the
+ *   panel shows skeletons rather than the previous figures.
+ *
+ *   ONE ENGINE ANSWERS. Every user-facing figure on this screen comes from the
+ *   boundary-movement analysis. There is no second engine behind it and no
+ *   fallback to one: the retired engine closes a different thing and measures
+ *   between different points, so a number from it appearing when this one fails
+ *   would answer a question nobody asked and conceal the failure that needed
+ *   looking at. A failure here stays a failure here.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +28,6 @@ import ContextInspector, {
 } from './shell/ContextInspector.js';
 import AppShell from './shell/AppShell.js';
 import BottomSheet, { type SheetStop, sheetHeight } from './shell/BottomSheet.js';
-import { ENGINE_SWITCH_VISIBLE, type Engine } from './shell/EngineSwitch.js';
 import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
@@ -36,27 +41,19 @@ import { hasLinzKey } from './map/style.js';
 import { coverageOf } from './api/coverage.js';
 import AboutDialog from './shell/AboutDialog.js';
 import { BasemapUnavailable } from './inspector/ResultNotices.js';
-import { availabilityOf, normaliseDirection } from './state/direction.js';
 import InspectorActions from './inspector/InspectorActions.js';
-import ResultView from './inspector/ResultView.js';
-import V2Preview from './inspector/V2Preview.js';
-import type { DirectionView } from './inspector/DirectionTabs.js';
-import { UnsupportedScopeError } from './api/client.js';
+import ClosureResultView from './inspector/ClosureResultView.js';
 import {
-  DEFAULT_SCENARIO,
-  DEFAULT_SCENARIO_V2,
   closureLabel,
   closureLabelShort,
   scopeOfResponse,
+  type ClosureScope,
   type DirectionKey,
   type Scenario,
 } from './api/scenario.js';
-import type { LinkSummary } from './api/types.js';
+import type { LinkSummary, V2RouteGeometry } from './api/types.js';
 import {
-  resultVersion,
   useBoundaryAnalysisV2,
-  useClosureAnalysisV2,
-  useDetour,
   useMetadata,
   useRoadSearch,
   useV2Capabilities,
@@ -79,9 +76,14 @@ export default function ExploreScreen() {
   const [link, setLink] = useState<string | number | null>(initial.link);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [scenario, setScenario] = useState<Scenario>(initial.scenario);
-  const [view, setView] = useState<DirectionView>(
-    initial.compare ? 'compare' : initial.focus,
-  );
+  /*
+   * Which directed traversal is being withdrawn. Meaningful only under
+   * `direction` scope, where a single directed closure has to name the one it
+   * means; under the other scopes the engine ignores it and the request does
+   * not send it. Kept in state and in the URL so a direction-scope permalink
+   * still restores what it described.
+   */
+  const [focus, setFocus] = useState<DirectionKey>(initial.focus);
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -98,6 +100,13 @@ export default function ExploreScreen() {
   const [urlSnapshot, setUrlSnapshot] = useState<string | null>(
     initial.snapshot,
   );
+  /*
+   * What a pre-promotion link asked for, if this session was opened from one.
+   * Shown once and then dismissed; it is a statement about how this view was
+   * arrived at, not a property of the result, so it must not reappear when the
+   * scenario changes. See state/url.ts for the policy it reports.
+   */
+  const [migration, setMigration] = useState(initial.migration);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [geometryWarning, setGeometryWarning] =
     useState<GeometryWarning | null>(null);
@@ -118,13 +127,6 @@ export default function ExploreScreen() {
     basemap: true,
     labels: true,
   });
-  /*
-   * V1 IS THE DEFAULT, in development as well as in production. The switch
-   * that changes this is compiled out of a production build; see
-   * shell/EngineSwitch.tsx.
-   */
-  const [engine, setEngine] = useState<Engine>('v1');
-  const v2 = ENGINE_SWITCH_VISIBLE && engine === 'v2';
 
   /* ------------------------------------------------------------- data */
 
@@ -133,18 +135,19 @@ export default function ExploreScreen() {
 
   const metaQ = useMetadata();
   const meta = metaQ.data ?? null;
-  const version = resultVersion(metaQ.data);
   /* What the snapshot covers, and therefore what the map opens on and what
    * Home returns to. Read from the backend, never inferred from a boolean. */
   const coverage = useMemo(() => coverageOf(meta), [meta]);
 
-  const detourQ = useDetour({ link, scenario, version }, !v2);
-  const detour = detourQ.data ?? null;
-
-  /* Only fetched when V2 is selected: under V1 nothing reads it, and an
-   * unconditional request would put a V2 call in every session. */
-  const v2CapsQ = useV2Capabilities(v2);
-  const v2Caps = v2CapsQ.data ?? null;
+  /*
+   * What the engine can do for this snapshot. Unconditional now: it is the
+   * engine every session uses, so there is no longer a case in which asking is
+   * a request nobody wanted. It is also what the scope control is built from,
+   * and a control that guesses at its own options while a request is in flight
+   * offers the wrong ones for the first second of every session.
+   */
+  const capsQ = useV2Capabilities(true);
+  const caps = capsQ.data ?? null;
 
   /* Search is debounced at 180ms, per the interaction storyboard. */
   useEffect(() => {
@@ -154,50 +157,32 @@ export default function ExploreScreen() {
   const searchQ = useRoadSearch(debounced, true);
 
   /*
+   * The analysis.
+   *
+   * Keyed on the engine's own snapshot, algorithm and derivation versions: an
+   * algorithm change against an unchanged snapshot must still invalidate every
+   * figure in the cache, or a settings change would redisplay a number computed
+   * by different code.
+   */
+  const analysisQ = useBoundaryAnalysisV2(
+    {
+      link,
+      scenario,
+      direction: focus,
+      version: v2ResultVersion(capsQ.data),
+    },
+    true,
+  );
+  const analysis = analysisQ.data ?? null;
+
+  /*
    * The result on screen belongs to the *current* query key by construction:
-   * changing the scenario changes the key, and a key with no cached data has
-   * no data to show. `stale` is therefore only about the summary chip, which
-   * says "recalculating" while a fetch for the new key is in flight.
+   * changing the scenario changes the key, and a key with no cached data has no
+   * data to show. `stale` is therefore only about the summary chip, which says
+   * "recalculating" while a fetch for the new key is in flight.
    */
-  const loading = detourQ.isPending && link !== null;
-  const stale = loading && detourQ.isFetching;
-
-  /* ------------------------------------------- direction normalisation */
-
-  /*
-   * A one-way link has no reverse result, and the URL defaults to reverse. Left
-   * alone that produces a panel with the Reverse tab selected, the Reverse tab
-   * disabled, no hero, no route, and no keyboard-focusable tab to escape with.
-   *
-   * So the focus follows what the response can actually show. The decision is
-   * in state/direction.ts, pure and tested; this only applies it and remembers
-   * what to announce.
-   */
-  const available = useMemo(
-    () => availabilityOf({ forward: detour?.forward, reverse: detour?.reverse }),
-    [detour],
-  );
-
-  /*
-   * DERIVED, not an effect that writes back to state.
-   *
-   * An effect version of this was wrong in a way the browser tests caught:
-   * after Back restored a URL asking for an unavailable direction, the effect's
-   * dependencies (the result, the availability) had not changed, so it never
-   * re-ran and the panel returned to the blank state it was written to prevent.
-   *
-   * Deriving it on every render means the displayed direction cannot disagree
-   * with what the response can show, whatever route the request came in by —
-   * fresh load, map click, permalink, or history navigation.
-   */
-  const normalised = useMemo(
-    () => normaliseDirection(view, available),
-    [view, available],
-  );
-  const effectiveView = detour ? normalised.view : view;
-  const directionNotice = detour && normalised.changed
-    ? normalised.announcement
-    : null;
+  const loading = analysisQ.isPending && link !== null;
+  const stale = loading && analysisQ.isFetching;
 
   /* --------------------------------------------------------- the URL */
 
@@ -206,17 +191,23 @@ export default function ExploreScreen() {
    * resolves, the internal numeric id a map click produced before that.
    */
   const urlLink =
-    detour?.selectedLink.amdsId ?? (link === null ? null : String(link));
+    analysis?.selectedLink.amdsId ?? (link === null ? null : String(link));
 
   const urlState = useMemo(
     () => ({
       link: urlLink,
       scenario,
-      focus: (effectiveView === 'compare' ? 'reverse' : effectiveView) as DirectionKey,
-      compare: effectiveView === 'compare',
-      snapshot: detour?.snapshotId ?? meta?.snapshotId ?? null,
+      focus,
+      /* The forward/reverse comparison was a property of the endpoint measure,
+       * which computed both directions of one link. This engine measures trips
+       * across a boundary, where "the other direction" is a different crossing
+       * rather than the same one reversed, so there is nothing to compare and
+       * the flag is never set. It is still read, so an old link carrying it
+       * does not fail to parse. */
+      compare: false,
+      snapshot: analysis?.snapshotId ?? meta?.snapshotId ?? null,
     }),
-    [urlLink, scenario, effectiveView, detour, meta],
+    [urlLink, scenario, focus, analysis, meta],
   );
 
   /*
@@ -232,15 +223,10 @@ export default function ExploreScreen() {
    * identifier. The epoch increments only when the user picks something; every
    * other change to the URL, including the numeric-to-AMDS canonicalisation, is
    * a replace.
-   */
-  /*
-   * Starts at the initial epoch, NOT -1.
    *
-   * With -1 the very first write after mount counted as a new selection and
-   * pushed, adding an entry on top of the one the navigation had already
-   * created. Back then returned to the same road, which is precisely the
-   * double-entry symptom this mechanism exists to prevent — the app was
-   * causing it at load as well as on click.
+   * Starts at the initial epoch, NOT -1. With -1 the very first write after
+   * mount counted as a new selection and pushed, adding an entry on top of the
+   * one the navigation had already created.
    */
   const lastEpoch = useRef(0);
   useEffect(() => {
@@ -255,8 +241,13 @@ export default function ExploreScreen() {
       const s = readUrl();
       setLink(s.link);
       setScenario(s.scenario);
-      setView(s.compare ? 'compare' : s.focus);
+      setFocus(s.focus);
       setUrlSnapshot(s.snapshot);
+      /* A history entry written by this build carries the semantics marker, so
+       * going Back to one is not a migration. Going Back to an entry from
+       * before the promotion is, and it is disclosed again — the reader is
+       * looking at those figures afresh. */
+      setMigration(s.migration);
       /* A popstate is a move within existing history, so the next write must
        * not push another entry on top of it. */
       setSelectionEpoch((e) => {
@@ -281,6 +272,9 @@ export default function ExploreScreen() {
      * entry regardless of how the identifier is later canonicalised. */
     setSelectionEpoch((e) => e + 1);
     setUrlSnapshot(null);
+    /* A fresh selection is not the link that was arrived on, so whatever that
+     * link asked for no longer describes what is on screen. */
+    setMigration(null);
   }, []);
 
   const onPickLink = useCallback(
@@ -295,7 +289,7 @@ export default function ExploreScreen() {
       selectLink(l.amdsId, l.displayLabel ?? l.roadName);
       setQuery('');
       setDebounced('');
-      /* Move the map now, not when the detour lands. On a national snapshot
+      /* Move the map now, not when the result lands. On a national snapshot
        * the chosen road may be on the other island. */
       if (
         typeof l.centroid?.lon === 'number' &&
@@ -314,74 +308,30 @@ export default function ExploreScreen() {
   const clear = useCallback(() => {
     setLink(null);
     setPendingName(null);
+    setMigration(null);
   }, []);
 
-  /*
-   * Switching engine switches the default question with it.
-   *
-   * V2 defaults to the selected segment, which is what the user pointed at;
-   * V1 cannot close that and defaults to the whole AMDS source feature.
-   * Carrying one engine's scope across to the other would either fail loudly
-   * (segment under V1) or silently answer a different question, so the
-   * scenario is reset to the default the chosen engine is built around.
-   */
-  const onEngineChange = useCallback((next: Engine) => {
-    setEngine(next);
-    setScenario(next === 'v2' ? DEFAULT_SCENARIO_V2 : DEFAULT_SCENARIO);
+  /* Restore the closure scope a pre-promotion link asked for. */
+  const onRestoreScope = useCallback((closureScope: ClosureScope) => {
+    setScenario((s) => ({ ...s, closureScope }));
+    setMigration(null);
   }, []);
 
   /* ------------------------------------------------------ map result */
 
-  const focusKey: DirectionKey = effectiveView === 'compare' ? 'reverse' : effectiveView;
-
   /*
-   * The V2 request.
-   *
-   * Keyed on the V2 engine's own versions rather than the V1 metadata block:
-   * the two version independently, and a V2 algorithm change against an
-   * unchanged snapshot must invalidate every V2 figure in the cache.
-   */
-  const v2Q = useClosureAnalysisV2(
-    {
-      link,
-      scenario,
-      direction: focusKey,
-      version: v2ResultVersion(v2CapsQ.data),
-    },
-    v2,
-  );
-  const analysis = v2Q.data ?? null;
-
-  /* The boundary-movement request, on its own query key. See queries.ts for
-   * why it must never share a cache entry with the endpoint analysis above. */
-  const boundaryQ = useBoundaryAnalysisV2(
-    {
-      link,
-      scenario,
-      direction: focusKey,
-      version: v2ResultVersion(v2CapsQ.data),
-    },
-    v2,
-  );
-  const boundary = boundaryQ.data ?? null;
-
-  /*
-   * What the map draws under the V2 engine.
-   *
-   * Built from the boundary result rather than the V1 one. Under V2 the panel
-   * is describing the boundary measure, and drawing V1's route beside V2's
-   * figures would attribute one engine's line to the other's numbers.
+   * What the map draws.
    *
    * The geometry arrives as a MultiLineString of contiguous PIECES and is
-   * expanded into one LineString feature per piece. That is what lets the
-   * map's existing gap handling work on it: it merges consecutive features
-   * only where they actually meet, and turns the reveal animation off where
-   * they do not. Handing it one flattened line would draw straight across
-   * every gap, which is the single thing this must never do.
+   * expanded into one LineString feature per piece. That is what lets the map's
+   * existing gap handling work on it: it merges consecutive features only where
+   * they actually meet, and turns the reveal animation off where they do not.
+   * Handing it one flattened line would draw straight across every gap, which
+   * is the single thing this must never do.
    */
-  const v2MapResult: MapResult | null = useMemo(() => {
-    if (!v2 || !boundary) return null;
-    const pieces = (g?: { geometry: GeoJSON.MultiLineString | null }) =>
+  const mapResult: MapResult | null = useMemo(() => {
+    if (!analysis) return null;
+    const pieces = (g?: V2RouteGeometry) =>
       g?.geometry
         ? ({
             type: 'FeatureCollection',
@@ -393,109 +343,78 @@ export default function ExploreScreen() {
           } as GeoJSON.FeatureCollection)
         : null;
     return {
+      /* `closure` is emitted only when more was removed than the selected
+       * segment. Under segment scope the two are the same thing, and the
+       * fallback is what makes the closure visible there at all. */
       closure: pieces(
-        boundary.geometry?.closure ?? boundary.geometry?.selectedSegment,
+        analysis.geometry?.closure ?? analysis.geometry?.selectedSegment,
       ),
-      focus: pieces(boundary.geometry?.replacement),
+      focus: pieces(analysis.geometry?.replacement),
       compare: null,
       corridor: null,
-      stranded: null,
+      /* The links that lose access, in amber. Never a hull around them: the
+       * engine identifies links, not a catchment. Null when the backend capped
+       * the collection, because a truncated set drawn as if whole understates
+       * the extent — the counts in the panel stay exact either way. */
+      stranded: analysis.isolation?.separatedGeoJson ?? null,
       /* Framed on the closure AND the replacement together, computed from the
-       * drawn pieces. The V2 endpoint returns no bounds of its own, and with
-       * none the map stays wherever it was - which on a national snapshot
-       * means the answer is drawn somewhere off screen. */
+       * drawn pieces. The endpoint returns no bounds of its own, and with none
+       * the map stays wherever it was — which on a national snapshot means the
+       * answer is drawn somewhere off screen. */
       fitBounds: boundsOf([
-        boundary.geometry?.closure,
-        boundary.geometry?.selectedSegment,
-        boundary.geometry?.replacement,
+        analysis.geometry?.closure,
+        analysis.geometry?.selectedSegment,
+        analysis.geometry?.replacement,
       ]),
-      /* Carries the engine name, so switching engines cannot replay a V1
-       * reveal over a V2 line. */
-      revealKey: `v2b:${boundary.snapshotId}:${boundary.linkId}:${scenario.metric}:${scenario.vehicle}:${scenario.closureScope}`,
+      revealKey:
+        `${analysis.snapshotId}:${analysis.linkId}:${scenario.metric}:` +
+        `${scenario.vehicle}:${scenario.closureScope}`,
     };
-  }, [v2, boundary, scenario]);
-
-  const mapResult: MapResult | null = useMemo(() => {
-    if (!detour) return null;
-    const focused = detour[focusKey];
-    const other = detour[focusKey === 'reverse' ? 'forward' : 'reverse'];
-
-    return {
-      closure: detour.closure.geoJson ?? null,
-      focus: focused?.routeGeoJson ?? null,
-      /* The comparison route is only drawn in Compare. In single-direction
-       * view a second route would compete with the answer. */
-      compare: effectiveView === 'compare' ? (other?.routeGeoJson ?? null) : null,
-      corridor: null,
-      /* The links that lose connectivity, in amber. Never a hull around them:
-       * the engine identifies links, not a catchment. */
-      stranded: focused?.isolation?.linkGeoJson ?? null,
-      fitBounds: detour.fitBounds,
-      revealKey: `${detour.snapshotId}:${detour.selectedLink.linkId}:${focusKey}:${scenario.metric}:${scenario.vehicle}:${scenario.closureScope}`,
-    };
-  }, [detour, focusKey, effectiveView, scenario]);
+  }, [analysis, scenario]);
 
   /*
    * The legend names what was actually closed.
    *
-   * It used to read "Closed segment" regardless of scope, which was wrong on
-   * two counts: the engine removes an AMDS source feature, not a segment, and
-   * "closed" without qualification reads as a live road status.
+   * Read from the response rather than from the control: the response says what
+   * was removed, and a control the reader has already moved on from must not
+   * relabel a result computed under the previous one.
    */
   const legend = useMemo<LegendItem[]>(() => {
-    const scope = detour ? scopeOfResponse(detour.closure.scope) : null;
+    const scope = analysis ? scopeOfResponse(analysis.closure.scope) : null;
     const items: LegendItem[] = [
       {
         colour: palette.closure,
         label: scope ? closureLabel(scope) : 'Modelled closure',
       },
     ];
-    if (detour) {
-      items.push({
-        colour: palette.route,
-        label: `Replacement path — ${focusKey}`,
-      });
-      if (effectiveView === 'compare') {
-        items.push({
-          colour: palette.compare,
-          label: focusKey === 'reverse' ? 'Forward direction' : 'Reverse direction',
-          dashed: true,
-        });
-      }
-      /* Only when links are genuinely stranded. A DISCONNECTED one-way result
-       * routinely strands nothing, and a legend entry for an absent layer
-       * claims the map is showing something it is not. */
-      /* Only when stranded links are actually drawn. A legend entry for a
-       * layer with no data tells the reader to look for something that is not
-       * there. */
-      const iso = detour[focusKey]?.isolation;
-      if (iso?.linkGeoJson?.features?.length) {
-        items.push({ colour: palette.stranded, label: 'Stranded links' });
-      }
+    if (analysis?.geometry?.replacement?.geometry) {
+      items.push({ colour: palette.route, label: 'Replacement route' });
+    }
+    /* Only when links are actually drawn. A legend entry for a layer with no
+     * data tells the reader to look for something that is not there. */
+    if (analysis?.isolation?.separatedGeoJson?.features?.length) {
+      items.push({ colour: palette.stranded, label: 'Links losing access' });
     }
     items.push({ colour: palette.mapHighway, label: 'State highway' });
     return items;
-  }, [detour, focusKey, effectiveView]);
+  }, [analysis]);
 
   /* ---------------------------------------------------------- export */
 
   const onExport = useCallback(() => {
-    if (!detour) return;
-    const blob = new Blob([JSON.stringify(detour, null, 2)], {
+    if (!analysis) return;
+    const blob = new Blob([JSON.stringify(analysis, null, 2)], {
       type: 'application/geo+json',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nzcl-${detour.selectedLink.linkId}-${detour.snapshotId}.json`;
+    a.download = `nzcl-${analysis.linkId}-${analysis.snapshotId}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [detour]);
+  }, [analysis]);
 
   /* ----------------------------------------------------------- error */
-
-  const error = detourQ.error;
-  const unsupported = error instanceof UnsupportedScopeError;
 
   const permalink = permalinkFor(urlState);
 
@@ -503,14 +422,14 @@ export default function ExploreScreen() {
    * SNAPSHOT MISMATCH.
    *
    * The URL records a snapshot so a historical link cannot silently produce
-   * different numbers later. But the API has no snapshot parameter yet — every
+   * different numbers later. But the API has no snapshot parameter — every
    * request answers from the backend's active snapshot — so a permalink from an
    * older snapshot is recalculated rather than reproduced.
    *
    * Recalculating is not wrong. Presenting the recalculated figures as if they
    * were the saved result would be, so the mismatch is stated instead.
    */
-  const activeSnapshot = detour?.snapshotId ?? meta?.snapshotId ?? null;
+  const activeSnapshot = analysis?.snapshotId ?? meta?.snapshotId ?? null;
   const snapshotMismatch =
     urlSnapshot && activeSnapshot && urlSnapshot !== activeSnapshot
       ? { requested: urlSnapshot, active: activeSnapshot }
@@ -525,57 +444,33 @@ export default function ExploreScreen() {
     <InspectorActions
       permalink={permalink}
       onExport={onExport}
-      canExport={Boolean(detour)}
+      canExport={Boolean(analysis)}
     />
   );
 
   const body =
     link === null ? (
       <InspectorEmpty coverage={coverage} />
-    ) : v2 ? (
-      <V2Preview
-        analysis={analysis}
-        boundary={boundary}
-        boundaryLoading={boundaryQ.isPending}
-        boundaryError={(boundaryQ.error as Error) ?? null}
-        onBoundaryRetry={() => boundaryQ.refetch()}
-        capabilities={v2Caps}
-        meta={meta}
-        pendingName={pendingName}
-        loading={v2Q.isPending}
-        error={(v2Q.error as Error) ?? null}
-        scenario={scenario}
-        onScenarioChange={setScenario}
-        onClear={clear}
-        onRetry={() => v2Q.refetch()}
-      />
-    ) : error ? (
-      <div className="inspector-empty">
-        <h2>{unsupported ? 'Not available yet' : 'Analysis failed'}</h2>
-        <p>{(error as Error).message}</p>
-        {!unsupported && (
-          <button type="button" className="pbtn" onClick={() => detourQ.refetch()}>
-            Try again
-          </button>
-        )}
-      </div>
     ) : (
-      <ResultView
-        detour={detour}
+      <ClosureResultView
+        analysis={analysis}
+        capabilities={caps}
         meta={meta}
         pendingName={pendingName}
         loading={loading}
         stale={stale}
+        error={(analysisQ.error as Error) ?? null}
+        onRetry={() => analysisQ.refetch()}
         scenario={scenario}
         onScenarioChange={setScenario}
         scenarioOpen={scenarioOpen}
         onScenarioToggle={() => setScenarioOpen((o) => !o)}
-        view={effectiveView}
-        onViewChange={setView}
         onClear={clear}
         snapshotMismatch={snapshotMismatch}
         geometryWarning={geometryWarning}
-        directionNotice={directionNotice}
+        migration={migration}
+        onDismissMigration={() => setMigration(null)}
+        onRestoreScope={onRestoreScope}
       />
     );
 
@@ -584,14 +479,14 @@ export default function ExploreScreen() {
      * being closed, and a screenshot of the latter is one step from being read
      * as a live incident feed. */
   }
-  const closureBadge = detour ? (
+  const closureBadge = analysis ? (
     <div className="map-badge">
       <span className="dot" />
       <span>
-        {closureLabelShort(scopeOfResponse(detour.closure.scope))} —{' '}
-        {detour.closure.removedLinkCount}{' '}
-        {detour.closure.removedLinkCount === 1 ? 'link' : 'links'},{' '}
-        {detour.closure.removedArcCount} directed arcs
+        {closureLabelShort(scopeOfResponse(analysis.closure.scope))} —{' '}
+        {analysis.closure.removedLinkCount}{' '}
+        {analysis.closure.removedLinkCount === 1 ? 'link' : 'links'},{' '}
+        {analysis.closure.removedArcCount} directed arcs
       </span>
     </div>
   ) : null;
@@ -620,11 +515,9 @@ export default function ExploreScreen() {
           onSelectLink={onSelectSearchResult}
           onPreviewLink={setPreview}
           permalink={permalink}
-          canExport={Boolean(detour)}
+          canExport={Boolean(analysis)}
           onExport={onExport}
           onCopyFailed={() => undefined}
-          engine={engine}
-          onEngineChange={onEngineChange}
         />
       }
       rail={
@@ -657,7 +550,7 @@ export default function ExploreScreen() {
           <NetworkMap
             snapshotId={meta?.snapshotId ?? null}
             tileSchemaVersion={meta?.tileSchemaVersion ?? 2}
-            result={v2 ? v2MapResult : mapResult}
+            result={mapResult}
             onPickLink={onPickLink}
             onHoverChange={setHover}
             onScaleChange={setScale}
@@ -744,7 +637,7 @@ export { INSPECTOR_MIN };
  * whose pieces are far apart frames all of them, and nothing between.
  */
 function boundsOf(
-  geoms: ({ geometry: GeoJSON.MultiLineString | null } | undefined)[],
+  geoms: (V2RouteGeometry | undefined)[],
 ): [number, number, number, number] | null {
   let west = Infinity;
   let south = Infinity;

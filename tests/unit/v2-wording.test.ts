@@ -124,33 +124,64 @@ describe('mutual reachability after closure', () => {
 });
 
 /*
- * The helper above can only protect the panel if the panel goes through it.
- * A ternary written directly in the markup is the exact shape of the defect,
- * and it is one line, so it is cheap to reintroduce.
+ * The isolation wording, in the panel the product actually renders.
+ *
+ * These assertions used to run against inspector/V2Preview.tsx, the panel that
+ * existed while two engines were selectable side by side. That panel is gone;
+ * the checks are not, because the defects they pin are properties of how
+ * isolation is worded and not of which file words it.
+ *
+ * `iso` is the local binding the panel gives the isolation block, so the field
+ * references read `iso.graphExact` rather than `isolation.graphExact`. Matching
+ * on the field name alone is what makes that survive a rename of the binding
+ * without weakening the check.
+ *
+ * The mutual-reachability assertions did NOT move. `same_scc_after_closure` is
+ * carried by the endpoint response, and the panel renders the boundary one,
+ * which has no such field — there is no ternary to get wrong. The helper and
+ * its three-state contract stay exercised by the unit tests above, so a panel
+ * that starts rendering directed access again has something to render it
+ * through.
  */
-describe('the V2 preview panel', () => {
-  const preview = source('inspector/V2Preview.tsx');
+describe('the closure result panel', () => {
+  const panel = source('inspector/ClosureResultView.tsx');
   const types = source('api/types.ts');
 
-  it('renders mutual reachability through the three-state helper', () => {
-    expect(preview).toContain('mutualReachability(');
-    expect(preview).not.toMatch(/same_scc_after_closure\s*\?/);
+  it('reports the exactness claims apart rather than as one flag', () => {
+    expect(panel).not.toMatch(/\biso(lation)?\.exact\b/);
+    expect(panel).toContain('.calculationExact');
+    expect(panel).toContain('.partitionExact');
+    expect(panel).toContain('.graphExact');
   });
 
-  it('reports the two exactness claims apart rather than as one flag', () => {
-    expect(preview).not.toMatch(/isolation\.exact\b/);
-    expect(preview).toContain('isolation.calculationExact');
-    expect(preview).toContain('isolation.graphExact');
+  it('never claims the inferred graph models the road network unqualified', () => {
+    /* The false branch is the one that matters: it is the branch nearly every
+     * real result takes, and shortening it to "not exact" would drop the only
+     * sentence saying WHAT is not exact. */
+    expect(panel).toContain(
+      'inferred topology — not an exact model of the road network',
+    );
   });
 
   it('surfaces the topology confidence with its reason', () => {
-    expect(preview).toContain('isolation.topologyConfidence');
-    expect(preview).toContain('isolation.topologyConfidenceReason');
+    expect(panel).toContain('.topologyConfidence');
+    expect(panel).toContain('.topologyConfidenceReason');
   });
 
   it('says when no side was named as cut off', () => {
-    expect(preview).toContain('isolation.principalSideAmbiguous');
-    expect(preview).toContain('isolation.principalSideRule');
+    expect(panel).toContain('.principalSideAmbiguous');
+    expect(panel).toContain('.principalSideRule');
+  });
+
+  /*
+   * Isolation is the strongest claim the system makes and it is computed on the
+   * undirected graph. Letting a routing result produce it was the retired
+   * engine's central defect, so the panel has to keep saying they are separate
+   * questions.
+   */
+  it('keeps isolation separate from the routing result in words', () => {
+    expect(panel).toContain('Physical isolation — a separate question');
+    expect(panel).toMatch(/independent of the routing/i);
   });
 
   it('keeps the retired wording out of the wire types', () => {
@@ -174,7 +205,7 @@ describe('the V2 preview panel', () => {
  * green.
  */
 describe('the corridor caveat the adjudication traded a headline gate for', () => {
-  const findings = source('inspector/V2BoundaryFindings.tsx');
+  const findings = source('inspector/ClosureResultView.tsx');
   const types = source('api/types.ts');
 
   it('renders, gated on evaluationTruncated and nothing else', () => {
