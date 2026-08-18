@@ -140,9 +140,12 @@ test.describe('Topology sensitivity', () => {
     const assumedRow = page.getByTestId('ts-assumed');
     await expect(canonicalRow).toBeVisible();
     await expect(assumedRow).toBeVisible();
-    await expect(canonicalRow).toContainText('7,944');
-    await expect(assumedRow).toContainText('4,916');
-    await expect(canonicalRow).not.toContainText('4,916');
+    /* The app formats distances in km, so 7,944.412 m renders as 7.94 km and
+     * 4,915.533 m as 4.92 km. Asserting the rendered text rather than the raw
+     * metres is the point of a browser test. */
+    await expect(canonicalRow).toContainText('7.94');
+    await expect(assumedRow).toContainText('4.92');
+    await expect(canonicalRow).not.toContainText('4.92');
 
     /* Visibly distinct, not merely differently worded. */
     const canonicalStyle = await canonicalRow
