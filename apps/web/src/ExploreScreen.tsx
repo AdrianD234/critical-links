@@ -55,6 +55,8 @@ import type { LinkSummary } from './api/types.js';
 import {
   resultVersion,
   useBoundaryAnalysisV2,
+  useTopologySensitivityV2,
+  sensitivityToken,
   useClosureAnalysisV2,
   useDetour,
   useMetadata,
@@ -365,6 +367,23 @@ export default function ExploreScreen() {
   );
   const boundary = boundaryQ.data ?? null;
 
+  /* Topology sensitivity: a SEPARATE request, gated on the canonical answer
+   * having arrived. It is about 6.7 s for three candidates against 1.3 s for
+   * the canonical analysis, so bundling them would make every closure wait for
+   * a diagnostic most closures do not need.
+   *
+   * `tsToken` IS the current selection. The server echoes it back and the
+   * panel discards any response carrying a different one - a slow answer for a
+   * link the user has already left is confidently wrong output. */
+  const tsParts = {
+    link,
+    scenario,
+    direction: focusKey,
+    version: v2ResultVersion(v2CapsQ.data),
+  };
+  const tsToken = sensitivityToken(tsParts);
+  const sensitivityQ = useTopologySensitivityV2(tsParts, v2 && boundary !== null);
+
   /*
    * What the map draws under the V2 engine.
    *
@@ -539,6 +558,10 @@ export default function ExploreScreen() {
         boundaryLoading={boundaryQ.isPending}
         boundaryError={(boundaryQ.error as Error) ?? null}
         onBoundaryRetry={() => boundaryQ.refetch()}
+        sensitivity={sensitivityQ.data}
+        sensitivityLoading={sensitivityQ.isPending || sensitivityQ.isFetching}
+        sensitivityError={(sensitivityQ.error as Error) ?? null}
+        sensitivityToken={tsToken}
         capabilities={v2Caps}
         meta={meta}
         pendingName={pendingName}
