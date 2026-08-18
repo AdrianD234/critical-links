@@ -22,7 +22,7 @@ from nzcl import crossings
 from nzcl.topology import (assign_nodes, audit_no_invented_movements,
                            split_at_junctions)
 
-from test_topology import components, src
+from test_topology import components, split_research, src
 
 
 # --- geometry --------------------------------------------------------------
@@ -117,14 +117,14 @@ class TestTheFixtureFailsUnderTheOldRule:
     """
 
     def test_the_crossroads_is_not_noded(self):
-        res = split_at_junctions(RURAL_GRID, crossing_policy="none")
+        res = split_research(RURAL_GRID, crossing_policy="none")
         assert res.crossing_cuts == 0
         assert crossing_node(res.links) is None, (
             "the old rule must leave the rural crossroads severed - that is "
             "the defect this change fixes")
 
     def test_the_through_roads_are_never_cut(self):
-        res = split_at_junctions(RURAL_GRID, crossing_policy="none")
+        res = split_research(RURAL_GRID, crossing_policy="none")
         for group in ("GREENDALE", "CLINTONS"):
             assert len([l for l in res.links
                         if l.closure_group_id == group]) == 1
@@ -133,7 +133,7 @@ class TestTheFixtureFailsUnderTheOldRule:
         """Close the east half of Greendale Road; the trip must go via the
         perimeter, because the diagonal shortcut through the crossroads does
         not exist in the graph."""
-        res = split_at_junctions(RURAL_GRID, crossing_policy="none")
+        res = split_research(RURAL_GRID, crossing_policy="none")
         d = shortest_path_m(res.links, (-2000, 0), (0, 2000),
                             closed={"GREENDALE"})
         assert d == pytest.approx(4000.0), (
@@ -145,7 +145,7 @@ class TestARuralCrossroadsBecomesOneNode:
     """The case the suite was missing."""
 
     def test_both_through_roads_are_cut_at_the_crossing(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         assert res.crossing_policy == "confirmed"
         assert res.crossing_cuts == 1
         for group in ("GREENDALE", "CLINTONS"):
@@ -154,7 +154,7 @@ class TestARuralCrossroadsBecomesOneNode:
             assert sum(p.length_m for p in pieces) == pytest.approx(4000.0)
 
     def test_the_crossing_becomes_exactly_one_graph_node(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         nid = crossing_node(res.links)
         assert nid is not None, "the crossing must become a node"
         assert degree(res.links, nid) == 4, (
@@ -169,7 +169,7 @@ class TestARuralCrossroadsBecomesOneNode:
             assert s.coords[-1] != (0.0, 0.0)
 
     def test_both_geometries_continue_through_the_crossing(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         gd = sorted((l for l in res.links if l.closure_group_id == "GREENDALE"),
                     key=lambda l: l.coords[0][0])
         assert gd[0].coords[0] == (-2000.0, 0.0)
@@ -178,7 +178,7 @@ class TestARuralCrossroadsBecomesOneNode:
         assert gd[1].coords[-1] == (2000.0, 0.0)
 
     def test_the_closure_now_routes_through_the_diagonal_shortcut(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         d = shortest_path_m(res.links, (-2000, 0), (0, 2000),
                             closed={"GREENDALE"})
         assert d == pytest.approx(4000.0)
@@ -187,12 +187,12 @@ class TestARuralCrossroadsBecomesOneNode:
         # Clintons, instead of 2000 m + 2000 m + 2000 m round the perimeter.
         d2 = shortest_path_m(res.links, (2000, 0), (0, 2000))
         assert d2 == pytest.approx(4000.0)
-        old = split_at_junctions(RURAL_GRID, crossing_policy="none")
+        old = split_research(RURAL_GRID, crossing_policy="none")
         assert shortest_path_m(old.links, (2000, 0), (0, 2000)) == \
             pytest.approx(4000.0)
 
     def test_total_length_is_preserved_exactly(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         before = sum(
             ((s.coords[-1][0] - s.coords[0][0]) ** 2 +
              (s.coords[-1][1] - s.coords[0][1]) ** 2) ** 0.5
@@ -202,7 +202,7 @@ class TestARuralCrossroadsBecomesOneNode:
         assert after == pytest.approx(before, abs=1e-9)
 
     def test_it_is_one_connected_component(self):
-        assert components(split_at_junctions(RURAL_GRID).links) == 1
+        assert components(split_research(RURAL_GRID).links) == 1
 
 
 class TestGradeSeparationSurvives:
@@ -238,7 +238,7 @@ class TestGradeSeparationSurvives:
     ]
 
     def test_a_mapped_structure_is_not_noded(self):
-        res = split_at_junctions(self.BRIDGE, structures=self.STRUCTURES)
+        res = split_research(self.BRIDGE, structures=self.STRUCTURES)
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
         assert len(res.crossings) == 1
@@ -249,13 +249,13 @@ class TestGradeSeparationSurvives:
         """The POSSIBLE graph adds UNRESOLVED crossings. It must never add a
         GRADE_SEPARATED one, or the sensitivity lens becomes a licence to
         invent a turn onto a bridge deck."""
-        res = split_at_junctions(self.BRIDGE, structures=self.STRUCTURES,
+        res = split_research(self.BRIDGE, structures=self.STRUCTURES,
                                  crossing_policy="possible")
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
 
     def test_a_named_structure_is_not_noded(self):
-        res = split_at_junctions([
+        res = split_research([
             src("DECK", [(-500, 0), (500, 0)], model_asset_type=1, oneway=2,
                 rca_code=74, road_name="Newmarket Viaduct"),
             src("STREET", [(0, -500), (0, 500)], model_asset_type=1, oneway=2,
@@ -304,7 +304,7 @@ class TestTheRoadClassRulesNoLongerAssert:
 
     @pytest.mark.parametrize("reason", sorted(CASES))
     def test_it_is_unresolved_and_not_grade_separated(self, reason):
-        res = split_at_junctions(self.CASES[reason])
+        res = split_research(self.CASES[reason])
         assert res.crossings[0].disposition == crossings.UNRESOLVED
         assert res.crossings[0].classification.reason == reason
 
@@ -312,7 +312,7 @@ class TestTheRoadClassRulesNoLongerAssert:
     def test_the_canonical_graph_is_unchanged_by_the_demotion(self, reason):
         """The whole safety argument for demoting these. The moment one of them
         cuts the CONFIRMED graph, the demotion has stopped being free."""
-        res = split_at_junctions(self.CASES[reason])
+        res = split_research(self.CASES[reason])
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
 
@@ -321,7 +321,7 @@ class TestTheRoadClassRulesNoLongerAssert:
         """And the point of the demotion. Six of these eight are real junctions
         on the measured evidence, so a sensitivity graph that cannot see them
         is not measuring the sensitivity that exists."""
-        res = split_at_junctions(self.CASES[reason], crossing_policy="possible")
+        res = split_research(self.CASES[reason], crossing_policy="possible")
         assert res.crossing_cuts == 1
         assert components(res.links) == 1
 
@@ -366,7 +366,7 @@ class TestOneRoadRecordedTwiceInPieces:
                     if {c.amds_a, c.amds_b} == {"ROAD", "DUP_JOG"})
 
     def test_the_jog_is_recognised_as_duplicate_geometry(self):
-        res = split_at_junctions(self.DOUBLE_RECORDED)
+        res = split_research(self.DOUBLE_RECORDED)
         x = self._crossing(res)
         assert x.disposition == crossings.UNRESOLVED
         assert x.classification.reason == "DUPLICATE_GEOMETRY"
@@ -376,7 +376,7 @@ class TestOneRoadRecordedTwiceInPieces:
         is not a sensitivity question - the movement does not exist on any
         reading of the evidence."""
         for policy in ("confirmed", "possible"):
-            res = split_at_junctions(self.DOUBLE_RECORDED,
+            res = split_research(self.DOUBLE_RECORDED,
                                      crossing_policy=policy)
             assert self._crossing(res).classification.safe_to_node is False
             assert res.crossing_cuts == 0, policy
@@ -413,7 +413,7 @@ class TestOneRoadRecordedTwiceInPieces:
         genuine crossroads must not make them look like one road - if it did,
         the fix would sever exactly the junctions this branch exists to
         restore."""
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         x = next(c for c in res.crossings
                  if {c.amds_a, c.amds_b} == {"GREENDALE", "CLINTONS"})
         assert x.disposition == crossings.AT_GRADE
@@ -443,20 +443,20 @@ class TestTheThirdCategoryIsNotSilent:
     ]
 
     def test_confirmed_leaves_it_severed_but_records_it(self):
-        res = split_at_junctions(self.ONE_WAY_PAIR, crossing_policy="confirmed")
+        res = split_research(self.ONE_WAY_PAIR, crossing_policy="confirmed")
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
         assert len(res.crossings) == 1
         assert res.crossings[0].disposition == crossings.UNRESOLVED
 
     def test_possible_connects_it_so_sensitivity_can_be_measured(self):
-        res = split_at_junctions(self.ONE_WAY_PAIR, crossing_policy="possible")
+        res = split_research(self.ONE_WAY_PAIR, crossing_policy="possible")
         assert res.crossing_cuts == 1
         assert components(res.links) == 1
 
     def test_the_two_policies_differ_only_in_what_they_cut(self):
-        a = split_at_junctions(self.ONE_WAY_PAIR, crossing_policy="confirmed")
-        b = split_at_junctions(self.ONE_WAY_PAIR, crossing_policy="possible")
+        a = split_research(self.ONE_WAY_PAIR, crossing_policy="confirmed")
+        b = split_research(self.ONE_WAY_PAIR, crossing_policy="possible")
         assert [c.disposition for c in a.crossings] == \
                [c.disposition for c in b.crossings]
 
@@ -476,7 +476,7 @@ class TestTangentialCrossingsAreRefused:
     """
 
     def test_a_four_degree_crossing_is_never_cut(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (1000, 0)], model_asset_type=1, oneway=2,
                 rca_code=74),
             src("B", [(0, -20), (1000, 50)], model_asset_type=1, oneway=2,
@@ -500,7 +500,7 @@ class TestTangentialCrossingsAreRefused:
         veto has to do the work on its own."""
         import math
         d = 2000 * math.tan(math.radians(25))
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(-2000, 0), (2000, 0)], model_asset_type=1, oneway=2,
                 rca_code=74),
             src("B", [(-2000, -d), (2000, d)], model_asset_type=1, oneway=2,
@@ -512,7 +512,7 @@ class TestTangentialCrossingsAreRefused:
     def test_a_35_degree_crossing_is_still_accepted(self):
         import math
         d = 2000 * math.tan(math.radians(35))
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(-2000, 0), (2000, 0)], model_asset_type=1, oneway=2,
                 rca_code=74),
             src("B", [(-2000, -d), (2000, d)], model_asset_type=1, oneway=2,
@@ -524,7 +524,7 @@ class TestTangentialCrossingsAreRefused:
     def test_one_road_recorded_twice_is_never_noded(self):
         """Paulin Road crossing Paulin Road: different source features, a
         crossing angle that passes every other test, and the same tarmac."""
-        res = split_at_junctions([
+        res = split_research([
             src("PAULIN_A", [(0, 0), (500, 3), (1000, 0)], model_asset_type=1,
                 oneway=2, rca_code=74, road_name="Paulin Road"),
             src("PAULIN_B", [(0, 3), (500, 0), (1000, 3)], model_asset_type=1,
@@ -536,7 +536,7 @@ class TestTangentialCrossingsAreRefused:
         assert res.crossing_cuts == 0
 
     def test_a_real_crossroads_is_not_mistaken_for_a_duplicate(self):
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         assert res.crossings[0].classification.reason == "ORDINARY_CROSSROADS"
         assert res.crossing_cuts == 1
 
@@ -664,7 +664,7 @@ class TestAMixedInterchangeInventsNoMovement:
         """Read from what the evidence said BEFORE the place rule withdrew it.
         'This looked at grade and we declined to act on it' is a different
         fact from 'we had no idea', and both are kept."""
-        res = split_at_junctions(self.CLUSTER, crossing_policy="none")
+        res = split_research(self.CLUSTER, crossing_policy="none")
         got = {tuple(sorted((c.amds_a, c.amds_b))):
                (c.classification_before_place_rule or c.classification)
                for c in res.crossings}
@@ -674,7 +674,7 @@ class TestAMixedInterchangeInventsNoMovement:
         assert got[("OVERBRIDGE", "STREET_B")].reason == "NAMED_STRUCTURE"
 
     def test_the_place_really_is_mixed(self):
-        res = split_at_junctions(self.CLUSTER, crossing_policy="none")
+        res = split_research(self.CLUSTER, crossing_policy="none")
         assert len(res.crossings) == 3
         # all three crossings sit inside one 25 m place
         assert len(set(res.crossing_places)) == 1
@@ -685,7 +685,7 @@ class TestAMixedInterchangeInventsNoMovement:
             "disagreeing verdicts")
 
     def test_nothing_at_a_mixed_place_is_noded(self):
-        res = split_at_junctions(self.CLUSTER)
+        res = split_research(self.CLUSTER)
         assert res.mixed_place_demotions >= 1
         assert res.crossing_cuts == 0
         assert all(c.disposition == crossings.UNRESOLVED
@@ -693,17 +693,17 @@ class TestAMixedInterchangeInventsNoMovement:
         assert {c.classification.reason for c in res.crossings} == {"MIXED_PLACE"}
 
     def test_not_under_the_possible_policy_either(self):
-        res = split_at_junctions(self.CLUSTER, crossing_policy="possible")
+        res = split_research(self.CLUSTER, crossing_policy="possible")
         assert res.crossing_cuts == 0
 
     def test_no_impossible_movement_is_created(self):
         for policy in ("none", "confirmed", "possible"):
-            res = split_at_junctions(self.CLUSTER, crossing_policy=policy)
+            res = split_research(self.CLUSTER, crossing_policy=policy)
             assert audit_no_invented_movements(res) == [], policy
 
     def test_the_overbridge_is_never_joined_to_anything(self):
         for policy in ("none", "confirmed", "possible"):
-            res = split_at_junctions(self.CLUSTER, crossing_policy=policy)
+            res = split_research(self.CLUSTER, crossing_policy=policy)
             pairs, _ = assign_nodes(res.links)
             over = {n for link, pr in zip(res.links, pairs)
                     if link.closure_group_id == "OVERBRIDGE" for n in pr}
@@ -715,7 +715,7 @@ class TestAMixedInterchangeInventsNoMovement:
         """The at-grade pair is real, and it is still not noded - because a
         node here would have been shared with the overbridge. This is the
         cost of the conservative option, paid deliberately."""
-        res = split_at_junctions(self.CLUSTER)
+        res = split_research(self.CLUSTER)
         pairs, _ = assign_nodes(res.links)
         a = {n for link, pr in zip(res.links, pairs)
              if link.closure_group_id == "STREET_A" for n in pr}
@@ -727,7 +727,7 @@ class TestAMixedInterchangeInventsNoMovement:
         """The withdrawal is per place. A ramp ending on a street 400 m away
         is an endpoint junction, found by a different rule, and must be
         unaffected."""
-        res = split_at_junctions(self.CLUSTER)
+        res = split_research(self.CLUSTER)
         pairs, _ = assign_nodes(res.links)
         street = {n for link, pr in zip(res.links, pairs)
                   if link.closure_group_id == "STREET_A" for n in pr}
@@ -738,7 +738,7 @@ class TestAMixedInterchangeInventsNoMovement:
                     if l.closure_group_id == "STREET_A"]) == 2
 
     def test_the_bystander_stays_its_own_component(self):
-        res = split_at_junctions(self.CLUSTER)
+        res = split_research(self.CLUSTER)
         pairs, _ = assign_nodes(res.links)
         by = {n for link, pr in zip(res.links, pairs)
               if link.closure_group_id == "BYSTANDER" for n in pr}
@@ -747,7 +747,7 @@ class TestAMixedInterchangeInventsNoMovement:
         assert by & other == set()
 
     def test_the_demotion_records_what_it_overrode(self):
-        res = split_at_junctions(self.CLUSTER)
+        res = split_research(self.CLUSTER)
         ev = [e for c in res.crossings for e in c.classification.evidence]
         assert any(e.startswith("WAS_AT_GRADE") for e in ev), (
             "the at-grade pair must be recorded as having been demoted, not "
@@ -757,7 +757,7 @@ class TestAMixedInterchangeInventsNoMovement:
     def test_an_unmixed_place_nearby_is_unaffected(self):
         """The demotion is per place, not global. A clean crossroads 2 km away
         must still be noded."""
-        res = split_at_junctions(self.CLUSTER + [
+        res = split_research(self.CLUSTER + [
             src("FARM_A", [(3000, -500), (3000, 500)], model_asset_type=1,
                 oneway=2, rca_code=74),
             src("FARM_B", [(2500, 0), (3500, 0)], model_asset_type=1,
@@ -772,18 +772,18 @@ class TestTheAuditCatchesAnInventedMovement:
 
     def test_the_rural_grid_passes(self):
         assert audit_no_invented_movements(
-            split_at_junctions(RURAL_GRID)) == []
+            split_research(RURAL_GRID)) == []
 
     def test_a_deliberately_wrong_split_is_caught(self):
         """Force the bridge to be noded by classifying it AT_GRADE by hand,
         then check the audit notices that a GRADE_SEPARATED crossing ended up
         connected."""
-        res = split_at_junctions(TestGradeSeparationSurvives.BRIDGE,
+        res = split_research(TestGradeSeparationSurvives.BRIDGE,
                                  structures=TestGradeSeparationSurvives.STRUCTURES,
                                  crossing_policy="possible")
         assert res.crossing_cuts == 0
         # Now build the same thing as though the structure had not been mapped.
-        forced = split_at_junctions([
+        forced = split_research([
             src("MOTORWAY", [(-1000, 0), (1000, 0)], model_asset_type=1,
                 oneway=2, rca_code=74),
             src("LOCAL", [(0, -1000), (0, 1000)], model_asset_type=1,
@@ -809,7 +809,7 @@ class TestTheClusteringRadiusNeverDrivesNoding:
     def test_cuts_land_on_the_exact_crossing_point(self):
         """Every cut coordinate is the intersection itself, never a cluster
         centroid or a snapped grid position."""
-        res = split_at_junctions(RURAL_GRID)
+        res = split_research(RURAL_GRID)
         x = res.crossings[0]
         gd = [l for l in res.links if l.closure_group_id == "GREENDALE"]
         cl = [l for l in res.links if l.closure_group_id == "CLINTONS"]
@@ -843,7 +843,7 @@ class TestTheClusteringRadiusNeverDrivesNoding:
     def test_a_place_mixed_at_any_radius_is_withdrawn(self):
         """The implementation clusters at 25 m, which by the property above
         detects a superset of what a narrower radius would."""
-        res = split_at_junctions(
+        res = split_research(
             TestAMixedInterchangeInventsNoMovement.CLUSTER)
         assert res.crossing_cuts == 0
 

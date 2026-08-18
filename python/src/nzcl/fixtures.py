@@ -17,7 +17,7 @@ import uuid
 from typing import Iterable
 
 from . import db
-from .topology import _POLICY_DISPOSITIONS
+from .topology import _POLICY_DISPOSITIONS, CANONICAL_CROSSING_POLICY
 from .topology import SourceLink, assign_nodes, split_at_junctions
 
 
@@ -58,13 +58,30 @@ SYNTHETIC_ATTRIBUTION = (
 SYNTHETIC_LICENCE = "Synthetic fixture: not real data, no licence applies."
 
 
+def _noded(crossing_policy: str, x, cls, decisions, cid: int) -> bool:
+    """Did this crossing actually become a shared node?
+
+    Under the canonical `evidence` policy the classifier's disposition
+    says nothing about it - an evidence-backed override did or did not.
+    Deriving this from the disposition would write a `noded` column that
+    disagrees with the graph beside it.
+    """
+    if not cls.safe_to_node:
+        return False
+    if crossing_policy == CANONICAL_CROSSING_POLICY:
+        return cid < len(decisions) and decisions[cid].nodes
+    return x.disposition in _POLICY_DISPOSITIONS[crossing_policy]
+
+
 def load_synthetic(
     spec: Iterable[dict],
     restrictions: Iterable[dict] = (),
     snapshot_id: str | None = None,
     coverage_name: str = "Synthetic fixture",
     require_nz: bool = False,
-    crossing_policy: str = "confirmed",
+    crossing_policy: str = CANONICAL_CROSSING_POLICY,
+    research: bool = False,
+    overrides=None,
 ) -> SyntheticNetwork:
     """
     Load a synthetic network under a fresh snapshot id, or a caller-supplied one.
@@ -104,7 +121,8 @@ def load_synthetic(
     # Junction splitting runs for real: the synthetic fixtures are built the
     # same way production data is, so a test cannot pass against a graph
     # assembled by a different route than the one users get.
-    split = split_at_junctions(sources, crossing_policy=crossing_policy)
+    split = split_at_junctions(sources, crossing_policy=crossing_policy,
+                               overrides=overrides, research=research)
     pairs, node_coords = assign_nodes(split.links)
     by_id = {l.amds_id: i for i, l in enumerate(split.links)}
 
@@ -228,6 +246,7 @@ def load_synthetic(
             # and nothing else - so a possible-graph test would pass against a
             # snapshot the production code cannot tell from a canonical one.
             honoured = _POLICY_DISPOSITIONS[crossing_policy]
+            decisions = split.crossing_decisions or []
             for cid, x in enumerate(split.crossings):
                 cls = x.classification
                 cur.execute(
@@ -238,7 +257,7 @@ def load_synthetic(
                     "         ST_SetSRID(ST_MakePoint(%s,%s),2193))",
                     (snapshot_id, cid, x.amds_a, x.amds_b, x.disposition,
                      cls.reason, cls.detail, list(cls.evidence),
-                     x.disposition in honoured and cls.safe_to_node,
+                     _noded(crossing_policy, x, cls, decisions, cid),
                      cls.safe_to_node, cls.confidence, x.angle_deg,
                      split.crossing_places[cid] if split.crossing_places
                      else None,

@@ -34,11 +34,21 @@ The rule applied here, and the distinction that makes it safe:
     It is a LiDAR terrain drape and would not have helped - known motorway
     interchange crossings come back 0.00-0.09 m apart. See nzcl.crossings.)
 
-    So `nzcl.crossings` classifies each interior crossing AT_GRADE,
-    GRADE_SEPARATED or UNRESOLVED on evidence, and only AT_GRADE is cut.
-    `crossing_policy` chooses which dispositions are honoured, which is what
-    makes the CONFIRMED and POSSIBLE graphs two runs of one function rather
-    than two implementations that can drift apart.
+    `nzcl.crossings` classifies each interior crossing AT_GRADE,
+    GRADE_SEPARATED or UNRESOLVED, and for a while only AT_GRADE was cut.
+    THAT IS NO LONGER TRUE, and the reason is the most important thing in
+    this docstring: the classifier was measured against a gate declared
+    before the measurement existed and REJECTED. 32 of 350 of its AT_GRADE
+    crossings are not junctions at all; 11 of 25 sampled withdrawals are
+    junctions it severed. See docs/audits/at-grade-crossings/README.md
+    sections 13 and 14.
+
+    So the canonical graph now cuts where an EVIDENCE-BACKED OVERRIDE says a
+    junction exists - a named reviewer, a checkable reference and a date -
+    and nowhere else. The classifier still runs and its verdict is still
+    recorded on every crossing, because it is the input to the review queue
+    that decides which crossings a human looks at next. It no longer decides
+    anything. See `CROSSING_POLICIES` and PIVOT.md.
 
 The tolerance is deliberately tight (50 mm). Endpoints falling between the split
 tolerance and a wider review distance are NOT connected; they are reported as
@@ -58,25 +68,58 @@ from shapely.geometry import LineString, Point
 from shapely.strtree import STRtree
 
 from . import crossings as crossings_mod
+from . import overrides as overrides_mod
 from .geo import polyline_length
 
 Coord = tuple[float, float]
 
-#: Which crossing dispositions `split_at_junctions` is allowed to cut at.
+#: Which crossings `split_at_junctions` is allowed to cut at.
 #:
-#:   none       endpoint junctions only. The rule as it stood before this
-#:              change, kept so the two can be compared on one snapshot.
-#:   confirmed  + AT_GRADE. THE CANONICAL GRAPH. Every published answer.
-#:   possible   + UNRESOLVED. A SENSITIVITY INSTRUMENT ONLY. It exists to
-#:              answer "would this result change if the crossings we cannot
-#:              resolve turned out to be junctions?" and must never be shown
-#:              as the official route.
+#:   none       endpoint junctions only. The rule as it stood before at-grade
+#:              crossings were handled at all.
+#:   evidence   + crossings an EVIDENCE-BACKED OVERRIDE decides are AT_GRADE.
+#:              THE CANONICAL GRAPH. Every published answer. Note that the
+#:              classifier does not appear in that sentence.
+#:   confirmed  + every AT_GRADE the CLASSIFIER produces. RESEARCH ONLY.
+#:   possible   + UNRESOLVED as well. RESEARCH ONLY.
 #:
 #: GRADE_SEPARATED is in no policy. Nothing cuts there.
-CROSSING_POLICIES = ("none", "confirmed", "possible")
+#:
+#: WHY `confirmed` IS NO LONGER THE DEFAULT
+#: ----------------------------------------
+#: It was, and it is the strategy that was measured against a gate declared
+#: before the measurement existed, and rejected in both directions at once:
+#: 32 of 350 classifier AT_GRADE crossings are not junctions at all - five of
+#: them from JUNCTION_WITNESS, the only rule backed by positive evidence
+#: rather than by the absence of contrary evidence - while 11 of 25 sampled
+#: DUPLICATE_GEOMETRY withdrawals are junctions a reviewer can see. On 4,914
+#: national AT_GRADE crossings that is on the order of 450 fabricated nodes,
+#: each joining a road to itself or to nothing. See
+#: docs/audits/at-grade-crossings/README.md sections 13 and 14, and PIVOT.md.
+#:
+#: `possible` was the sensitivity instrument. Sensitivity is now measured one
+#: crossing at a time against the canonical graph instead, because a graph
+#: with every unresolved crossing connected produces routes that rely on
+#: chains of speculative turns, each individually plausible and jointly absurd.
+#:
+#: Both are kept rather than deleted, because evidence that rejected a thing is
+#: only reproducible while the thing still runs. They are guarded:
+#: `split_at_junctions` refuses them unless the caller passes `research=True`,
+#: so no ingest, API path or fixture can reach them by passing a string through.
+CROSSING_POLICIES = ("none", "evidence", "confirmed", "possible")
+
+#: The default, and the only policy a published answer may be built with.
+CANONICAL_CROSSING_POLICY = "evidence"
+
+#: Policies that let the CLASSIFIER decide a canonical node. Rejected on
+#: evidence; reachable only with `research=True`.
+RESEARCH_CROSSING_POLICIES = frozenset({"confirmed", "possible"})
 
 _POLICY_DISPOSITIONS: dict[str, frozenset[str]] = {
     "none": frozenset(),
+    # `evidence` honours NO classifier disposition. What it cuts is decided by
+    # the `overrides` argument, and by nothing else.
+    "evidence": frozenset(),
     "confirmed": frozenset({crossings_mod.AT_GRADE}),
     "possible": frozenset({crossings_mod.AT_GRADE, crossings_mod.UNRESOLVED}),
 }
@@ -129,6 +172,19 @@ class SplitResult:
     crossing_places: list[int] = field(default_factory=list)
     #: Crossings withdrawn because other crossings at the same place disagreed.
     mixed_place_demotions: int = 0
+    #: What the evidence-backed overrides said, parallel to `crossings`. Under
+    #: the canonical policy this - and nothing else - decided which crossings
+    #: became nodes.
+    crossing_decisions: list = field(default_factory=list)
+    #: Cuts made because an override said so. Under the canonical policy this
+    #: equals `crossing_cuts`; the two are kept apart so a policy that let the
+    #: classifier cut as well could never be mistaken for one that did not.
+    override_cuts: int = 0
+    #: Crossings where live overrides disagreed. Left disconnected, reported.
+    override_conflicts: int = 0
+    #: Overrides that said AT_GRADE at a crossing that is not representable as
+    #: one shared node. Not cut, and loud rather than silent.
+    override_vetoed: list = field(default_factory=list)
 
 
 def split_at_junctions(
@@ -136,25 +192,47 @@ def split_at_junctions(
     *,
     split_tolerance_m: float = 0.05,
     review_tolerance_m: float = 5.0,
-    crossing_policy: str = "confirmed",
+    crossing_policy: str = CANONICAL_CROSSING_POLICY,
     structures: Sequence[tuple[LineString, str]] | None = None,
+    overrides: "overrides_mod.OverrideIndex | None" = None,
+    research: bool = False,
 ) -> SplitResult:
     """Cut every source link at a junction, and say what a junction is.
 
     Two kinds of cut are made, and they are found in different ways:
 
       * another link's ENDPOINT lands on this link's interior - a T-junction;
-      * two links' INTERIORS cross and `nzcl.crossings` classifies the crossing
-        as one this `crossing_policy` honours.
+      * two links' INTERIORS cross, and under the canonical `evidence` policy
+        an EVIDENCE-BACKED OVERRIDE says that crossing is a junction.
 
-    `crossing_policy='none'` reproduces the behaviour this module had before
-    at-grade crossings were handled at all, so a snapshot can be built both ways
-    and the difference measured rather than asserted.
+    The classifier still runs, and its verdict is still recorded on every
+    crossing, because it is the input to the review queue. Under the canonical
+    policy it decides nothing. See `CROSSING_POLICIES` for why.
+
+    `research=True` unlocks the two policies that let the classifier cut. They
+    exist so the rejected strategy stays reproducible; nothing that produces a
+    published answer may pass it.
     """
     if crossing_policy not in CROSSING_POLICIES:
         raise ValueError(
             f"crossing_policy must be one of {CROSSING_POLICIES}, "
             f"not {crossing_policy!r}")
+    if crossing_policy in RESEARCH_CROSSING_POLICIES and not research:
+        raise ValueError(
+            f"crossing_policy={crossing_policy!r} lets the CLASSIFIER create "
+            f"canonical graph nodes. That strategy was measured against the "
+            f"gate in nzcl.promotion and rejected: 32 of 350 of its AT_GRADE "
+            f"crossings are not junctions. Pass research=True if you are "
+            f"reproducing that measurement; use "
+            f"crossing_policy={CANONICAL_CROSSING_POLICY!r} with an "
+            f"`overrides` index for anything that will be published. See "
+            f"docs/audits/at-grade-crossings/PIVOT.md.")
+    if overrides is not None and crossing_policy != CANONICAL_CROSSING_POLICY:
+        raise ValueError(
+            f"overrides were supplied with crossing_policy="
+            f"{crossing_policy!r}, which ignores them. That combination is "
+            f"almost certainly a mistake, and silently discarding reviewed "
+            f"evidence is the kind of mistake that is noticed late.")
     geoms = [LineString(s.coords) for s in sources]
 
     # Index every endpoint, so for each line we can ask which endpoints are near.
@@ -227,6 +305,10 @@ def split_at_junctions(
     crossing_cuts = 0
     crossing_places: list[int] = []
     mixed_demoted = 0
+    decisions: list = []
+    override_cuts = 0
+    override_conflicts = 0
+    override_vetoed: list[str] = []
     if found:
         attrs = [s.attrs for s in sources]
         motorway_tree, ramp_tree = _context_trees(sources, geoms)
@@ -250,15 +332,45 @@ def split_at_junctions(
         # the never-node rule existed to prevent.
         crossing_places, mixed_demoted = crossings_mod.demote_mixed_places(found)
 
-        for x in found:
-            if x.disposition not in honoured:
+        # What the EVIDENCE says, per crossing, in the same order. Empty under
+        # every other policy, so `decisions[i]` is always addressable.
+        decisions = (overrides_mod.decide_all(found, overrides)
+                     if overrides is not None
+                     else [overrides_mod.Decision(None)] * len(found))
+
+        for i, x in enumerate(found):
+            decision = decisions[i]
+            if decision.conflict:
+                override_conflicts += 1
+            if crossing_policy == CANONICAL_CROSSING_POLICY:
+                # THE CANONICAL RULE, entire: a node exists here because a
+                # named person recorded evidence that it does. No override,
+                # or overrides that disagree, means no node - whatever the
+                # classifier thought, and whatever it thought it thought with
+                # HIGH confidence.
+                if not decision.nodes:
+                    continue
+            elif x.disposition not in honoured:
                 continue
             # `safe_to_node` is a separate question from the disposition: it
             # asks whether acting on the verdict is REPRESENTABLE. Tangential
-            # grazes, a road crossing itself, and mixed places all fail it, and
-            # none of them may be cut under any policy.
+            # grazes, a road crossing itself, and mixed places all fail it.
+            #
+            # It vetoes an override too. An override says "these two roads
+            # meet"; it cannot say "and the result is representable as one
+            # shared node", which is what a mixed place is not. A reviewer who
+            # disagrees should say so about the place, not about one of its
+            # four pairs.
             if not x.classification.safe_to_node:
+                if decision.nodes:
+                    override_vetoed.append(
+                        f"{x.amds_a} x {x.amds_b} at ({x.x:.3f}, {x.y:.3f}): "
+                        f"override says AT_GRADE but the crossing is not "
+                        f"representable as one node "
+                        f"({x.classification.reason})")
                 continue
+            if decision.nodes:
+                override_cuts += 1
             # BOTH sides are cut at the SAME coordinate. That is the whole
             # mechanism: `assign_nodes` gives one node to coincident endpoints,
             # so cutting both lines at one point is what creates the junction.
@@ -300,6 +412,10 @@ def split_at_junctions(
         crossings=found,
         crossing_cuts=crossing_cuts,
         crossing_policy=crossing_policy,
+        crossing_decisions=decisions,
+        override_cuts=override_cuts,
+        override_conflicts=override_conflicts,
+        override_vetoed=override_vetoed,
         crossing_places=crossing_places,
         mixed_place_demotions=mixed_demoted,
     )
@@ -336,12 +452,27 @@ def audit_no_invented_movements(result: SplitResult,
     for nid, (x, y) in enumerate(coords):
         grid.setdefault((int(x // 1.0), int(y // 1.0)), []).append(nid)
 
+    # Which crossings were MEANT to be noded. Under the canonical `evidence`
+    # policy that is decided by the overrides, not by the disposition - and
+    # asking `_POLICY_DISPOSITIONS` there would return the empty set and
+    # report every override-created junction as a violation, which is the
+    # audit accusing the mechanism it exists to protect.
+    decisions = result.crossing_decisions or []
+    intended: set[int] = set()
+    for i, x in enumerate(result.crossings):
+        if x.classification is None or not x.classification.safe_to_node:
+            continue
+        if result.crossing_policy == CANONICAL_CROSSING_POLICY:
+            d = decisions[i] if i < len(decisions) else None
+            if d is not None and d.nodes:
+                intended.add(i)
+        elif x.disposition in _POLICY_DISPOSITIONS[result.crossing_policy]:
+            intended.add(i)
+
     violations: list[str] = []
-    for x in result.crossings:
-        if x.classification is not None and x.disposition in \
-                _POLICY_DISPOSITIONS[result.crossing_policy] and \
-                x.classification.safe_to_node:
-            continue  # this one was meant to be noded
+    for i, x in enumerate(result.crossings):
+        if i in intended:
+            continue
         cx, cy = int(x.x // 1.0), int(x.y // 1.0)
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):

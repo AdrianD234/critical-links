@@ -44,6 +44,25 @@ from test_topology import src
 #
 # Everything is laid out in metres relative to a point on the Canterbury Plains,
 # so `x`/`y` are plausible EPSG:2193 and `lon`/`lat` land in New Zealand.
+# ---------------------------------------------------------------------------
+# EVERY TEST BELOW EXERCISES A RESEARCH POLICY.
+#
+# `possible` and `confirmed` let the CLASSIFIER create graph nodes, which is
+# the strategy the third holdout measured against a predeclared gate and
+# rejected - 32 of 350 of its AT_GRADE crossings are not junctions, and 11 of
+# 25 sampled withdrawals are junctions it severed. See the audit README
+# sections 13 and 14, and PIVOT.md.
+#
+# The tests are kept, because the provenance machinery they cover is real and
+# because evidence that rejected a strategy is only reproducible while the
+# strategy still runs. What they no longer describe is the canonical graph:
+# the canonical policy is `evidence`, and per-analysis sensitivity replaces the
+# national possible graph these tests build.
+def split_research(sources, **kw):
+    kw.setdefault("crossing_policy", "possible")
+    return split_at_junctions(sources, research=True, **kw)
+
+
 ORIGIN_E, ORIGIN_N = 1520000.0, 5165000.0
 
 
@@ -269,7 +288,7 @@ class TestTheFixtureIsWhatItClaims:
     rather than turning every assertion below into a silent tautology."""
 
     def test_the_darfield_crossroads_is_unresolved_and_noded(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         rows = {r.sources: r for r in crossing_rows(res)}
         gc = rows[frozenset({"GREENDALE", "CLINTONS"})]
         assert gc.disposition == crossings.UNRESOLVED
@@ -278,7 +297,7 @@ class TestTheFixtureIsWhatItClaims:
         assert gc.y == pytest.approx(ORIGIN_N)
 
     def test_the_lane_crossing_really_is_beside_the_route(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         rows = {r.sources: r for r in crossing_rows(res)}
         lane = rows[frozenset({"LANE_A", "LANE_B"})]
         assert lane.disposition == crossings.UNRESOLVED
@@ -290,12 +309,12 @@ class TestTheFixtureIsWhatItClaims:
         """The contrast the whole POSSIBLE graph rests on. If these crossings
         were AT_GRADE they would be in the canonical answer and there would be
         no assumption to report."""
-        res = split_at_junctions(DARFIELD, crossing_policy="confirmed")
+        res = split_research(DARFIELD, crossing_policy="confirmed")
         assert res.crossing_cuts == 0
         assert all(not r.noded for r in crossing_rows(res))
 
     def test_the_lattice_has_four_unresolved_crossings(self):
-        res = split_at_junctions(LATTICE, crossing_policy="possible")
+        res = split_research(LATTICE, crossing_policy="possible")
         rows = crossing_rows(res)
         assert len(rows) == 4
         assert all(r.disposition == crossings.UNRESOLVED and r.noded
@@ -319,7 +338,7 @@ class TestARouteThatAssumedNothing:
     ROUTE = (at(-2000, 0), at(2000, 0))
 
     def test_a_route_straight_through_relies_on_nothing(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         cost, links = shortest(res, *self.ROUTE)
         assert cost == pytest.approx(4000.0)
 
@@ -333,7 +352,7 @@ class TestARouteThatAssumedNothing:
     def test_the_crossing_it_drove_over_is_on_the_route_at_zero_distance(self):
         """Stated as a fact of the fixture, so the class above is known to be
         testing the hard case rather than an absent crossing."""
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, *self.ROUTE)
         route = route_of(res, links)
         touched = [c for link in route for c in link.endpoints]
@@ -344,7 +363,7 @@ class TestARouteThatAssumedNothing:
         assert {l.closure_group_id for l in route} == {"GREENDALE"}
 
     def test_no_quality_flag_is_raised(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, *self.ROUTE)
         p = analyse(route_of(res, links), crossing_rows(res))
         path = ReplacementPath(movement_id="m", entry_port_id="a",
@@ -367,7 +386,7 @@ class TestOneUnresolvedJunction:
     ROUTE = (at(-2000, 0), at(0, 3000))
 
     def possible(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         cost, links = shortest(res, *self.ROUTE)
         return res, cost, analyse(route_of(res, links), crossing_rows(res),
                                   reroute=rerouter(res, *self.ROUTE))
@@ -376,7 +395,7 @@ class TestOneUnresolvedJunction:
         """Without it the trip goes the long way round the perimeter. Measured,
         so the fixture cannot degrade into one where the crossing is
         irrelevant and every assertion below still passes."""
-        conf = split_at_junctions(DARFIELD, crossing_policy="confirmed")
+        conf = split_research(DARFIELD, crossing_policy="confirmed")
         assert shortest(conf, *self.ROUTE)[0] == pytest.approx(7000.0)
         assert self.possible()[1] == pytest.approx(5000.0)
 
@@ -441,7 +460,7 @@ class TestOneCrossingIsNotDecisiveJustBecauseItIsTheOnlyOne:
     ENDS = (at(-1000, 0), at(0, 1000))
 
     def possible(self):
-        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+        res = split_research(EQUAL_COST_WAY_ROUND,
                                  crossing_policy="possible")
         links = through_the_crossing(res)
         return res, analyse(route_of(res, links), crossing_rows(res),
@@ -451,7 +470,7 @@ class TestOneCrossingIsNotDecisiveJustBecauseItIsTheOnlyOne:
         """Measured, so the case below cannot decay into a fixture where the
         crossing was decisive after all and the assertion passes for the wrong
         reason."""
-        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+        res = split_research(EQUAL_COST_WAY_ROUND,
                                  crossing_policy="possible")
         rows = crossing_rows(res)
         noded = [r.crossing_id for r in rows if r.noded]
@@ -500,7 +519,7 @@ class TestWithoutARerouteNothingIsClaimedAtAnyCount:
     """
 
     def test_one_crossing_with_no_hook_reports_null_not_true(self):
-        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+        res = split_research(EQUAL_COST_WAY_ROUND,
                                  crossing_policy="possible")
         p = analyse(route_of(res, through_the_crossing(res)),
                     crossing_rows(res))
@@ -528,7 +547,7 @@ class TestACrossingBesideTheRouteIsNotReported:
     """
 
     def test_only_the_traversed_crossing_is_reported(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         rows = crossing_rows(res)
         assert sum(1 for r in rows if r.noded) == 2, (
             "the fixture must contain a second noded crossing, or this test "
@@ -544,7 +563,7 @@ class TestACrossingBesideTheRouteIsNotReported:
     def test_a_crossing_on_roads_the_route_never_uses_is_not_reported(self):
         """Both of its source features are absent from the route, which is the
         half of the test the SQL does with an index."""
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, at(-2000, 0), at(2000, 0))
         groups = {res.links[i].closure_group_id for i in links}
         assert "LANE_A" not in groups and "LANE_B" not in groups
@@ -574,7 +593,7 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
         """The property the case below depends on, measured rather than
         assumed: without this tie there is always a decisive crossing, and
         every assertion about stacked assumptions would be vacuous."""
-        res = split_at_junctions(LATTICE, crossing_policy="possible")
+        res = split_research(LATTICE, crossing_policy="possible")
         cost, links = shortest(res, *self.ENDS)
         assert cost == pytest.approx(2 * BLOCK + 1000)
 
@@ -588,7 +607,7 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
             pytest.approx(cost)
 
     def test_no_single_crossing_decides_it(self):
-        res = split_at_junctions(LATTICE, crossing_policy="possible")
+        res = split_research(LATTICE, crossing_policy="possible")
         cost, links = shortest(res, *self.ENDS)
         p = analyse(route_of(res, links), crossing_rows(res),
                     reroute=rerouter(res, *self.ENDS))
@@ -610,7 +629,7 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
         """The same block with its northern road removed. The route now uses
         both southern crossings and neither has an alternative, so removing
         either one changes the answer - from a number to no route at all."""
-        res = split_at_junctions(LATTICE_ONE_WAY_THROUGH,
+        res = split_research(LATTICE_ONE_WAY_THROUGH,
                                  crossing_policy="possible")
         _, links = shortest(res, *self.ENDS)
         p = analyse(route_of(res, links), crossing_rows(res),
@@ -627,7 +646,7 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
         nothing behind it. With no re-routing available the count-based answer
         is reported and the method says so, so a reader can tell 'no single
         crossing is decisive' from 'nobody checked'."""
-        res = split_at_junctions(LATTICE_ONE_WAY_THROUGH,
+        res = split_research(LATTICE_ONE_WAY_THROUGH,
                                  crossing_policy="possible")
         _, links = shortest(res, *self.ENDS)
         p = analyse(route_of(res, links), crossing_rows(res))
@@ -642,8 +661,8 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
     def test_the_two_states_are_distinguishable_from_the_serialised_dict(self):
         """Belt and braces: a consumer reading only the JSON must be able to
         tell them apart without re-deriving anything."""
-        many = split_at_junctions(LATTICE, crossing_policy="possible")
-        one = split_at_junctions(LATTICE_ONE_WAY_THROUGH,
+        many = split_research(LATTICE, crossing_policy="possible")
+        one = split_research(LATTICE_ONE_WAY_THROUGH,
                                  crossing_policy="possible")
         out = []
         for res in (many, one):
@@ -684,7 +703,7 @@ class TestTheSerialisedShape:
         assert path_dict(path) == before
 
     def test_the_keys_are_camel_case(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, at(-2000, 0), at(0, 3000))
         d = as_dict(analyse(route_of(res, links), crossing_rows(res)))
 
@@ -704,14 +723,14 @@ class TestTheSerialisedShape:
     def test_it_says_in_the_payload_that_it_is_not_the_canonical_answer(self):
         """A consumer that renders this block must not have to know which
         snapshot produced it. The payload says so itself."""
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, at(-2000, 0), at(0, 3000))
         d = as_dict(analyse(route_of(res, links), crossing_rows(res)))
         assert d["graph"] == "possible"
         assert d["canonical"] is False
 
     def test_a_possible_route_serialises_through_the_path(self):
-        res = split_at_junctions(DARFIELD, crossing_policy="possible")
+        res = split_research(DARFIELD, crossing_policy="possible")
         _, links = shortest(res, at(-2000, 0), at(0, 3000))
         p = analyse(route_of(res, links), crossing_rows(res))
 
@@ -829,7 +848,7 @@ class TestTheProductionPathSuppliesTheHook:
 
     @pytest.fixture
     def possible_snapshot(self, synthetic):
-        return synthetic(self.SPEC, crossing_policy="possible")
+        return synthetic(self.SPEC, crossing_policy="possible", research=True)
 
     @pytest.fixture
     def canonical_snapshot(self, synthetic):
@@ -962,7 +981,7 @@ class TestTheRerouteIdentityIsExact:
 
     def test_it_matches_a_snapshot_where_the_crossing_was_never_noded(
             self, synthetic):
-        possible = synthetic(self.SPEC, crossing_policy="possible")
+        possible = synthetic(self.SPEC, crossing_policy="possible", research=True)
         confirmed = synthetic(self.SPEC)
 
         rows = provenance.load_all_speculative_crossings(possible.snapshot_id)
@@ -983,7 +1002,7 @@ class TestTheRerouteIdentityIsExact:
             pytest.approx(truth.distance_m)
 
     def test_suppressing_nothing_is_the_baseline(self, synthetic):
-        possible = synthetic(self.SPEC, crossing_policy="possible")
+        possible = synthetic(self.SPEC, crossing_policy="possible", research=True)
         u = self._node_at(possible, -1000, 0)
         v = self._node_at(possible, 0, 1000)
         hook = provenance.reroute_for(
@@ -995,7 +1014,7 @@ class TestTheRerouteIdentityIsExact:
     def test_the_closure_is_carried_into_the_reroute(self, synthetic):
         """A re-route that forgot the closure would drive down the road being
         closed and answer about a different network."""
-        possible = synthetic(self.SPEC, crossing_policy="possible")
+        possible = synthetic(self.SPEC, crossing_policy="possible", research=True)
         u = self._node_at(possible, -1000, 0)
         v = self._node_at(possible, 0, 1000)
         bypass_arcs = tuple(

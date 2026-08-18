@@ -45,7 +45,8 @@ from .config import (
 from .geo import nztm_to_lonlat, nztm_to_lonlat_many, polyline_length
 from .speed import assign_speed
 from . import crossings as crossings_mod
-from .topology import (CROSSING_POLICIES, SourceLink, assign_nodes,
+from . import overrides as overrides_mod
+from .topology import (CANONICAL_CROSSING_POLICY, CROSSING_POLICIES, SourceLink, assign_nodes,
                        audit_no_invented_movements, split_at_junctions)
 
 LINK_FIELDS = [
@@ -392,7 +393,7 @@ def run(
     analysis_bbox: Bbox | None = None,
     name: str | None = None,
     concurrency: int = 6,
-    crossing_policy: str = "confirmed",
+    crossing_policy: str = CANONICAL_CROSSING_POLICY,
 ) -> str:
     if crossing_policy not in CROSSING_POLICIES:
         raise SystemExit(f"--crossing-policy must be one of "
@@ -621,7 +622,10 @@ def run(
           "    NO structure evidence loaded: ext_structures is empty. Run "
           "scratch/load_topo50_structures.py first, or crossings that ARE on "
           "a mapped bridge will fall through to weaker rules.")
+    overrides = overrides_mod.load()
+    print(f"    {len(overrides)} live evidence-backed crossing overrides")
     split = split_at_junctions(sources, crossing_policy=crossing_policy,
+                               overrides=overrides,
                                structures=structures)
     print(f"    {split.parents_split} source links cut at {split.cuts_made} "
           f"junctions, {len(sources)} -> {len(split.links)} links")
