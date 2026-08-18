@@ -32,14 +32,17 @@ was ever stored. That is the whole reason the design is shaped this way: the
 national snapshot is immutable by contract, and a feature that needed to edit
 it to answer a question would have broken that contract for every other reader.
 
-WHY NEGATIVE IDS
-----------------
-Real `link_id`, `arc_id` and `node_id` are all non-negative - verified against
-the national snapshot, whose minima are 0. So the negative half of the bigint
-range is free, and a virtual id can never collide with a real one no matter how
-large the network grows. Ids are assigned in sorted order of what they
-represent, so the same span produces the same ids on every run and on every
-database: a fingerprint over them means something.
+WHERE THE IDS COME FROM
+-----------------------
+`vids`, and nowhere else. Real ids are all non-negative, so the negative range
+is free, but "negative is free" is exactly the reasoning that produced an arc
+numbered -1 and a replacement path that lost its last leg without saying so.
+The reservations and the disjoint node/link/arc bands live in one module with
+the argument for them written down.
+
+Ids are drawn in sorted order of what they represent, so the same span produces
+the same graph on every run and on every database - which is what makes a
+fingerprint over it mean anything.
 
 COST APPORTIONMENT
 ------------------
@@ -64,18 +67,9 @@ import hashlib
 from dataclasses import dataclass, field
 from typing import Iterable, Literal, Sequence
 
-from . import db
-from .routing import (NO_OVERLAY, RESERVED_EDGE_SENTINEL, Profile, VirtualArc,
-                      VirtualOverlay)
-
-#: The first id issued to anything virtual. Numbering runs downwards from here.
-#:
-#: It is -2, not -1, because pgRouting uses -1 to mark the last row of a path
-#: and `routing` filters that marker out. An arc numbered -1 is dropped from
-#: its own route and the total silently loses that leg - see
-#: `routing.RESERVED_EDGE_SENTINEL`. Nodes follow the same rule so there is one
-#: sentence to remember rather than two.
-FIRST_VIRTUAL_ID = RESERVED_EDGE_SENTINEL - 1
+from . import db, vids
+from .routing import NO_OVERLAY, Profile, VirtualArc, VirtualOverlay
+from .vids import VirtualIds
 
 #: Bump when the SPLIT RULE changes shape. Span fingerprints embed it.
 SPLIT_MODEL_VERSION = "1.0.0"
@@ -186,11 +180,25 @@ def build(
     """
     if not intervals:
         raise ValueError("a span with no intervals closes nothing")
+    # Checked before the intervals because it is the mistake a USER can make -
+    # dragging one handle onto the other - and it deserves the message that
+    # says so rather than a complaint about a degenerate sub-range.
+    if handle_a[0] == handle_b[0] and abs(handle_a[1] - handle_b[1]) <= END_EPSILON:
+        # Two handles at one measure describe a point, not a stretch. Closing
+        # it would remove no road while still splitting the link, which is an
+        # analysis of nothing dressed up as an outage.
+        raise ValueError(
+            f"both handles are at the same position on link {handle_a[0]} "
+            f"(fraction {handle_a[1]}): an outage needs a length")
     for i in intervals:
         if not (0.0 <= i.from_fraction <= i.to_fraction <= 1.0):
             raise ValueError(
                 f"interval on link {i.link_id} is not an ordered sub-range of "
                 f"0..1: {i.from_fraction}..{i.to_fraction}")
+        if i.to_fraction - i.from_fraction <= END_EPSILON:
+            raise ValueError(
+                f"interval on link {i.link_id} closes nothing: "
+                f"{i.from_fraction}..{i.to_fraction}")
 
     mode = _MODE_COLUMN.get(profile)
     if mode is None:
@@ -217,10 +225,10 @@ def build(
     # --- deterministic virtual node ids ----------------------------------
     # Sorted by (link_id, fraction) so the same span numbers its nodes the same
     # way on every run. -1 downwards.
+    ids = VirtualIds()
     node_of: dict[tuple[int, float], int] = {}
-    for n, key in enumerate(sorted((lid, f) for lid, fs in cuts.items()
-                                   for f in fs)):
-        node_of[key] = FIRST_VIRTUAL_ID - n
+    for key in sorted((lid, f) for lid, fs in cuts.items() for f in fs):
+        node_of[key] = ids.node()
 
     def node_at(link_id: int, fraction: float) -> int:
         """The node id at a position on a link: real at the ends, else virtual."""
@@ -238,7 +246,6 @@ def build(
     excluded: set[int] = set()
     open_ids: list[int] = []
     closed_ids: list[int] = []
-    next_arc_id = FIRST_VIRTUAL_ID
 
     for link_id in link_ids:
         link = links[link_id]
@@ -270,8 +277,7 @@ def build(
                 span = f1 - f0
                 if span <= END_EPSILON:
                     continue
-                arc_id = next_arc_id
-                next_arc_id -= 1
+                arc_id = ids.arc()
 
                 if _piece_is_closed(f0, f1, arc, link, closed_here,
                                     direction_mode):
@@ -398,6 +404,65 @@ def _arcs(snapshot_id: str, link_ids: Sequence[int],
     for r in rows:
         out.setdefault(int(r["link_id"]), []).append(r)
     return out
+
+
+def span_geometry(snapshot_id: str, intervals: Sequence[LinkInterval]) -> dict:
+    """The closed stretch as drawable geometry, and its measured length.
+
+    This is what the red preview draws, and it is cut from the SAME fractions
+    the closure is built from - one `ST_LineSubstring` per interval, in the
+    link's own parameter space. Deriving the picture and the closure from one
+    number is what makes "the red line is exactly what got closed" a property
+    rather than a hope.
+
+    `measuredLengthM` is the length of the geometry as PostGIS measures it,
+    returned alongside the arithmetic total so a caller can compare them. They
+    agree to well under a millimetre: `ST_LineSubstring` cuts by fraction of
+    2D length, so a substring of a curve is exactly that fraction of it, and
+    curvature does not enter.
+    """
+    if not intervals:
+        raise ValueError("no intervals to draw")
+
+    rows = db.query(
+        """
+        SELECT v.link_id,
+               ST_AsGeoJSON(ST_Transform(sub, 4326))::json AS geojson,
+               ST_Length(sub)                              AS length_m
+          FROM (
+            SELECT l.link_id,
+                   ST_LineSubstring(l.geom_2193, v.f0, v.f1) AS sub
+              FROM unnest(%s::bigint[], %s::double precision[],
+                          %s::double precision[]) AS v(link_id, f0, f1)
+              JOIN links l
+                ON l.snapshot_id = %s AND l.link_id = v.link_id
+          ) v
+         ORDER BY v.link_id
+        """,
+        ([i.link_id for i in intervals],
+         [i.from_fraction for i in intervals],
+         [i.to_fraction for i in intervals],
+         snapshot_id),
+    )
+
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": r["geojson"],
+                "properties": {
+                    "linkId": int(r["link_id"]),
+                    "lengthM": round(float(r["length_m"]), 3),
+                },
+            }
+            for r in rows
+        ],
+        "measuredLengthM": round(
+            sum(float(r["length_m"]) for r in rows), 3),
+        "arithmeticLengthM": round(
+            sum(i.closed_length_m for i in intervals), 3),
+    }
 
 
 def fingerprint(snapshot_id: str, profile: str, direction_mode: str,
