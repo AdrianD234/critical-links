@@ -335,6 +335,19 @@ was handled by letting "unclear" stand as a verdict.
 > **Lower 95% bound on AT_GRADE: 92.8%** counting unreviewable as failures,
 > **95.5%** excluding them.
 
+> ### THIS RESULT DOES NOT MEET THE GATE, and this file said it did
+>
+> The agreed gate was always TWO conditions — zero confirmed grade-separated
+> false positives **and** a 95% lower bound of at least 97%.
+> `holdout-result.json` encoded the first, recorded the other numbers beside
+> it, and reported `met: true`. The counts above were right. The verdict drawn
+> from them was not, and it was wrong in the direction that declares success.
+>
+> Re-scored by `nzcl.promotion.evaluate`, which is now code with a test per
+> condition: **the gate is NOT MET.** One condition passes, two fail —
+> 92.8% against 97%, and three not-a-junction false positives against a
+> requirement of zero. See section 10.
+
 UNRESOLVED accepts every verdict but "unclear" by construction — it makes no
 claim about the ground — so its 100% is not a meaningful number and is printed
 only for completeness.
@@ -512,14 +525,16 @@ sentence explaining what it means.
 | --- | --- |
 | 1. mixed places — hard stop | **met**: withdrawn entirely under all policies, invariant asserted in code and in the ingest, fixture added |
 | 2. blind the review | **met**: 208-card blinded pack, answer key separated, randomised; the old review relabelled |
-| 3. expand the AT_GRADE sample | **met**: 196 AT_GRADE reviewed on a FRESH holdout independent of the development pack. **0 confirmed grade-separated false positives**, lower bound 92.8% / 95.5%. The 208-card pack is relabelled development data and is not re-scored |
-| 4. Greendale attribution | **met**: Clintons x McLaughlins is named as the cause throughout; Clintons x Greendale is recorded as real but not causal |
+| 3. expand the AT_GRADE sample | **NOT MET.** 196 AT_GRADE were reviewed on a fresh holdout, and the result does not clear the agreed gate: lower bound 92.8% against 97%, and three not-a-junction false positives against a requirement of zero. It DOES meet the condition it was reported against — 0 confirmed grade-separated false positives. The 248-card pack is now development data too. See section 10 |
+| 4. Greendale attribution | **met**: Clintons x McLaughlins is named as the cause throughout; Clintons x Greendale is recorded as real but not causal. Both still node under the revised classifier |
 | 5. classification language | **met**: `ORDINARY_CROSSROADS` is MEDIUM and says "PROBABLY" |
-| 6. promotion / rebuild | **not done, and deliberately so.** Gate 3 now passes, but no `processingVersion` 2.1.0 snapshot has been built. See section 9 |
+| 6. promotion / rebuild | **not done, and it must not be done.** Gate 3 does not pass, so no `processingVersion` 2.1.0 snapshot may be built. See section 10 |
 | 7. clustering radius | **met**: 5/10/25/50 m reported, monotonicity proved and tested, noding shown independent of it |
-| 8. G_possible provenance | **met**: `nzcl/provenance.py` names which unresolved crossings a route relied on, where, and whether any single one is decisive; a possible-graph route is drawn on its own dashed layer and cannot reach the teal one. See section 6c |
-| 9. double-review | **met, with its limits stated**: 40 cases recoded, 38/40 agreement, kappa 0.847, both disagreements adjudicated. Intra-rater, and taken after scoring, so it is an upper bound. See section 6b |
-| 10. repo hygiene | **met**: the derived record is a sha256 manifest plus a deterministic 250-row sample; the tracked screenshots went from 21.6 MB to 456 kB. See section 8 |
+| 8. G_possible provenance | **met, and the decisiveness defect in it is fixed.** `nzcl/provenance.py` names which unresolved crossings a route relied on and where. Decisiveness is now established by re-routing at every count instead of being inferred from one; the shipping path supplies the hook; a possible-graph route is drawn on its own dashed layer and cannot reach the teal one. See sections 6c and 10 |
+| 9. double-review | **NOT MET as an independent review.** 40 cases recoded, 38/40 agreement, kappa 0.847, both disagreements adjudicated — but it is the SAME reviewer, after scoring, so it is intra-rater and an upper bound. An independent review by a fresh isolated reviewer has not been performed. See section 6b |
+| 10. repo hygiene | **met**: both derived records are a sha256 manifest plus a deterministic 250-row sample; the tracked screenshots went from 21.6 MB to 456 kB. See section 8 |
+| 11. the gate is code | **met**: `nzcl/promotion.py`, with a test per condition and one that proves each condition can veto alone |
+| 12. the record IS the classifier | **NOT MET before this change, and it is why gate 3 needs re-reading.** The national record was built in SQL over graph links; the classifier runs over source features. Rebuilt by `classify_national_v2.py`. See section 10 |
 
 ---
 
@@ -617,43 +632,43 @@ enough, and nothing here justified a third.
 
 ## 9. May a 2.1.0 rebuild proceed?
 
-The gates that block a national rebuild are now in this state:
+**No. Superseded — see section 10 for the current answer and the reasoning.**
+
+The table and recommendation below are kept as the record of what was said
+after the second holdout, because two of its statements were wrong and the
+correction is more legible beside them than in place of them.
 
 | | |
 | --- | --- |
 | credential item closed | **yes** — pages carry no key, CI guards it, rotation deferred on accepted risk and recorded as mandatory before public deployment |
 | first review labelled development data | **yes** — section 6, and it is not re-scored |
-| fresh holdout passes | **yes** on the hard condition: **0** confirmed grade-separated false positives, lower bound 92.8% / 95.5% |
-| double-review complete | **yes**, with its limits stated: kappa 0.847, intra-rater, upper bound |
+| fresh holdout passes | ~~yes on the hard condition~~ — **NO.** The gate is both conditions, and 92.8% does not clear 97% |
+| double-review complete | ~~yes, with its limits stated~~ — **NOT AS AN INDEPENDENT REVIEW.** Intra-rater is not a second reviewer |
 | mixed places safely handled | **yes** — withdrawn under every policy, invariant asserted in code and ingest |
 | possible-route provenance | see gate 8 |
 | mandatory tests pass | see the CI run recorded on the PR |
 
-### The recommendation
+### The recommendation, as it was written then
 
-**A 2.1.0 rebuild may proceed on the AT_GRADE noding, and should not also
-adopt the current GRADE_SEPARATED rules without a further look.**
+> **A 2.1.0 rebuild may proceed on the AT_GRADE noding, and should not also
+> adopt the current GRADE_SEPARATED rules without a further look.**
 
-The reasoning, separated so it can be argued with:
+The reasoning, separated so it can be argued with — and the first bullet is the
+one that was wrong:
 
-- **The gate's hard condition is met and it is met on evidence that was not
-  used to build the classifier.** That is the thing the first pack could not
-  give, and it is why this is a different answer from last time rather than
-  the same answer said louder.
+- ~~**The gate's hard condition is met**~~ — the gate is not one condition. It
+  is zero grade-separated false positives AND a 97% lower bound, and it was
+  encoded in `holdout-result.json` as the first alone.
 - **The residual AT_GRADE error is bounded and is not the dangerous kind.**
-  Three misses in 196, all of them one road recorded twice. They fabricate a
-  turn from a road onto itself. That is a defect worth fixing and it is not
-  the "confident wrong answer" failure — no invented motorway movement, and
-  the mixed-place refusal and `audit_no_invented_movements()` still stand
-  between the classifier and that outcome.
+  Three misses in 196, all of them one road recorded twice. Still true, and
+  section 10 shows two of the three were artefacts of the record rather than
+  errors of the classifier.
 - **`MOTORWAY_CARRIAGEWAY` at 2 of 8 is the real open problem**, and it is an
   argument for *more* connectivity, not less: it severs real urban junctions.
-  Shipping it unchanged preserves today's behaviour in those places rather
-  than making anything worse, which is why it does not block the rebuild — but
-  it should not be described as validated, because it is not.
+  Acted on in section 10: it no longer asserts anything.
 - **The measurement is a floor.** The pack over-weights the hard cells, so the
-  true national AT_GRADE precision is very likely better than 92.8%. It is
-  quoted as a bound and not dressed up as an estimate.
+  true national AT_GRADE precision is very likely better than 92.8%. Still
+  true, and it is not a reason to pass a gate the measurement does not clear.
 
 ### What must not happen next
 
@@ -661,3 +676,306 @@ Do not fix `MOTORWAY_CARRIAGEWAY` or widen `DUPLICATE_GEOMETRY` against this
 holdout and then re-score it. That is precisely how the 208-card pack stopped
 being evidence. A third pack, drawn independently of both, is the price of
 changing the classifier again.
+
+---
+
+## 10. What the second holdout actually found, once the gate was written down
+
+Four things changed after the 248-card holdout was scored. Every one of them
+was driven by that pack, so **the 248 cards are development data now**, exactly
+as the 208 were. They are not re-scored anywhere in this file.
+
+### 10.1 The gate was one condition wearing the name of two
+
+`holdout-result.json` recorded four numbers under `promotionGate` and tested
+one of them:
+
+```json
+"promotionGate": {
+  "confirmedGradeSeparatedFalsePositives": 0,
+  "requirement": "must be 0",
+  "met": true,
+  "confirmed": 189, "contradicted": 3, "unreviewable": 4
+}
+```
+
+The agreed gate was always both zero confirmed grade-separated false positives
+**and** a 95% lower bound of at least 97%. The counts were right. The verdict
+drawn from them was not, and the direction matters: it declared success.
+
+The gate is now `nzcl/promotion.py` — a function that takes counts and returns
+a verdict per condition — with `tests/test_promotion.py` pinning each one, and
+the test that matters most proving **each condition can veto alone**. Four
+conditions:
+
+| condition | requirement | the 248-card holdout |
+| --- | --- | --- |
+| zero confirmed grade-separated false positives | must be 0 | **0 — passes** |
+| zero confirmed not-a-junction false positives | must be 0 | **3 — fails** |
+| 95% lower bound on AT_GRADE precision | >= 97% | **92.8% — fails** |
+| unreviewable counted as failures | method | applied |
+
+**Gate not met.** It meets the condition it was reported against and fails the
+other two.
+
+### 10.2 The record on disk was still not the classifier in `src/`
+
+Section 5a caught this once: `classify_national.py` never set
+`duplicate_corridor`, so `DUPLICATE_GEOMETRY` could not fire on the national
+record. The same defect was still present in a larger form, and it is the
+reason the three AT_GRADE contradictions need re-reading.
+
+`classify_national.py` applied `crossings.classify()` to rows SQL had assembled
+over the **links** table — the graph *after* `split_at_junctions` cut it. The
+classifier that ships runs *inside* `split_at_junctions`, over AMDS **source
+features**, before any graph exists. Three differences follow:
+
+| | the record | the classifier |
+| --- | --- | --- |
+| rows | one per crossing **pair** (`ST_PointOnSurface` of the multipoint) | one per crossing **point** |
+| crossing angle | over ±0.02 of each line's **length** | over a fixed **10 m** window |
+| geometry | a graph **link** — a piece of a feature | the whole **feature** |
+
+±0.02 of a 12.7 m link is ±25 cm, which measures the noise between two
+digitised vertices; ±0.02 of a 3.6 km link is ±73 m, which measures the wrong
+corner.
+
+`classify_national_v2.py` rebuilds the record by calling the same functions
+`split_at_junctions` calls, in the same order. Its one stated limitation: the
+AMDS extract is not in this worktree, so source features are reassembled by
+re-merging the link pieces of each `closure_group_id`. Re-merging is exact for
+shape — splitting inserts vertices, it does not move the line — and **0 of
+272,426 features failed to merge back into a single LineString**.
+
+| | old record (link pairs) | new record (feature points) |
+| --- | --- | --- |
+| rows | 13,056 | **22,062** |
+| AT_GRADE | 5,549 | **4,914** |
+| GRADE_SEPARATED | 1,479 | **1,010** |
+| UNRESOLVED | 6,028 | **16,138** |
+| DUPLICATE_GEOMETRY | 712 | **9,830** |
+| MIXED_PLACE | 228 | **946** |
+| places at 25 m | 9,629 | 13,422 |
+
+The two counts are not comparable line for line — one counts pairs of links,
+the other counts points between features — and the file says so rather than
+inviting the subtraction.
+
+### 10.3 The three AT_GRADE contradictions, re-diagnosed on the shipping code
+
+Replayed by `scratch/replay_cards.py`, which runs the real
+`split_at_junctions` over the real neighbourhood of each card:
+
+| card | roads | what the RECORD said | what the CLASSIFIER does |
+| --- | --- | --- | --- |
+| **H001** | Council Place Loop × Council Place Loop | AT_GRADE, 31.6° | **not noded.** Two crossings, 21.8° and 4.4°, both `TANGENTIAL`. The 31.6° is the SQL window measuring ±25 cm of a 12.7 m link |
+| **H040** | Hansen Road × Hansen Road | AT_GRADE, 31.4° | **not noded.** Two crossings 11.1 m apart at 14.1° and 48.9°; they disagree, so the place is `MIXED_PLACE` and nothing there is noded |
+| **H192** | Ngaio Road × unnamed | AT_GRADE, 87.3° | **was a real false node.** Fixed — see below |
+
+So one of the three was a genuine defect in the classifier. The other two were
+defects in the measurement, and they were counted against the classifier. That
+correction moves the headline in the flattering direction, which is exactly why
+it is stated with the replay script beside it rather than asserted.
+
+**H192, the real one.** Near Kimbolton, source feature `61c2fcad` is 14.7 m of
+a 1,959 m chain that runs **6.8 to 9.8 m** from feature `7d966e5b` for the
+whole of its length. A constant offset over 2 km is one road recorded twice.
+The two records swap sides once, and that swap is the 87° "crossing" that got
+noded. `is_duplicate_corridor` could not see it: it needs 60 m of run either
+side, a 14.7 m feature has none in any direction, and every direction being
+skipped returned `False`, which reads as "two different roads".
+
+The fix is **not** a shorter run. At 30° — the tangential threshold, so the
+shallowest crossing still callable AT_GRADE — two genuinely crossing roads stay
+within 8 m of each other for ±16 m, so any run short enough to judge a 15 m
+feature would withdraw real junctions wholesale. The fix is
+`crossings.corridor_polyline`: continue each feature through the features it
+joins end to end, then ask the question about the ROAD. The walk follows
+coincident endpoints only, at the same 50 mm tolerance the splitter treats as
+one node; takes the straightest continuation at a fork rather than the one that
+flatters the test; never revisits a feature; and does nothing at all when the
+feature is already long enough.
+
+**What it costs, measured rather than assumed** (`scratch/corridor_impact.py`
+runs the national pipeline twice, with the walk on and off):
+
+| | walk off | walk on | delta |
+| --- | --- | --- | --- |
+| AT_GRADE | 4,999 | **4,914** | **−85** |
+| DUPLICATE_GEOMETRY | 9,160 | 9,830 | +670 |
+| TANGENTIAL | 690 | 404 | −286 |
+
+So the 9,830 national `DUPLICATE_GEOMETRY` total is almost entirely the level
+change, not the new rule: 9,160 of them fire without the walk. The walk itself
+withdraws **85 of 4,999 AT_GRADE crossings — 1.7%** — and that is a real cost,
+because `DUPLICATE_GEOMETRY` is a never-node reason.
+
+`scratch/corridor_spotcheck.py` measures how far past the 60 m threshold those
+cases actually run. On a sampled dozen — the first six of each transition, so a
+convenience sample and not a random one — the two corridors stay within 8 m of
+each other for a **median of 165 m** and up to **2,000 m**, with one marginal
+case at 65 m. A road recorded twice runs parallel for as long as the road does.
+Nothing else looks like that. The third holdout draws a stratum from exactly
+these cases, because a convenience sample is not evidence and the rule's own
+false-positive risk should be measured by someone looking at photographs.
+
+**Both Darfield crossings still node**, including the causal one, Clintons ×
+McLaughlins.
+
+### 10.4 GRADE_SEPARATED: the rules that were asserting more than they knew
+
+`GRADE_SEPARATED` scored 15 of 24, and the failures were not spread evenly:
+
+| rule | confirmed | decides nationally |
+| --- | --- | --- |
+| STRUCTURE_MAPPED | 9 / 10 | 1,010 |
+| RAMP | 2 / 3 | 69 |
+| CONNECTOR | 2 / 3 | 35 |
+| **MOTORWAY_CARRIAGEWAY** | **2 / 8** | 452 |
+
+One line separates the rule that survived from the ones that did not.
+`STRUCTURE_MAPPED` and `NAMED_STRUCTURE` are **positive evidence that a
+structure exists at this point**: an independent national mapping agency drew a
+bridge or tunnel centreline here and it lines up with one of these two roads,
+or the road carries the word "overbridge" in its own name. `RAMP`, `CONNECTOR`,
+`MOTORWAY_CARRIAGEWAY` and the ramp/interchange words that used to sit inside
+`NAMED_STRUCTURE` all argue instead that this is the KIND of road that is
+usually grade separated. That is a prior about road classes, not evidence about
+this crossing — the same absence-of-evidence reasoning `ORDINARY_CROSSROADS` is
+recorded at MEDIUM for, stated with more confidence and pointing the other way.
+
+All four are now **UNRESOLVED**.
+
+- **Nothing about the canonical graph changes.** `GRADE_SEPARATED` and
+  `UNRESOLVED` are both left disconnected. No severed crossing becomes
+  connected, and `tests/test_crossings.py` pins that for each of the four.
+- **What changes is the claim**, and that the crossing now enters the POSSIBLE
+  sensitivity graph, so a route depending on it is reported as depending on it
+  instead of the doubt being swallowed by a rule that is wrong three times in
+  four.
+- **The cost is a looser sensitivity bound around motorways.** Under
+  `crossing_policy='possible'` these crossings are now noded, so the possible
+  graph will contain some turns onto motorway carriageways that do not exist.
+  That is the correct direction to be loose in for an instrument whose whole
+  job is to ask "what if these were junctions?", and it is stated here because
+  it is a real consequence and not a free one.
+- **The fixture carrying "never noded under any policy" changed with it.** It
+  used to be a one-way state-highway carriageway. A rule wrong three times in
+  four is not what should stand between the engine and an invented motorway
+  turn, so the invariant now rests on a mapped Topo50 structure.
+
+`MOTORWAY_CARRIAGEWAY` was **not tuned** against the holdout. It was demoted,
+which is the honest move available without a fresh sample: it stops asserting,
+and it stops severing 452 crossings on an argument measured at 2 of 8.
+
+### 10.5 The possible-graph decisiveness defect
+
+`provenance.analyse` called a lone relied-on crossing decisive **by
+construction**: the route used the only speculative node it had, so removing it
+must change the route. It changes the LINKS. It does not change the ANSWER.
+Where an equal-cost way round exists — and a rural grid is made of them — the
+minimum-distance result is identical, the finding never hinged on that
+crossing, and the payload said `changedByOneCrossing: true`. Somebody who drove
+out and photographed that intersection would have learned nothing about the
+number.
+
+There is now one path at every count: take the crossing out, route again,
+compare the distance. With no hook, nothing is claimed — `decisive`,
+`changedByOneCrossing` and `requiresMultipleAssumptions` all serialise as
+`null` and the method says `UNTESTED_COUNT_ONLY`, because `false` is its own
+claim and exactly as unfounded as the `true` it replaces.
+`DECISIVENESS_SINGLE` is gone rather than deprecated: it named an inference.
+
+**And the hook is now reachable.** Section 6c recorded that `impactv2.py` did
+not pass the lookup on the shipping V2 path and that the seam was "one line".
+A decisiveness field nobody reaches is not a fixed defect. `impactv2.analyse`
+now asks the DATA whether the snapshot is a possible graph — a noded UNRESOLVED
+crossing exists under exactly one policy — and hands `replacement.compute` a
+lookup carrying a re-route FACTORY, because the re-route needs each path's own
+endpoints and the closure, which vary per movement while the snapshot does not.
+
+`provenance.reroute_for` suppresses a crossing **without copying the
+snapshot**, which `nzcl/whatif.py` does for the audit and which is far too
+expensive to sit on a request. For shortest paths there is an exact identity:
+
+```
+d_unnoded(s,t) = min( d(s,t | side A's arcs at the node removed),
+                      d(s,t | side B's arcs at the node removed) )
+```
+
+Splitting the node into two leaves a shortest path exactly three options,
+because over positive weights it never visits a node twice: avoid the node, run
+through on road A, or run through on road B. Turning from A onto B is the one
+thing the split forbids and the one thing neither branch of the minimum allows.
+So the whole re-route is two ordinary shortest-path calls with arcs excluded —
+something the router already does for closures. It is checked against the graph
+it stands in for: the same fixture built under the CONFIRMED policy, where the
+crossing was never noded.
+
+Both halves were proved by breaking them:
+
+- reverting `analyse` to the count-based shortcut fails 3 tests, including one
+  asserting the equal-cost case is not decisive;
+- removing the re-route factory from `impactv2` fails the integration test with
+  `UNTESTED_COUNT_ONLY` where `REROUTED_WITHOUT_EACH_CROSSING` is required.
+
+No UI renders the provenance block yet, so nothing describes a crossing as
+decisive today. The TypeScript type now says `boolean | null` for both
+booleans, so a renderer cannot treat "not tested" as "no" without saying so.
+
+### 10.6 A migration that could not reshape its own table
+
+`sql/migrations/008_crossings.sql` creates `crossings` with `CREATE TABLE IF
+NOT EXISTS`, and the table was created earlier in this branch's development
+with a column called `plausible_junction` that was later replaced by
+`safe_to_node` and `confidence`. Editing the `CREATE TABLE` upgraded a fresh
+database and silently left every existing one behind — and the ingest COPY
+names the new columns, so any machine that had run the earlier version would
+have failed the next ingest on a missing column. It had never been hit only
+because no snapshot with crossings has ever been built. Fixed with idempotent
+`ALTER ... IF NOT EXISTS`, found by being the first thing to write that table.
+
+---
+
+## 11. May a 2.1.0 rebuild proceed? — the current answer
+
+**No, and not yet for a good reason rather than a bad one.**
+
+| | |
+| --- | --- |
+| promotion gate on the best available holdout | **NOT MET** — 92.8% against 97%, and 3 not-a-junction false positives against 0 |
+| a holdout the classifier was not derived from | **does not exist.** All four fixes above were driven by the 248-card pack, so it is development data now |
+| independent review | **has never been performed.** The double-review was the same reviewer, after scoring |
+| classifier frozen | **yes**, as of the commit that declares the third holdout |
+| third holdout | **declared, not drawn.** 350 AT_GRADE cards, at most 4 failures — see `third-holdout-predeclaration.md` |
+
+The classifier is in better shape than it was: one real false node fixed, two
+apparent ones shown to be measurement artefacts, four over-confident
+GRADE_SEPARATED rules stopped from asserting, a decisiveness field that no
+longer invents findings, and a national record that is finally produced by the
+code that ships. None of that is evidence. Every one of those changes was
+derived from the sample that would have to score them, and a figure re-scored
+against it would be optimistic by construction — which is the trap this audit
+has now walked into twice and is not walking into a third time.
+
+**What must happen before a rebuild is recommended**
+
+1. Draw the third holdout at the declared size, from `classified-v2.jsonl`,
+   excluding all three previous packs and everything within 50 m of them.
+2. Review it blind.
+3. Have it reviewed a second time by a **fresh isolated reviewer** — no
+   previous transcript, no access to the classifier source, no prior verdicts,
+   no score summary, anonymous randomised cards. If that cannot be done to that
+   standard, the rebuild does not proceed and the blockage is reported. An
+   honest statement that it was unavailable is required and is **not** a
+   waiver.
+4. Evaluate `nzcl.promotion.evaluate` on the result. If it fails, stop and
+   report. Do not add cards, do not re-read the unclear ones, do not change a
+   rule and re-score.
+
+**What must not happen next**
+
+Do not tune `corridor_polyline`, `DUPLICATE_GEOMETRY` or anything else against
+the third pack. Three samples have now been burned this way. A fourth pack is
+the price of changing the classifier again, and there is a limit to how many
+independent samples this dataset can supply.
