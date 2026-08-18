@@ -387,6 +387,14 @@ branch exists to remove. So it does not block AT_GRADE noding — but the
 classifier is under-connecting urban state highways, and that is not a small
 thing to leave unsaid.
 
+**How big is it.** `MOTORWAY_CARRIAGEWAY` decides **728 pairs nationally**. At
+2 of 8 confirmed the point estimate is ~546 real junctions wrongly severed,
+and the 95% interval on 2/8 is wide — [7.1%, 59.1%] confirmed — which puts the
+range at roughly **300 to 680**. n=8 is small and that interval is honest about
+it. Even its optimistic end is the same order as the Greendale defect this
+branch was opened to fix. It is measured here and deliberately not acted on;
+see below.
+
 ### Nothing was tuned against this sample
 
 Both findings above are **recorded, not acted on**. Rewriting
