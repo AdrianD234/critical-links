@@ -8,25 +8,25 @@ Ordered north to south.
 
 | link | road | class | length | centroid | headline | hero | runtime |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 241361 | State Highway 10 | SH | 616.8 m | -34.991, 173.483 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2496 ms |
-| 183276 | Gumdigger Rise | local | 248.2 m | -36.607, 174.672 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2209 ms |
-| 244750 | Taupaki Road | local | 180.5 m | -36.797, 174.574 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2470 ms |
-| 221799 | Bertram Road | local | 198.8 m | -36.951, 175.169 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 847 ms |
-| 303374 | Tuakau Bridge-Port Waikato Road | local | 1860.8 m | -37.385, 174.739 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2385 ms |
-| 20074 | Pembroke Street | local | 183.5 m | -37.799, 175.281 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2507 ms |
-| 41852 | Sing Road | local | 707.8 m | -37.958, 175.272 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2268 ms |
-| 1970 | State Highway 35 | SH | 1209.7 m | -38.469, 178.268 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2569 ms |
-| 348548 | Puketitiri Road | local | 3200.1 m | -39.462, 176.789 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2585 ms |
-| 4612 | State Highway 2 | SH | 273 m | -39.819, 176.643 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2717 ms |
-| 346129 | Ford Road | local | 1402.3 m | -39.988, 176.569 | Through movement has no represented replacement | ROAD CUT OFF | 3015 ms |
-| 81788 | Carters Line | local | 291.2 m | -41.003, 175.638 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2230 ms |
-| 11610 | Makara Road | local | 624.6 m | -41.272, 174.705 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2464 ms |
-| 370140 | State Highway 67 | SH | 238.9 m | -41.753, 171.63 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2667 ms |
-| 225475 | Mount Thomas Road | local | 182.2 m | -43.291, 172.501 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2379 ms |
-| 273953 | High Street | local | 197.2 m | -43.804, 171.937 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 929 ms |
-| 275032 | Buckleys Road | local | 1448.7 m | -43.948, 172.003 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2241 ms |
-| 294861 | De Bettencor Place | local | 315.3 m | -44.972, 169.248 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 988 ms |
-| 45311 | Chalmerston Road | local | 234.9 m | -45.855, 170.449 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 1041 ms |
-| 261129 | Longwood Road (Riverton Ward) | local | 841.4 m | -46.344, 167.951 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 2498 ms |
+| 241361 | State Highway 10 | SH | 616.8 m | -34.991, 173.483 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1842 ms |
+| 183276 | Gumdigger Rise | local | 248.2 m | -36.607, 174.672 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1958 ms |
+| 244750 | Taupaki Road | local | 180.5 m | -36.797, 174.574 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1917 ms |
+| 221799 | Bertram Road | local | 198.8 m | -36.951, 175.169 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 703 ms |
+| 303374 | Tuakau Bridge-Port Waikato Road | local | 1860.8 m | -37.385, 174.739 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1805 ms |
+| 20074 | Pembroke Street | local | 183.5 m | -37.799, 175.281 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1994 ms |
+| 41852 | Sing Road | local | 707.8 m | -37.958, 175.272 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1751 ms |
+| 1970 | State Highway 35 | SH | 1209.7 m | -38.469, 178.268 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1788 ms |
+| 348548 | Puketitiri Road | local | 3200.1 m | -39.462, 176.789 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1850 ms |
+| 4612 | State Highway 2 | SH | 273 m | -39.819, 176.643 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1971 ms |
+| 346129 | Ford Road | local | 1402.3 m | -39.988, 176.569 | Through movement has no represented replacement | ROAD CUT OFF | 2597 ms |
+| 81788 | Carters Line | local | 291.2 m | -41.003, 175.638 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1900 ms |
+| 11610 | Makara Road | local | 624.6 m | -41.272, 174.705 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1789 ms |
+| 370140 | State Highway 67 | SH | 238.9 m | -41.753, 171.63 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1739 ms |
+| 225475 | Mount Thomas Road | local | 182.2 m | -43.291, 172.501 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1780 ms |
+| 273953 | High Street | local | 197.2 m | -43.804, 171.937 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 708 ms |
+| 275032 | Buckleys Road | local | 1448.7 m | -43.948, 172.003 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1682 ms |
+| 294861 | De Bettencor Place | local | 315.3 m | -44.972, 169.248 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 688 ms |
+| 45311 | Chalmerston Road | local | 234.9 m | -45.855, 170.449 | No through movement identified | NO THROUGH MOVEMENT IDENTIFIED | 732 ms |
+| 261129 | Longwood Road (Riverton Ward) | local | 841.4 m | -46.344, 167.951 | Through movement diverts | ADDED DISTANCE — THROUGH MOVEMENT | 1694 ms |
 
 Every case above: no request reached the retired detour engine, the map badge named a segment closure, and the panel retained the represented-network wording. Runtimes are the engine's own, under the 5 s interactive ceiling.
