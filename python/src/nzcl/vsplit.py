@@ -298,6 +298,8 @@ def build(
                     cost_time_s=None if t is None else span * float(t),
                     link_id=link_id,
                     parent_arc_id=int(arc["arc_id"]),
+                    from_fraction=f0,
+                    to_fraction=f1,
                 ))
                 open_ids.append(arc_id)
 

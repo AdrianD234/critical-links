@@ -105,6 +105,15 @@ class VirtualArc:
     #: quietly unban a manoeuvre across it.
     link_id: int
     parent_arc_id: int
+    #: The extent of this piece in the PARENT LINK's own 0..1 parameter, stated
+    #: in the link's coordinate order regardless of which way the piece runs.
+    #:
+    #: Carried so a replacement path that traverses a piece can be DRAWN. A
+    #: route is not fully reported by its length: a map that omits the two
+    #: partial links at the ends of an outage shows a detour starting in mid
+    #: air, and a reader cannot check a line that is not there.
+    from_fraction: float = 0.0
+    to_fraction: float = 1.0
 
 
 @dataclass(frozen=True)
