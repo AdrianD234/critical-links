@@ -1,54 +1,50 @@
 {
-  "status": "BLOCKED - the canonical half passes, the counterfactual half cannot run yet",
-  "what": "Progress of the Greendale end-to-end acceptance for topology-sensitive analysis.",
-  "canonicalHalf": {
-    "result": "PASSES",
-    "snapshot": "amds-national-2026-07-28-5b359d84",
+  "status": "PASSES ON THE NUMBERS, with two named gaps",
+  "provenOn": "a TRANSIENT COPY of the national snapshot with crossings populated on the copy",
+  "notProvenOn": "the production path - see openQuestion below",
+  "results": {
     "linkId": 234872,
-    "status": "OK",
-    "replacementDistanceM": 7944.412441731978,
-    "networkPenaltyM": 7269.143651489053,
-    "ratio": 11.76481507293415,
-    "arcs": 17,
-    "movementId": "1a24dd0a76d58469b3a65326",
-    "fromNode": 215061,
-    "toNode": 217297,
-    "canonicalAnalysisMs": 1658,
-    "note": "Matches the audit figure of 7,944.4 m over 17 arcs exactly. The canonical analysis runs first, is pinned, and is returned unchanged."
+    "canonicalReplacementM": 7944.412441731978,
+    "counterfactualReplacementM": 4915.5332100612995,
+    "reductionM": 3028.879231670678,
+    "topologySensitive": true,
+    "causalCrossingIsMaterial": true,
+    "decoyCrossingIsMaterial": false,
+    "candidates": 2,
+    "candidatesBySource": {"closure": 0, "corridor": 2, "ports": 0, "inside_circuit": 0},
+    "truncated": false,
+    "crossingsDetectedOnCopy": 22062,
+    "headline": "Topology-sensitive. The canonical represented route is 7944 m, but falls to 4916 m if the unresolved crossing is an at-grade junction."
   },
-  "blocker": {
-    "what": "The `crossings` table is EMPTY for the national snapshot - 0 rows, and 0 rows for any snapshot in the database.",
-    "why": "The national snapshot was ingested before crossing detection existed. `crossings` is written by the ingest, and this snapshot predates it.",
-    "consequence": "Candidate search has nothing to draw from, so it returns 0 candidates and the run correctly reports sensitivity UNAVAILABLE - which it is careful to distinguish from the answer being robust. The machinery behaved correctly; the input is absent.",
-    "notADefectIn": "candidates.find, sensitivityrun.run, or the neighbourhood copy - all of which did the right thing with an empty input."
-  },
-  "optionsAndWhyThisNeedsADecision": [
+  "whatPassed": [
+    "canonical 7,944.412 m, matching the audit to the metre, returned unchanged and never displaced",
+    "counterfactual 4,915.533 m, matching the audit's 4,915.5 m",
+    "the corridor source found the causal crossing - the closure source found NOTHING, which is the whole point: a buffer round the clicked link would have missed it",
+    "the counterfactual never occupied the canonical slot",
+    "the transient copy was marked is_transient and coverage_kind=counterfactual, and was dropped; zero transient snapshots left behind; national snapshot intact at 375,696 links"
+  ],
+  "gapsFoundByRunningIt": [
     {
-      "option": "Populate `crossings` for the national snapshot in place",
-      "cost": "one national write",
-      "verdict": "REFUSED without authorisation. The standing constraint is that the national snapshot is not mutated outside a rolled-back transaction, and this would be a durable write to it."
+      "gap": "The decoy crossing (Clintons x Greendale) was NOT in the candidate set at all.",
+      "why_it_matters": "The acceptance asks that it be found and correctly NOT credited with the change. It was not found, so 'not credited' is vacuous rather than demonstrated. decoyCrossingIsMaterial=false is true but proves nothing.",
+      "likely_cause": "It sits beside the closure, and the closure source returned 0 candidates - so either the closure radius or the noded/safe_to_node filter excluded it. Needs investigation, not assumption.",
+      "status": "OPEN"
     },
     {
-      "option": "Copy the national snapshot, populate crossings on the copy, run the acceptance there",
-      "cost": "about 30 s to copy plus a full national crossing detection pass, roughly 10 minutes, and it is a transient copy so nothing national is touched",
-      "verdict": "Respects every constraint. This is the recommended route."
-    },
-    {
-      "option": "Detect crossings only within the bounded neighbourhood, at analysis time",
-      "cost": "cheap, and it removes the dependency on a pre-populated table entirely",
-      "verdict": "Probably the better long-term design, but it is a change to how candidates are sourced and should be a deliberate decision rather than something slipped in to make an acceptance pass."
+      "gap": "Crossing names did not resolve - the headline reads 'unnamed road x unnamed road' where the audit names Clintons Road x McLaughlins Road.",
+      "why_it_matters": "The headline is the sentence a user reads. Unnamed roads make it far less useful, and the join is in candidates.find, so it affects every analysis rather than this one.",
+      "likely_cause": "The link_names join is on closure_group_id and returned nothing; the name may live under a different key on this snapshot.",
+      "status": "OPEN"
     }
   ],
-  "whatIsProvenSoFar": [
-    "the canonical analysis is reached, pinned, and reproduces the audit figure exactly",
-    "candidate search, the runner, the neighbourhood copy and cleanup all behave correctly on an empty input",
-    "sensitivity reports UNAVAILABLE with a reason, and states that this is not the same as the answer being robust"
+  "twoBugsThisAcceptanceCaught": [
+    "MovementPin compared movement_id and port ids, which hash the SNAPSHOT ID into themselves and therefore can never agree across a copy. Every bounded neighbourhood failed validation while agreeing on nodes, all 17 arcs and the distance to the last digit. Failed SAFE - declined rather than accepted - and made the mechanism unusable.",
+    "extract_validated fell through to dataclass equality, which compared those same surrogate fields even after the pin was fixed."
   ],
-  "notYetProven": [
-    "counterfactual ~4,916 m",
-    "the causal crossing being Clintons Road x McLaughlins Road",
-    "Greendale x Clintons being found and correctly NOT credited with the change",
-    "canonical and counterfactual geometries visually distinct",
-    "end-to-end timing across all candidates"
-  ]
+  "openQuestion": {
+    "what": "How do crossings get populated in production?",
+    "state": "UNRESOLVED. The national snapshot has ZERO rows in `crossings`. This acceptance populated a COPY, which proves the wiring and does NOT prove the production path.",
+    "leadingCandidate": "Option 3 - detect crossings within the bounded neighbourhood at analysis time, removing the pre-populated-table dependency entirely. It fits the pivot away from national precompute.",
+    "doNotConclude": "A passing acceptance does not mean production sourcing is solved."
+  }
 }

@@ -2,21 +2,90 @@
   "copy": "cf-greendale-acceptance",
   "source": "amds-national-2026-07-28-5b359d84",
   "linkId": 234872,
-  "copySeconds": 23.9,
+  "copySeconds": 27.2,
   "copyIsTransient": true,
   "copyCoverageKind": "counterfactual",
   "crossingsDetected": 22062,
-  "detectSeconds": 31.6,
+  "detectSeconds": 31.0,
   "canonical": {
     "status": "OK",
     "distanceM": 7944.412441731978,
     "arcs": 17,
     "movementId": "32f21aeaca999a9e8e5417b9",
-    "seconds": 2.57
+    "seconds": 2.64
   },
   "sensitivity": {
-    "available": false,
-    "unavailableReason": "no bounded neighbourhood reproduced the canonical answer: no bounded neighbourhood reproduced the canonical answer (radii [5000.0, 12000.0, 30000.0] m, [335, 1001, 6824] links): at 30000 m the copy answered AnalysisPin(closure_links=(234872,), profile='car', metric='distance', movement=MovementPin(movement_id='8e4387c617a5946d985d4bf9', entry_node=215061, exit_node=217297, entry_port_link='5b47981ba2f31185ba0208bb', exit_port_link='6f2bb4126b21f9b76b76cffe'), route_arcs=(455719, 455721, 452222, 451408, 451410, 451412, 498617, 498619, 498621, 498623, 498625, 454108, 454106, 455709, 455711, 455713, 455715), status='OK', unresolved_reason=None, restrictions_checked=True, restrictions_applicable=0, restriction_violations=0, isolated_link_count=None, isolated_length_m=None, is_bridge=False, distance_m=7944.412441731978), not AnalysisPin(closure_links=(234872,), profile='car', metric='distance', movement=MovementPin(movement_id='32f21aeaca999a9e8e5417b9', entry_node=215061, exit_node=217297, entry_port_link='55e7908230397df4f2a61533', exit_port_link='6d31a4dab839bfb1ce0c9fca'), route_arcs=(455719, 455721, 452222, 451408, 451410, 451412, 498617, 498619, 498621, 498623, 498625, 454108, 454106, 455709, 455711, 455713, 455715), status='OK', unresolved_reason=None, restrictions_checked=True, restrictions_applicable=0, restriction_violations=0, isolated_link_count=None, isolated_length_m=None, is_bridge=False, distance_m=7944.412441731978). Reporting UNRESOLVED rather than a number the boundary shaped.",
+    "topologySensitive": true,
+    "canonicalAnswer": {
+      "isCanonical": true,
+      "status": "OK",
+      "distanceM": 7944.412441731978,
+      "isBridge": false,
+      "isolatedLinkCount": null
+    },
+    "counterfactuals": [
+      {
+        "isCanonical": false,
+        "assumedJunctionCrossingIds": [
+          17111
+        ],
+        "assumedJunctions": [
+          {
+            "crossingId": 17111,
+            "label": "unnamed road x unnamed road",
+            "classifierDisposition": "AT_GRADE",
+            "classifierReason": "ORDINARY_CROSSROADS"
+          }
+        ],
+        "status": "OK",
+        "distanceM": 4915.5332100612995,
+        "isBridge": false,
+        "isolatedLinkCount": null,
+        "individuallyChangesAnswer": true,
+        "uniqueExplanation": true,
+        "equivalentAlternativeExplanations": [],
+        "whatChanged": [
+          "distance 7944.4 m -> 4915.5 m"
+        ],
+        "assumptionKind": "individual"
+      },
+      {
+        "isCanonical": false,
+        "assumedJunctionCrossingIds": [
+          17136
+        ],
+        "assumedJunctions": [
+          {
+            "crossingId": 17136,
+            "label": "unnamed road x unnamed road",
+            "classifierDisposition": "AT_GRADE",
+            "classifierReason": "JUNCTION_WITNESS"
+          }
+        ],
+        "status": "OK",
+        "distanceM": 7944.412441731978,
+        "isBridge": false,
+        "isolatedLinkCount": null,
+        "individuallyChangesAnswer": false,
+        "uniqueExplanation": false,
+        "equivalentAlternativeExplanations": [],
+        "whatChanged": [],
+        "assumptionKind": "individual"
+      }
+    ],
+    "materialCrossingIds": [
+      17111
+    ],
+    "uniqueExplanationCrossingIds": [
+      17111
+    ],
+    "candidatesConsidered": 2,
+    "counterfactualRuns": 3,
+    "truncated": false,
+    "headline": "Topology-sensitive. The canonical represented route is 7944 m, but falls to 4916 m if the unresolved unnamed road x unnamed road crossing is an at-grade junction.",
+    "graph": "canonical",
+    "why": "Every figure under counterfactuals assumes one or two unresolved crossings are junctions, and is NOT the answer. The answer is canonicalAnswer. No national possible graph is consulted: assumptions are tested one at a time against the canonical graph, because a graph with every unresolved crossing connected produces routes relying on chains of speculative turns.",
+    "available": true,
     "candidateSearch": {
       "candidates": 2,
       "consideredBeforeBound": 3,
@@ -64,24 +133,63 @@
       "isBridge": false,
       "distanceM": 7944.412441731978
     },
-    "validation": null,
-    "timing": {
-      "canonicalMs": 1444,
-      "candidateSearchMs": 4,
-      "neighbourhoodExtractAndValidateMs": 1504,
-      "singleCounterfactualMs": {
-        "runs": 0,
-        "p50": 0,
-        "max": 0,
-        "total": 0
+    "validation": {
+      "agreed": true,
+      "canonicalFingerprint": "468b0c56781a7962",
+      "copyFingerprint": "468b0c56781a7962",
+      "differences": [],
+      "derivedInventory": {
+        "links": 335,
+        "arcs": 666,
+        "arcTransitions": 1114,
+        "components": 4,
+        "physicalAccessRuns": 1,
+        "turnRestrictions": 0
       },
-      "cleanupMs": 0,
-      "totalMs": 2952,
-      "note": "Stage timings. The canonical analysis is the only one a user waits for when sensitivity runs on its own endpoint."
+      "derivedMissing": [],
+      "what": "The bounded copy is only trusted once it answers the SAME question the canonical result came from - same closure, movement, ports, profile, metric, restriction state and route - not merely once it returns the same distance. Two ways out of a closure can cost the same."
     },
-    "why": "Topology sensitivity could not be established for this analysis. That is NOT the same as the answer being robust, and a high-consequence result must not be presented as definitive on the strength of it."
+    "neighbourhood": {
+      "radiusM": 5000.0,
+      "linkCount": 335,
+      "nodeCount": 298,
+      "extractionSeconds": 0.14,
+      "validatedAgainstCanonical": true,
+      "derivedStructuresRebuilt": true,
+      "arcTransitions": 1114,
+      "components": 4,
+      "physicalAccessProfiles": [
+        "car"
+      ],
+      "maxLinks": 30000,
+      "why": "A counterfactual is routed on a bounded copy of the network around the closure, not on the national tables. The copy is only believed once it reproduces the canonical answer with nothing assumed."
+    },
+    "timing": {
+      "canonicalMs": 1370,
+      "candidateSearchMs": 3,
+      "neighbourhoodExtractAndValidateMs": 151,
+      "singleCounterfactualMs": {
+        "runs": 2,
+        "p50": 2182,
+        "max": 2182,
+        "total": 4172
+      },
+      "cleanupMs": 12,
+      "totalMs": 5708,
+      "note": "Stage timings. The canonical analysis is the only one a user waits for when sensitivity runs on its own endpoint."
+    }
   },
-  "totalSeconds": 61.1,
+  "totalSeconds": 66.6,
+  "causalFound": [
+    17111
+  ],
+  "causalLabels": [
+    "unnamed road x unnamed road"
+  ],
+  "decoyFound": [],
+  "decoyLabels": [],
+  "causalIsMaterial": true,
+  "decoyIsMaterial": false,
   "transientLeftBehind": [],
   "nationalLinksAfter": 375696
 }
