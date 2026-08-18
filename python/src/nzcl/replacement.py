@@ -177,7 +177,7 @@ def compute(
     statement_timeout_ms: int = 20_000,
     with_geometry: bool = False,
     topology_confidence: str = "high",
-    provenance_lookup: "Callable[[Sequence[int]], object] | None" = None,
+    provenance_lookup: "Callable[..., object] | None" = None,
 ) -> ReplacementSet:
     """Replacement paths for every INCLUDED movement, from one edge-set load.
 
@@ -406,8 +406,18 @@ def _one(snap: str, m: Movement, routed, removed: frozenset[int],
     # Only asked on a POSSIBLE graph, and asked per path rather than per set:
     # two movements around the same closure can take different roads, and one
     # of them relying on an unresolved crossing says nothing about the other.
+    #
+    # The RouteContext is what makes decisiveness measurable rather than
+    # guessed. Deciding whether one crossing moves the answer means running
+    # this same origin and destination again with that crossing suppressed -
+    # and "this same" includes the closure, or the re-route would drive through
+    # the road being closed and answer about a different network.
     if provenance_lookup is not None:
-        provenance_mod.annotate(p, provenance_lookup(p.link_ids))
+        provenance_mod.annotate(p, provenance_lookup(
+            p.link_ids,
+            provenance_mod.RouteContext(
+                from_node=m.from_node, to_node=m.to_node,
+                excluded_arcs=tuple(sorted(removed)), profile=profile)))
 
     # --- banned manoeuvres -------------------------------------------------
     # The multi-target search runs on the plain arc graph, which knows nothing

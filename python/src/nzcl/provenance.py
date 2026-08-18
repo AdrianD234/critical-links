@@ -49,34 +49,42 @@ DECISIVENESS, AND THE ONE PLACE THIS IS ALLOWED TO SAY "I DID NOT TEST THAT"
 `changed_by_one_crossing` asks whether removing any SINGLE relied-on crossing
 would change the outcome.
 
-  * zero relied on          - false. Nothing to remove.
-  * exactly one relied on   - TRUE BY CONSTRUCTION. Removing it removes the
-                              only speculative node the route used, so either
-                              the route changes or it never needed the node,
-                              and it did need it: it passed through it.
-  * two or more relied on   - a real question, and the only honest way to
-                              answer it is to route again with that one
-                              crossing's node removed and compare.
+This module used to answer that from the COUNT. With exactly one crossing
+relied on it returned true, "by construction", on the argument that removing
+the only speculative node a route used must change that route. THE ARGUMENT IS
+WRONG, and it was wrong in the direction that matters: it asserted a finding
+nobody had checked.
+
+The hole in it is that "the route changes" and "the ANSWER changes" are not the
+same statement. Removing the node does force a different sequence of links. It
+does not force a different DISTANCE. Where an equal-cost way round exists - and
+a rural grid is made of them - the minimum-distance answer is identical, the
+result does not hinge on that crossing at all, and the payload said it did.
+Somebody who drove out and photographed that intersection would have learned
+nothing about the number.
+
+So there is now ONE rule at every count: decisiveness is established by routing
+again WITHOUT that crossing and comparing the distance, never inferred from how
+many crossings the route used.
 
 "The outcome" is the CANONICAL ANSWER - minimum represented-network distance -
 and not the sequence of links. Those differ, and the difference is the whole
 point: a route driven through a node necessarily changes its link sequence
 when that node goes, so comparing sequences would report every relied-on
-crossing as decisive and the field would carry no information at all. What a
-reader wants to know is whether the NUMBER moves. Where an equal-cost way
-round exists, it does not.
+crossing as decisive and the field would carry no information at all.
 
-Re-routing needs a graph, and this module deliberately holds none - it works
+Re-routing needs a graph, and the join below deliberately holds none - it works
 on a list of links and a list of crossing rows so it can be tested without a
-database. So the re-run arrives as a HOOK: pass `reroute`, a callable taking
-the set of crossing ids to suppress and returning the resulting distance, and
-every relied-on crossing is tested individually.
+database. So the re-run arrives as a HOOK: `reroute`, a callable taking the set
+of crossing ids to suppress and returning the resulting distance.
+`reroute_for()` builds the real one against the database and `analyse()` cannot
+tell the difference.
 
-WITH NO HOOK, DECISIVENESS IS NOT TESTED AND IS NOT GUESSED. The count-based
-answer is reported and `decisivenessMethod` says `UNTESTED_COUNT_ONLY` in the
-serialised output, so a reader can tell the difference between "no single
-crossing is decisive" and "nobody checked". Returning a plausible-looking
-boolean with nothing behind it is the failure this field exists to prevent.
+WITH NO HOOK, DECISIVENESS IS NOT TESTED, NOT GUESSED, AND NOT DEFAULTED. Every
+`decisive` stays None, `changedByOneCrossing` and `requiresMultipleAssumptions`
+serialise as null rather than as false, and `decisivenessMethod` says
+`UNTESTED_COUNT_ONLY`. False would be its own claim - "no single crossing
+decides this" - and it is exactly as unfounded as the true it would replace.
 """
 
 from __future__ import annotations
@@ -113,8 +121,12 @@ JUNCTION_MATCH_M = 0.05
 
 #: How `changed_by_one_crossing` was arrived at. Reported, because the same
 #: boolean means different things depending on this.
+#:
+#: `SINGLE_CROSSING_BY_CONSTRUCTION` used to be a fourth value here, returned
+#: whenever a route relied on exactly one crossing. It is gone: it named an
+#: inference, not a measurement, and the inference was wrong. Nothing else is
+#: allowed to take its place - a count is not a re-route.
 DECISIVENESS_NONE = "NO_UNRESOLVED_CROSSINGS"
-DECISIVENESS_SINGLE = "SINGLE_CROSSING_BY_CONSTRUCTION"
 DECISIVENESS_REROUTED = "REROUTED_WITHOUT_EACH_CROSSING"
 DECISIVENESS_UNTESTED = "UNTESTED_COUNT_ONLY"
 
@@ -192,8 +204,10 @@ class Reliance:
 class Provenance:
     robustness: str
     relied_on: list[Reliance] = field(default_factory=list)
-    changed_by_one_crossing: bool = False
-    requires_multiple_assumptions: bool = False
+    #: None means NOT TESTED. False means tested, and no single crossing moved
+    #: the answer. They are different findings and they serialise differently.
+    changed_by_one_crossing: bool | None = False
+    requires_multiple_assumptions: bool | None = False
     decisiveness_method: str = DECISIVENESS_NONE
     detail: str = ""
 
@@ -311,16 +325,11 @@ def analyse(route: Sequence[RouteLink],
             detail=("this route passes through no unresolved crossing, so it "
                     "is the same route the canonical graph gives"))
 
-    if n == 1:
-        relied[0].decisive = True
-        return Provenance(
-            robustness=ONE_UNRESOLVED_CROSSING,
-            relied_on=relied,
-            changed_by_one_crossing=True,
-            requires_multiple_assumptions=False,
-            decisiveness_method=DECISIVENESS_SINGLE,
-            detail=_one_crossing_detail(relied[0]))
-
+    # ONE PATH FOR EVERY COUNT. A route that used exactly one unresolved
+    # crossing gets the same treatment as one that used four: the crossing is
+    # taken back out and the route is run again. The old special case answered
+    # "decisive" from the count alone, and a count cannot see the equal-cost
+    # way round that makes the answer identical without it.
     method = DECISIVENESS_UNTESTED
     if reroute is not None:
         method = DECISIVENESS_REROUTED
@@ -329,18 +338,35 @@ def analyse(route: Sequence[RouteLink],
             r.decisive = _differs(
                 reroute(frozenset({r.crossing.crossing_id})), baseline)
 
+    robustness = (ONE_UNRESOLVED_CROSSING if n == 1
+                  else MULTIPLE_UNRESOLVED_CROSSINGS)
+    if method == DECISIVENESS_UNTESTED:
+        # Untested is not "no". Both booleans stay null so a reader cannot mine
+        # a conclusion out of a field nobody measured.
+        return Provenance(
+            robustness=robustness,
+            relied_on=relied,
+            changed_by_one_crossing=None,
+            requires_multiple_assumptions=None,
+            decisiveness_method=method,
+            detail=_untested_detail(relied))
+
     decisive = [r for r in relied if r.decisive]
     changed_by_one = bool(decisive)
     return Provenance(
-        robustness=MULTIPLE_UNRESOLVED_CROSSINGS,
+        robustness=robustness,
         relied_on=relied,
         changed_by_one_crossing=changed_by_one,
         # The complement, and the point of the pair: a route no single crossing
         # decides is not therefore robust. It is a route standing on several
         # assumptions at once, and none of them can be checked in isolation.
-        requires_multiple_assumptions=not changed_by_one,
+        # With one crossing relied on and that crossing not decisive, it is
+        # something else again - a route that would have been found anyway.
+        requires_multiple_assumptions=(n > 1 and not changed_by_one),
         decisiveness_method=method,
-        detail=_many_crossings_detail(relied, decisive, method))
+        detail=(_one_crossing_detail(relied[0], decisive=bool(decisive))
+                if n == 1 else
+                _many_crossings_detail(relied, decisive, method)))
 
 
 def _differs(cost: float | None, baseline: float | None) -> bool:
@@ -355,26 +381,40 @@ def _differs(cost: float | None, baseline: float | None) -> bool:
     return abs(float(cost) - float(baseline)) > COST_EPSILON_M
 
 
-def _one_crossing_detail(r: Reliance) -> str:
-    x = r.crossing
+def _untested_detail(relied: Sequence[Reliance]) -> str:
+    n = len(relied)
     return (
-        f"this route turns from {x.source_a} onto {x.source_b} at "
-        f"({x.x:.1f}, {x.y:.1f}), a crossing the classifier could not resolve "
-        f"({x.reason}, {x.confidence} confidence). It is a single checkable "
-        f"claim: one look at that coordinate settles whether this route "
-        f"exists. It is NOT the canonical answer and must not be shown as one.")
+        f"this route passes through {n} unresolved "
+        f"crossing{'' if n == 1 else 's'}. Whether removing any single one of "
+        f"them changes the DISTANCE was not tested - no re-routing hook was "
+        f"supplied - so the crossings are listed and decisiveness is not "
+        f"claimed either way. Passing through a crossing is not the same as "
+        f"depending on it: an equal-cost way round leaves the answer where it "
+        f"was.")
+
+
+def _one_crossing_detail(r: Reliance, *, decisive: bool) -> str:
+    x = r.crossing
+    where = (f"this route turns from {x.source_a} onto {x.source_b} at "
+             f"({x.x:.1f}, {x.y:.1f}), a crossing the classifier could not "
+             f"resolve ({x.reason}, {x.confidence} confidence)")
+    if decisive:
+        return (
+            f"{where}. Re-routing without it moves the answer, so it is a "
+            f"single checkable claim: one look at that coordinate settles this "
+            f"result. It is NOT the canonical answer and must not be shown as "
+            f"one.")
+    return (
+        f"{where} - but re-routing without it returns the SAME distance, so "
+        f"the result does not depend on it. The route drove through an "
+        f"assumption it did not need. It is NOT the canonical answer and must "
+        f"not be shown as one.")
 
 
 def _many_crossings_detail(relied: Sequence[Reliance],
                            decisive: Sequence[Reliance],
                            method: str) -> str:
     n = len(relied)
-    if method == DECISIVENESS_UNTESTED:
-        return (
-            f"this route passes through {n} unresolved crossings. Whether any "
-            f"single one of them decides the route was not tested - no "
-            f"re-routing hook was supplied - so the count is reported and the "
-            f"decisiveness is not claimed either way.")
     if decisive:
         ids = ", ".join(str(r.crossing.crossing_id) for r in decisive)
         return (
@@ -586,8 +626,139 @@ def for_route(snapshot_id: str, link_ids: Sequence[int], *,
     return analyse(route, crossings, reroute=reroute)
 
 
-def lookup_for(snapshot_id: str, *, reroute: Reroute | None = None
-               ) -> Callable[[Sequence[int]], Provenance]:
+# ------------------------------------------------- the real re-routing hook
+@dataclass(frozen=True)
+class RouteContext:
+    """What re-routing one replacement path needs beyond its link ids.
+
+    Carried separately from the link ids because the join above works on links
+    and the re-route works on the GRAPH: the same route, asked a different
+    question. `excluded_arcs` is the closure itself - a re-route that forgot it
+    would route through the closed road and answer about a network nobody asked
+    about.
+    """
+    from_node: int
+    to_node: int
+    excluded_arcs: tuple[int, ...] = ()
+    profile: str = "car"
+
+
+def _crossing_arc_sides(snapshot_id: str, x: CrossingRecord
+                        ) -> tuple[list[int], list[int]] | None:
+    """The arcs of each source feature that meet at this crossing's node.
+
+    Returns None where the crossing has no node in this snapshot, which is the
+    honest answer for a crossing that was never cut - there is nothing to
+    suppress and nothing to measure.
+    """
+    rows = db.query(
+        "SELECT a.arc_id, a.closure_group_id "
+        "  FROM arcs a "
+        " WHERE a.snapshot_id = %s"
+        "   AND a.closure_group_id = ANY(%s)"
+        "   AND EXISTS (SELECT 1 FROM nodes n"
+        "                WHERE n.snapshot_id = a.snapshot_id"
+        "                  AND n.node_id IN (a.source, a.target)"
+        "                  AND ST_DWithin(n.geom_2193,"
+        "                        ST_SetSRID(ST_MakePoint(%s, %s), 2193), %s))",
+        (snapshot_id, [x.source_a, x.source_b], x.x, x.y, JUNCTION_MATCH_M))
+    side_a = [int(r["arc_id"]) for r in rows
+              if str(r["closure_group_id"]) == x.source_a]
+    side_b = [int(r["arc_id"]) for r in rows
+              if str(r["closure_group_id"]) == x.source_b]
+    if not side_a or not side_b:
+        return None
+    return side_a, side_b
+
+
+def reroute_for(snapshot_id: str, ctx: RouteContext) -> Reroute:
+    """The decisiveness hook, against the real graph.
+
+    SUPPRESSING A CROSSING WITHOUT A SECOND SNAPSHOT
+
+    "Take this crossing's node back out" is graph surgery, and copying the
+    snapshot per crossing - which is what `nzcl.whatif` does for the audit - is
+    far too expensive to sit on a request. It is also unnecessary, because for
+    SHORTEST paths there is an exact identity:
+
+        d_unnoded(s, t) = min( d(s, t | side A's arcs at the node removed),
+                               d(s, t | side B's arcs at the node removed) )
+
+    Splitting the node into two - one for each road - leaves a shortest path
+    exactly three options at that point, because a shortest path over positive
+    weights never visits a node twice. It avoids the node entirely, or it runs
+    THROUGH on road A, or it runs THROUGH on road B. Turning from A onto B is
+    the one thing the split forbids, and it is the one thing neither branch of
+    the minimum allows. Avoiding the node is in both branches; A-through
+    survives the branch that removed B; B-through survives the branch that
+    removed A.
+
+    So the whole re-route is two ordinary shortest-path calls with arcs
+    excluded, which is a thing the router already does for closures.
+
+    Suppressing several crossings at once removes the union of the chosen
+    sides, which is a bound rather than the exact minimum over every
+    combination. `analyse` only ever suppresses one at a time, so the exact
+    branch is the one that runs; the union path exists so a caller asking a
+    coarser question still gets an answer, and it is documented as coarser
+    rather than presented as exact.
+    """
+    from . import routing  # deferred: routing imports db, this module is small
+
+    def cost(excluded: Sequence[int]) -> float | None:
+        r = routing.route(snapshot_id, ctx.from_node, ctx.to_node,
+                          metric="distance", profile=ctx.profile,
+                          excluded_arcs=tuple(ctx.excluded_arcs) + tuple(excluded))
+        return r.distance_m if r.status == "OK" else None
+
+    by_id: dict[int, list[CrossingRecord]] = {}
+
+    def reroute(suppress: frozenset[int]) -> float | None:
+        if not suppress:
+            return cost(())
+        sides: list[tuple[list[int], list[int]]] = []
+        for cid in sorted(suppress):
+            recs = by_id.get(cid)
+            if recs is None:
+                recs = _records(db.query(
+                    "SELECT crossing_id, source_a, source_b, disposition, "
+                    "       noded, reason, confidence, angle_deg, place_id, "
+                    "       ST_X(geom_2193) AS x, ST_Y(geom_2193) AS y "
+                    "  FROM crossings WHERE snapshot_id=%s AND crossing_id=%s",
+                    (snapshot_id, cid)))
+                by_id[cid] = recs
+            if not recs:
+                continue
+            found = _crossing_arc_sides(snapshot_id, recs[0])
+            if found is not None:
+                sides.append(found)
+        if not sides:
+            # Nothing to suppress: the crossings named have no node here. The
+            # baseline is the honest answer, and it makes them NOT decisive,
+            # which is correct - they changed nothing because they are not
+            # there.
+            return cost(())
+        # Two branches: remove every A side, or remove every B side. With one
+        # crossing that is the exact identity above. With several it is a
+        # bound, because the exact answer would need all 2^n combinations;
+        # `analyse` never asks for more than one at a time.
+        best: float | None = None
+        for side in (0, 1):
+            excluded = [arc for pair in sides for arc in pair[side]]
+            c = cost(excluded)
+            if c is not None and (best is None or c < best):
+                best = c
+        # None means no route survives either branch, which is the largest
+        # change this can report - not a missing value. `_differs` treats it
+        # that way.
+        return best
+
+    return reroute
+
+
+def lookup_for(snapshot_id: str, *, reroute: Reroute | None = None,
+               reroute_factory: "Callable[[RouteContext], Reroute] | None" = None
+               ) -> Callable[..., Provenance]:
     """A per-snapshot lookup, for handing to `replacement.compute`.
 
     A closure rather than a bound method so the CALLER decides whether this
@@ -599,13 +770,22 @@ def lookup_for(snapshot_id: str, *, reroute: Reroute | None = None
     and reused. A closure has one replacement path per movement and they are
     all on one snapshot; querying per path would multiply one small read by
     the movement count for no new information.
+
+    `reroute_factory` is the production shape and `reroute` is the test shape.
+    They differ because a real re-route needs the route's OWN endpoints and the
+    closure it is replacing, and those change per path while the snapshot does
+    not. Supplying neither is allowed and is not a silent downgrade: every
+    decisiveness field comes back null and says `UNTESTED_COUNT_ONLY`.
     """
     cached: list[CrossingRecord] | None = None
 
-    def lookup(link_ids: Sequence[int]) -> Provenance:
+    def lookup(link_ids: Sequence[int],
+               ctx: RouteContext | None = None) -> Provenance:
         nonlocal cached
         if cached is None:
             cached = load_all_speculative_crossings(snapshot_id)
-        return analyse(load_route(snapshot_id, link_ids), cached,
-                       reroute=reroute)
+        hook = reroute
+        if hook is None and reroute_factory is not None and ctx is not None:
+            hook = reroute_factory(ctx)
+        return analyse(load_route(snapshot_id, link_ids), cached, reroute=hook)
     return lookup

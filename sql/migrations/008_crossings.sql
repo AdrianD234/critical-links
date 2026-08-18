@@ -94,3 +94,33 @@ CREATE TABLE IF NOT EXISTS ext_structures (
 
 CREATE INDEX IF NOT EXISTS ext_structures_geom_idx
     ON ext_structures USING GIST (geom_2193);
+
+
+-- --------------------------------------------------------------------------
+-- CREATE TABLE IF NOT EXISTS does not reshape a table that already exists.
+--
+-- `crossings` was created earlier in this branch's development with a column
+-- called `plausible_junction`, which was then replaced by the pair below:
+-- `safe_to_node` - may a node be created here under ANY policy - and
+-- `confidence`. Editing the CREATE TABLE above upgraded a fresh database and
+-- silently left every existing one behind, and the ingest COPY names the new
+-- columns, so any machine that had run the earlier version would fail on the
+-- next ingest with "column safe_to_node does not exist". Nothing had run it
+-- yet only because no snapshot with crossings has been built.
+--
+-- Written as ALTER ... IF NOT EXISTS so it is idempotent in both directions:
+-- a database that already matches the CREATE TABLE is untouched.
+ALTER TABLE crossings
+    ADD COLUMN IF NOT EXISTS safe_to_node boolean NOT NULL DEFAULT true;
+ALTER TABLE crossings
+    ADD COLUMN IF NOT EXISTS confidence text NOT NULL DEFAULT 'MEDIUM';
+ALTER TABLE crossings DROP COLUMN IF EXISTS plausible_junction;
+
+DO $$
+BEGIN
+    ALTER TABLE crossings
+        ADD CONSTRAINT crossings_confidence_check
+        CHECK (confidence IN ('HIGH', 'MEDIUM'));
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;

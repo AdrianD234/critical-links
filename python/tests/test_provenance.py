@@ -24,9 +24,11 @@ import heapq
 
 import pytest
 
-from nzcl import crossings
+from conftest import requires_db
+
+from nzcl import crossings, db, impactv2, provenance, routing
 from nzcl.provenance import (DECISIVENESS_NONE, DECISIVENESS_REROUTED,
-                             DECISIVENESS_SINGLE, DECISIVENESS_UNTESTED,
+                             DECISIVENESS_UNTESTED,
                              MULTIPLE_UNRESOLVED_CROSSINGS,
                              ONE_UNRESOLVED_CROSSING,
                              RELIES_ON_UNRESOLVED_CROSSING, ROBUST,
@@ -76,6 +78,31 @@ DARFIELD = [
     road("PERIMETER", [(-2000, 0), (-3000, 0), (-3000, 3000), (0, 3000)]),
     road("LANE_A", [(-1500, 3), (-1500, 600)]),
     road("LANE_B", [(-1560, 10), (-1440, 10)], oneway=1),
+]
+
+# THE P0 FIXTURE. A route that uses EXACTLY ONE unresolved crossing, and an
+# equal-cost route that avoids it entirely.
+#
+# `analyse` used to call a lone relied-on crossing decisive "by construction",
+# reasoning that removing the only speculative node a route used must change
+# that route. It changes the LINKS. It does not change the ANSWER: here the
+# bypass is 2,000 m and so is the way through the crossing, so the
+# minimum-distance result is identical either way and the crossing decides
+# nothing. The old code reported changedByOneCrossing=true and pointed a
+# reader at a coordinate whose answer could not affect the number.
+#
+#    (-1000,1000) ----------- (0,1000)        MAIN runs west-east through
+#         |                       |           (0,0). CROSS runs south-north
+#         |                    CROSS          through it and is one-way, so
+#         |                       |           the crossing is UNRESOLVED.
+#    (-1000,0) ---- MAIN ---- (0,0)           BYPASS joins (-1000,0) to
+#                                             (0,1000) the other way round,
+#                                             for exactly the same 2,000 m.
+EQUAL_COST_WAY_ROUND = [
+    road("MAIN", [(-1000, 0), (1000, 0)], road_name="Main Road"),
+    road("CROSS", [(0, -1000), (0, 1000)], oneway=1, road_name="Cross Road"),
+    road("BYPASS", [(-1000, 0), (-1000, 1000), (0, 1000)],
+         road_name="Bypass Road"),
 ]
 
 # A Manhattan block. Four one-way/two-way crossings, all UNRESOLVED, and TWO
@@ -202,6 +229,30 @@ def shortest(res, start_xy, end_xy, *, suppress=frozenset()):
         cur = u
     links.reverse()
     return dist[t], links
+
+
+def through_the_crossing(res):
+    """The EQUAL_COST_WAY_ROUND route that drives through the crossing.
+
+    Chosen explicitly rather than left to the router. Both ways round cost
+    2,000 m, so which one a tie-break returns is an implementation detail, and
+    the case being tested is specifically the one that used the crossing.
+    """
+    want = [("MAIN", at(-1000, 0), at(0, 0)),
+            ("CROSS", at(0, 0), at(0, 1000))]
+    out = []
+    for group, a, b in want:
+        for i, link in enumerate(res.links):
+            if link.closure_group_id != group:
+                continue
+            ends = {(round(e[0], 6), round(e[1], 6))
+                    for e in (link.coords[0], link.coords[-1])}
+            if {(round(a[0], 6), round(a[1], 6)),
+                    (round(b[0], 6), round(b[1], 6))} <= ends:
+                out.append(i)
+                break
+    assert len(out) == 2, "the fixture no longer splits at the crossing"
+    return out
 
 
 def rerouter(res, start_xy, end_xy):
@@ -334,13 +385,18 @@ class TestOneUnresolvedJunction:
         assert p.robustness == ONE_UNRESOLVED_CROSSING
         assert p.speculative_junction_count == 1
 
-    def test_one_crossing_is_decisive_by_construction(self):
-        """No re-route needed: the route passed through the only speculative
-        node it had, so taking that node away cannot leave the answer alone."""
+    def test_one_crossing_is_decisive_because_rerouting_says_so(self):
+        """It IS decisive here - and the method has to say it was measured.
+
+        This used to assert `SINGLE_CROSSING_BY_CONSTRUCTION`: with one
+        crossing relied on, decisiveness was read off the count. The answer
+        happened to be right for this fixture and the reasoning was wrong, so
+        the assertion is now on the re-route that establishes it.
+        """
         _, _, p = self.possible()
         assert p.changed_by_one_crossing is True
         assert p.requires_multiple_assumptions is False
-        assert p.decisiveness_method == DECISIVENESS_SINGLE
+        assert p.decisiveness_method == DECISIVENESS_REROUTED
 
     def test_it_reports_the_pair_and_the_place_to_look(self):
         res, _, p = self.possible()
@@ -371,6 +427,96 @@ class TestOneUnresolvedJunction:
         annotate(path, p)
         assert RELIES_ON_UNRESOLVED_CROSSING in path.quality_flags
         assert path.possible_provenance["robustness"] == ONE_UNRESOLVED_CROSSING
+
+
+class TestOneCrossingIsNotDecisiveJustBecauseItIsTheOnlyOne:
+    """The P0 defect, pinned from both sides.
+
+    A route through exactly one unresolved crossing, with an equal-cost route
+    that avoids it. Removing the crossing changes the LINKS and leaves the
+    ANSWER where it was, so `changedByOneCrossing` must be false - and the old
+    count-based shortcut returned true here without routing anything.
+    """
+
+    ENDS = (at(-1000, 0), at(0, 1000))
+
+    def possible(self):
+        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+                                 crossing_policy="possible")
+        links = through_the_crossing(res)
+        return res, analyse(route_of(res, links), crossing_rows(res),
+                            reroute=rerouter(res, *self.ENDS))
+
+    def test_the_two_ways_round_really_do_cost_the_same(self):
+        """Measured, so the case below cannot decay into a fixture where the
+        crossing was decisive after all and the assertion passes for the wrong
+        reason."""
+        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+                                 crossing_policy="possible")
+        rows = crossing_rows(res)
+        noded = [r.crossing_id for r in rows if r.noded]
+        assert len(noded) == 1, "exactly one unresolved crossing, or no case"
+        with_it = shortest(res, *self.ENDS)[0]
+        without_it = shortest(res, *self.ENDS, suppress=frozenset(noded))[0]
+        assert with_it == pytest.approx(2000.0)
+        assert without_it == pytest.approx(2000.0)
+
+    def test_the_route_did_pass_through_the_crossing(self):
+        """Otherwise this is a test about a route that assumed nothing, which
+        is a different test that already exists."""
+        _, p = self.possible()
+        assert p.speculative_junction_count == 1
+        assert p.robustness == ONE_UNRESOLVED_CROSSING
+
+    def test_it_is_not_reported_as_decisive(self):
+        _, p = self.possible()
+        assert p.decisiveness_method == DECISIVENESS_REROUTED
+        assert p.changed_by_one_crossing is False
+        assert p.relied_on[0].decisive is False
+        d = as_dict(p)
+        assert d["changedByOneCrossing"] is False
+        assert d["decisiveCrossingIds"] == []
+        assert d["crossings"][0]["decisive"] is False
+
+    def test_it_is_not_reported_as_requiring_multiple_assumptions_either(self):
+        """The route leaned on one crossing and did not need it. That is not
+        the same state as a result standing on several assumptions at once, and
+        flipping the other boolean on would say it was."""
+        _, p = self.possible()
+        assert p.requires_multiple_assumptions is False
+
+    def test_the_detail_says_the_answer_does_not_depend_on_it(self):
+        _, p = self.possible()
+        assert "SAME distance" in p.detail
+        assert "does not depend on it" in p.detail
+
+
+class TestWithoutARerouteNothingIsClaimedAtAnyCount:
+    """`UNTESTED_COUNT_ONLY` has to mean untested at n=1 as well.
+
+    The old code only reached the untested branch with two or more crossings.
+    At exactly one it answered from the count, so the single most common shape
+    of possible-graph result was the one place a caveat could not appear.
+    """
+
+    def test_one_crossing_with_no_hook_reports_null_not_true(self):
+        res = split_at_junctions(EQUAL_COST_WAY_ROUND,
+                                 crossing_policy="possible")
+        p = analyse(route_of(res, through_the_crossing(res)),
+                    crossing_rows(res))
+
+        assert p.robustness == ONE_UNRESOLVED_CROSSING
+        assert p.decisiveness_method == DECISIVENESS_UNTESTED
+        assert p.changed_by_one_crossing is None
+        assert p.requires_multiple_assumptions is None
+        assert p.relied_on[0].decisive is None
+
+        d = as_dict(p)
+        assert d["changedByOneCrossing"] is None
+        assert d["requiresMultipleAssumptions"] is None
+        assert d["crossings"][0]["decisive"] is None
+        assert d["decisiveCrossingIds"] == []
+        assert "not tested" in d["detail"]
 
 
 class TestACrossingBesideTheRouteIsNotReported:
@@ -643,3 +789,232 @@ class TestCrossingsThatCannotHaveBeenReliedOn:
         ]
         p = analyse(route, [self.base()])
         assert p.speculative_junction_count == 1
+
+
+# ---------------------------------------------------------------------------
+# The seam, on the real path, against a real database.
+#
+# Everything above measures `analyse`. None of it can tell whether the engine
+# ever calls it. That gap was real and was documented as deliberate: the audit
+# recorded that "impactv2.py does not yet pass the lookup on the shipping V2
+# path - the seam exists and is one line". A decisiveness field nobody reaches
+# is not a fixed defect, it is an unreachable one.
+# ---------------------------------------------------------------------------
+@requires_db
+class TestTheProductionPathSuppliesTheHook:
+    """`impactv2.analyse` on a POSSIBLE snapshot, end to end, against PostGIS.
+
+    The fixture closes the BYPASS, so the only remaining way from the west end
+    of Main Road to the north end of Cross Road turns at the unresolved
+    crossing. That makes the expected answer known before the engine runs -
+    decisive, because without the crossing there is no route at all - and it
+    makes `decisivenessMethod` the assertion that matters: anything other than
+    REROUTED means the seam is decorative.
+    """
+
+    SPEC = [
+        {"id": "MAIN", "pts": [at(-1000, 0), at(1000, 0)],
+         "road_name": "Main Road"},
+        # Two-way, because a closure produces a replacement path in each
+        # direction and a one-way Cross Road leaves one of them DISCONNECTED.
+        # The crossing is UNRESOLVED either way: a synthetic fixture carries no
+        # `modelAssetType`, so ORDINARY_CROSSROADS cannot fire and the
+        # classifier lands on NO_EVIDENCE_EITHER_WAY. Asserted below rather
+        # than relied on quietly.
+        {"id": "CROSS", "pts": [at(0, -1000), at(0, 1000)],
+         "road_name": "Cross Road"},
+        {"id": "BYPASS", "pts": [at(-1000, 0), at(-1000, 1000), at(0, 1000)],
+         "road_name": "Bypass Road"},
+    ]
+
+    @pytest.fixture
+    def possible_snapshot(self, synthetic):
+        return synthetic(self.SPEC, crossing_policy="possible")
+
+    @pytest.fixture
+    def canonical_snapshot(self, synthetic):
+        return synthetic(self.SPEC)
+
+    def _paths(self, net):
+        out = impactv2.analyse(net.snapshot_id, net.link_id("BYPASS"),
+                               with_corridor=False, with_isolation=False)
+        assert out.replacements.paths, "the closure produced no replacement path"
+        return out.replacements.paths
+
+    def test_the_fixture_really_is_a_possible_graph(self, possible_snapshot):
+        """Guard first. Every assertion below is vacuous on a snapshot with no
+        noded unresolved crossing in it."""
+        assert provenance.is_possible_graph(possible_snapshot.snapshot_id)
+        rows = provenance.load_all_speculative_crossings(
+            possible_snapshot.snapshot_id)
+        assert len(rows) == 1
+        assert rows[0].sources == frozenset({"MAIN", "CROSS"})
+        assert rows[0].disposition == crossings.UNRESOLVED
+        assert rows[0].noded is True
+
+    def test_a_canonical_snapshot_is_left_completely_alone(
+            self, canonical_snapshot):
+        """The other half, and the one protecting every published answer:
+        nothing about a canonical request may change because this exists."""
+        assert not provenance.is_possible_graph(canonical_snapshot.snapshot_id)
+        for p in self._paths(canonical_snapshot):
+            assert p.possible_provenance is None
+            assert RELIES_ON_UNRESOLVED_CROSSING not in p.quality_flags
+
+    def test_the_engine_reaches_provenance_at_all(self, possible_snapshot):
+        blocks = [p.possible_provenance for p in self._paths(possible_snapshot)]
+        assert all(b is not None for b in blocks), (
+            "a POSSIBLE snapshot must carry a provenance block on every "
+            "replacement path, or the lookup was never wired in")
+
+    def test_the_route_really_does_turn_at_the_crossing(self,
+                                                        possible_snapshot):
+        """Otherwise the assertions below are about a route that assumed
+        nothing, and would keep passing if the join broke."""
+        used = [p.possible_provenance for p in self._paths(possible_snapshot)
+                if p.possible_provenance["speculativeJunctionCount"] > 0]
+        assert used, "no replacement path went through the unresolved crossing"
+        for b in used:
+            assert b["robustness"] == ONE_UNRESOLVED_CROSSING
+            assert {b["crossings"][0]["sourceA"],
+                    b["crossings"][0]["sourceB"]} == {"MAIN", "CROSS"}
+
+    def test_the_hook_is_real_and_the_method_says_rerouted(
+            self, possible_snapshot):
+        """The point of this class. `UNTESTED_COUNT_ONLY` here would mean the
+        lookup arrived without a re-route factory, and every decisiveness
+        answer on the one graph that needs it would be null."""
+        used = [p.possible_provenance for p in self._paths(possible_snapshot)
+                if p.possible_provenance["speculativeJunctionCount"] > 0]
+        assert used
+        for b in used:
+            assert b["decisivenessMethod"] == DECISIVENESS_REROUTED
+            assert b["changedByOneCrossing"] is True
+            assert b["crossings"][0]["decisive"] is True
+
+    def test_the_reroute_actually_ran_rather_than_being_assumed(
+            self, possible_snapshot):
+        """Decisive is the RIGHT answer here, so a fabricated true would look
+        identical. What separates them is asking the same hook the engine used
+        what it measured: with the crossing suppressed there is no route at
+        all, which is WHY the answer is true."""
+        net = possible_snapshot
+        rows = provenance.load_all_speculative_crossings(net.snapshot_id)
+        out = impactv2.analyse(net.snapshot_id, net.link_id("BYPASS"),
+                               with_corridor=False, with_isolation=False)
+        p = next(x for x in out.replacements.paths
+                 if x.possible_provenance["speculativeJunctionCount"] > 0)
+        # The SAME context the engine built: this path's endpoints, and the
+        # closure. Omitting the closure would leave the bypass open and the
+        # re-route would answer 2,000 m about a network nobody closed.
+        hook = provenance.reroute_for(
+            net.snapshot_id,
+            provenance.RouteContext(
+                from_node=p.from_node, to_node=p.to_node,
+                excluded_arcs=tuple(sorted(out.closure.removed_arc_ids))))
+        assert hook(frozenset()) == pytest.approx(p.replacement_distance_m)
+        assert hook(frozenset({rows[0].crossing_id})) is None
+
+    def test_with_no_reroute_factory_nothing_is_claimed(self, possible_snapshot):
+        """The clause the whole fix rests on. A lookup built WITHOUT a hook -
+        which is what any other caller of `lookup_for` gets - must report null,
+        never false and never true."""
+        net = possible_snapshot
+        lookup = provenance.lookup_for(net.snapshot_id)
+        crossing = provenance.load_all_speculative_crossings(net.snapshot_id)[0]
+        checked = 0
+        for p in self._paths(net):
+            prov = lookup(p.link_ids)
+            if not prov.relied_on:
+                continue
+            checked += 1
+            d = as_dict(prov)
+            assert d["decisivenessMethod"] == DECISIVENESS_UNTESTED
+            assert d["changedByOneCrossing"] is None
+            assert d["requiresMultipleAssumptions"] is None
+            assert all(c["decisive"] is None for c in d["crossings"])
+            assert crossing.crossing_id in d["unresolvedCrossingIds"]
+        assert checked, "no path relied on the crossing, so nothing was checked"
+
+
+@requires_db
+class TestTheRerouteIdentityIsExact:
+    """`reroute_for` suppresses a crossing without copying the snapshot.
+
+    It removes one road's arcs at the node, then the other's, and takes the
+    cheaper. That is exactly the un-noded answer, because a shortest path over
+    positive weights either avoids the node or runs through on one road or the
+    other, and turning between them is the one thing neither branch allows.
+
+    The claim is checked against the thing it stands in for: the same network
+    built under the CONFIRMED policy, where the crossing was never noded.
+    """
+
+    SPEC = TestTheProductionPathSuppliesTheHook.SPEC
+
+    @staticmethod
+    def _node_at(net, dx, dy):
+        want = at(dx, dy)
+        for nid, (x, y) in enumerate(net.node_coords):
+            if abs(x - want[0]) < 1e-6 and abs(y - want[1]) < 1e-6:
+                return nid
+        raise AssertionError(f"no node at {want}")
+
+    def test_it_matches_a_snapshot_where_the_crossing_was_never_noded(
+            self, synthetic):
+        possible = synthetic(self.SPEC, crossing_policy="possible")
+        confirmed = synthetic(self.SPEC)
+
+        rows = provenance.load_all_speculative_crossings(possible.snapshot_id)
+        assert len(rows) == 1, "one unresolved crossing, or no case"
+
+        hook = provenance.reroute_for(
+            possible.snapshot_id,
+            provenance.RouteContext(
+                from_node=self._node_at(possible, -1000, 0),
+                to_node=self._node_at(possible, 0, 1000)))
+        truth = routing.route(confirmed.snapshot_id,
+                              self._node_at(confirmed, -1000, 0),
+                              self._node_at(confirmed, 0, 1000),
+                              metric="distance")
+        assert truth.status == "OK"
+        assert truth.distance_m == pytest.approx(2000.0)  # round by the bypass
+        assert hook(frozenset({rows[0].crossing_id})) == \
+            pytest.approx(truth.distance_m)
+
+    def test_suppressing_nothing_is_the_baseline(self, synthetic):
+        possible = synthetic(self.SPEC, crossing_policy="possible")
+        u = self._node_at(possible, -1000, 0)
+        v = self._node_at(possible, 0, 1000)
+        hook = provenance.reroute_for(
+            possible.snapshot_id,
+            provenance.RouteContext(from_node=u, to_node=v))
+        direct = routing.route(possible.snapshot_id, u, v, metric="distance")
+        assert hook(frozenset()) == pytest.approx(direct.distance_m)
+
+    def test_the_closure_is_carried_into_the_reroute(self, synthetic):
+        """A re-route that forgot the closure would drive down the road being
+        closed and answer about a different network."""
+        possible = synthetic(self.SPEC, crossing_policy="possible")
+        u = self._node_at(possible, -1000, 0)
+        v = self._node_at(possible, 0, 1000)
+        bypass_arcs = tuple(
+            int(r["arc_id"]) for r in db.query(
+                "SELECT a.arc_id FROM arcs a"
+                " WHERE a.snapshot_id=%s AND a.closure_group_id=%s",
+                (possible.snapshot_id, "BYPASS")))
+        assert bypass_arcs
+        crossing = provenance.load_all_speculative_crossings(
+            possible.snapshot_id)[0]
+        open_hook = provenance.reroute_for(
+            possible.snapshot_id,
+            provenance.RouteContext(from_node=u, to_node=v))
+        closed_hook = provenance.reroute_for(
+            possible.snapshot_id,
+            provenance.RouteContext(from_node=u, to_node=v,
+                                    excluded_arcs=bypass_arcs))
+        # Bypass open: suppressing the crossing still leaves 2,000 m.
+        assert open_hook(frozenset({crossing.crossing_id})) == \
+            pytest.approx(2000.0)
+        # Bypass closed: suppressing it leaves no route at all.
+        assert closed_hook(frozenset({crossing.crossing_id})) is None

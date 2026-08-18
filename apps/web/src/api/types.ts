@@ -672,14 +672,26 @@ export interface PossibleProvenance {
     | 'ONE_UNRESOLVED_CROSSING'
     | 'MULTIPLE_UNRESOLVED_CROSSINGS';
   speculativeJunctionCount: number;
-  /** True when removing one single crossing would move the distance. */
-  changedByOneCrossing: boolean;
-  /** True when no single crossing decides it and the route needs several. */
-  requiresMultipleAssumptions: boolean;
+  /**
+   * True when removing one single crossing would move the distance.
+   *
+   * NULL means NOT TESTED. That is a third state, not a missing value: no
+   * re-routing was available, so neither answer was established. A renderer
+   * must not fall back to false, because "no single crossing decides this" is
+   * its own claim and it is exactly as unfounded as the true it replaces.
+   */
+  changedByOneCrossing: boolean | null;
+  /**
+   * True when no single crossing decides it and the route needs several. Null
+   * under the same conditions and for the same reason.
+   */
+  requiresMultipleAssumptions: boolean | null;
   /**
    * How `changedByOneCrossing` was arrived at. `UNTESTED_COUNT_ONLY` means no
    * re-routing was available, so "no single crossing is decisive" was NOT
    * established and must not be presented as though it were.
+   * `REROUTED_WITHOUT_EACH_CROSSING` means every relied-on crossing was taken
+   * back out and the route run again.
    */
   decisivenessMethod: string;
   unresolvedCrossingIds: number[];

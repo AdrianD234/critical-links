@@ -46,7 +46,7 @@ from typing import Literal
 
 from . import closure as closure_mod
 from . import corridor as corridor_mod
-from . import db, movements, physical, ports, replacement, routegeom
+from . import db, movements, physical, ports, provenance, replacement, routegeom
 from .closure import Closure, Scope
 from .movements import MovementSet
 from .replacement import ReplacementPath, ReplacementSet
@@ -167,10 +167,31 @@ def analyse(
         iso = timed("isolation", _iso)
         conf = iso.topology_confidence
 
+    # --- the POSSIBLE graph, if that is what this snapshot is --------------
+    #
+    # Asked of the DATA, not of a request flag: a snapshot built with
+    # `crossing_policy='possible'` is the only one carrying a noded UNRESOLVED
+    # crossing. A canonical snapshot answers False, gets no lookup, and
+    # serialises exactly as it did before this existed.
+    #
+    # The lookup is given a REROUTE FACTORY rather than a reroute. Whether one
+    # crossing moves the answer is settled by re-running that path's own origin
+    # and destination with the crossing suppressed, and those differ per
+    # movement while the snapshot does not. Without it, decisiveness would come
+    # back null on every route on the one graph where the question is worth
+    # asking - a caveat with nothing behind it.
+    prov_lookup = None
+    if timed("possible_graph_check",
+             lambda: provenance.is_possible_graph(snapshot_id)):
+        prov_lookup = provenance.lookup_for(
+            snapshot_id,
+            reroute_factory=lambda ctx: provenance.reroute_for(snapshot_id, ctx))
+
     rs: ReplacementSet = timed("replacement_paths", lambda: replacement.compute(
         ms, c.removed_arc_ids, c.removed_arc_ids, c.selected_segment_length_m,
         profile=profile, statement_timeout_ms=statement_timeout_ms,
-        with_geometry=False, topology_confidence=conf))
+        with_geometry=False, topology_confidence=conf,
+        provenance_lookup=prov_lookup))
 
     out = BoundaryImpact(
         snapshot_id=snapshot_id, link_id=link_id, scope=scope, profile=profile,

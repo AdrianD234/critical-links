@@ -17,6 +17,7 @@ import uuid
 from typing import Iterable
 
 from . import db
+from .topology import _POLICY_DISPOSITIONS
 from .topology import SourceLink, assign_nodes, split_at_junctions
 
 
@@ -63,6 +64,7 @@ def load_synthetic(
     snapshot_id: str | None = None,
     coverage_name: str = "Synthetic fixture",
     require_nz: bool = False,
+    crossing_policy: str = "confirmed",
 ) -> SyntheticNetwork:
     """
     Load a synthetic network under a fresh snapshot id, or a caller-supplied one.
@@ -102,7 +104,7 @@ def load_synthetic(
     # Junction splitting runs for real: the synthetic fixtures are built the
     # same way production data is, so a test cannot pass against a graph
     # assembled by a different route than the one users get.
-    split = split_at_junctions(sources)
+    split = split_at_junctions(sources, crossing_policy=crossing_policy)
     pairs, node_coords = assign_nodes(split.links)
     by_id = {l.amds_id: i for i, l in enumerate(split.links)}
 
@@ -219,6 +221,28 @@ def load_synthetic(
             # either way. See docs/audits/2026-07-28-national-ingest-incident.md.
             cur.execute("ANALYZE arcs")
             cur.execute("SELECT build_arc_transitions(%s)", (snapshot_id,))
+
+            # Interior crossings, written exactly as the ingest writes them.
+            # A fixture that split at crossings but recorded none of them would
+            # be routable and invisible to `provenance`, which reads this table
+            # and nothing else - so a possible-graph test would pass against a
+            # snapshot the production code cannot tell from a canonical one.
+            honoured = _POLICY_DISPOSITIONS[crossing_policy]
+            for cid, x in enumerate(split.crossings):
+                cls = x.classification
+                cur.execute(
+                    "INSERT INTO crossings (snapshot_id, crossing_id, source_a,"
+                    " source_b, disposition, reason, detail, evidence, noded,"
+                    " safe_to_node, confidence, angle_deg, place_id, geom_2193)"
+                    " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
+                    "         ST_SetSRID(ST_MakePoint(%s,%s),2193))",
+                    (snapshot_id, cid, x.amds_a, x.amds_b, x.disposition,
+                     cls.reason, cls.detail, list(cls.evidence),
+                     x.disposition in honoured and cls.safe_to_node,
+                     cls.safe_to_node, cls.confidence, x.angle_deg,
+                     split.crossing_places[cid] if split.crossing_places
+                     else None,
+                     x.x, x.y))
 
             # Counts and extents, derived from what was actually written.
             #
