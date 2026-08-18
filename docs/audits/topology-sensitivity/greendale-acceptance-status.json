@@ -1,0 +1,54 @@
+{
+  "status": "BLOCKED - the canonical half passes, the counterfactual half cannot run yet",
+  "what": "Progress of the Greendale end-to-end acceptance for topology-sensitive analysis.",
+  "canonicalHalf": {
+    "result": "PASSES",
+    "snapshot": "amds-national-2026-07-28-5b359d84",
+    "linkId": 234872,
+    "status": "OK",
+    "replacementDistanceM": 7944.412441731978,
+    "networkPenaltyM": 7269.143651489053,
+    "ratio": 11.76481507293415,
+    "arcs": 17,
+    "movementId": "1a24dd0a76d58469b3a65326",
+    "fromNode": 215061,
+    "toNode": 217297,
+    "canonicalAnalysisMs": 1658,
+    "note": "Matches the audit figure of 7,944.4 m over 17 arcs exactly. The canonical analysis runs first, is pinned, and is returned unchanged."
+  },
+  "blocker": {
+    "what": "The `crossings` table is EMPTY for the national snapshot - 0 rows, and 0 rows for any snapshot in the database.",
+    "why": "The national snapshot was ingested before crossing detection existed. `crossings` is written by the ingest, and this snapshot predates it.",
+    "consequence": "Candidate search has nothing to draw from, so it returns 0 candidates and the run correctly reports sensitivity UNAVAILABLE - which it is careful to distinguish from the answer being robust. The machinery behaved correctly; the input is absent.",
+    "notADefectIn": "candidates.find, sensitivityrun.run, or the neighbourhood copy - all of which did the right thing with an empty input."
+  },
+  "optionsAndWhyThisNeedsADecision": [
+    {
+      "option": "Populate `crossings` for the national snapshot in place",
+      "cost": "one national write",
+      "verdict": "REFUSED without authorisation. The standing constraint is that the national snapshot is not mutated outside a rolled-back transaction, and this would be a durable write to it."
+    },
+    {
+      "option": "Copy the national snapshot, populate crossings on the copy, run the acceptance there",
+      "cost": "about 30 s to copy plus a full national crossing detection pass, roughly 10 minutes, and it is a transient copy so nothing national is touched",
+      "verdict": "Respects every constraint. This is the recommended route."
+    },
+    {
+      "option": "Detect crossings only within the bounded neighbourhood, at analysis time",
+      "cost": "cheap, and it removes the dependency on a pre-populated table entirely",
+      "verdict": "Probably the better long-term design, but it is a change to how candidates are sourced and should be a deliberate decision rather than something slipped in to make an acceptance pass."
+    }
+  ],
+  "whatIsProvenSoFar": [
+    "the canonical analysis is reached, pinned, and reproduces the audit figure exactly",
+    "candidate search, the runner, the neighbourhood copy and cleanup all behave correctly on an empty input",
+    "sensitivity reports UNAVAILABLE with a reason, and states that this is not the same as the answer being robust"
+  ],
+  "notYetProven": [
+    "counterfactual ~4,916 m",
+    "the causal crossing being Clintons Road x McLaughlins Road",
+    "Greendale x Clintons being found and correctly NOT credited with the change",
+    "canonical and counterfactual geometries visually distinct",
+    "end-to-end timing across all candidates"
+  ]
+}
