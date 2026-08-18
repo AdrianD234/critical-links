@@ -951,6 +951,14 @@ because no snapshot with crossings has ever been built. Fixed with idempotent
 
 ## 11. May a 2.1.0 rebuild proceed? — the current answer
 
+> **SUPERSEDED BY SECTION 13.** This section was written while the third
+> holdout was declared and undrawn. The holdout has since been drawn, reviewed
+> by four fresh isolated reviewers and scored: **the gate is NOT MET, at 86.1%
+> against 97% with 32 not-a-junction false positives against a requirement of
+> zero.** The answer below is unchanged — no rebuild — but the reason has
+> moved from "there is no evidence yet" to "there is evidence, and it says
+> no". Section 13 is the current record.
+
 **No, and not yet for a good reason rather than a bad one.**
 
 | | |
@@ -1214,6 +1222,22 @@ performed by the network.
 
 **After the seal, no card may be redrawn, re-rendered or substituted.**
 
+> **Defect in the seal, stated rather than quietly fixed.** `sealedAtGitHead`
+> was written as an empty string. The first version of that code ran
+> `git rev-parse HEAD` with `cwd=` and captured only stdout, so when git
+> declined the directory the field recorded nothing while the file still
+> looked complete. The code now uses `git -C`, surfaces stderr, and **refuses
+> to seal** if the head cannot be read.
+>
+> The seal was deliberately **not** re-run to repair the field, because
+> re-running it now would stamp a commit that postdates the review, which is
+> worse than an empty field. The anchor that matters is not damaged: the seal
+> is committed in `fd3f0e2` and was pushed before the review verdicts arrived,
+> and its 440 card hashes were re-checked at scoring time against both the
+> pack and the copies the reviewers were given — **440 of 440 identical, on
+> both**. What the empty field failed to record, git history and those hashes
+> record instead.
+
 ### 12b. What the reviewer receives, exactly
 
 `scratch/holdout3/cards/` — `T001.jpg` … `T440.jpg` and `INSTRUCTIONS.md`.
@@ -1226,3 +1250,237 @@ One isolated reviewer may work the fixed pack in batches. **No scoring and no
 feedback between batches** — a reviewer who learns how they did on batch one
 is no longer blind for batch two, which is exactly what made the kappa 0.847
 "double review" an upper bound rather than an independent check.
+
+---
+
+## 13. The third holdout, reviewed and scored — THE GATE IS NOT MET
+
+**Result: NOT MET. Two of the four conditions fail.** Full numbers in
+`holdout3-result.json`, verdicts in `holdout3-verdicts/`.
+
+| condition | requirement | observed | |
+| --- | --- | --- | --- |
+| zero confirmed grade-separated false positives | 0 | **0** | **MET** |
+| zero confirmed not-a-junction false positives | 0 | **32** | **NOT MET** |
+| 95% Wilson lower bound on AT_GRADE precision | >= 97% | **86.1%** | **NOT MET** |
+| unreviewable counted among the failures | method | 4, counted | MET |
+
+n = 350. **314 confirmed, 32 contradicted, 4 unreviewable.** Lower bound 86.1%
+counting unreviewable as failures, 87.2% excluding them. The tolerance was 4
+failures; there were 36.
+
+These are figures for performance on a deliberately difficult, stratified
+holdout. This is not a probability sample and is not an estimate or formal
+lower bound on national precision.
+
+### How the review was run
+
+Four separate reviewers, **freshly spawned**, each with no access to this
+transcript, the repository, the classifier, the answer key, prior verdicts or
+any score summary. Disjoint subsets of 110 cards each — A = T001-T110,
+B = T111-T220, C = T221-T330, D = T331-T440 — copied **out** of the repository
+into four separate directories, so no reviewer could reach the answer key or
+another reviewer's cards. Each received the verbatim `INSTRUCTIONS.md` text
+and nothing else about the project. No feedback of any kind was given to
+anyone, and no reviewer saw another's work.
+
+**They are independent AGENTS, not independent people.** That is a real
+improvement on the kappa 0.847 "double review", which was the same reviewer
+after scoring, and therefore intra-rater and an upper bound. It is **not human
+expert ground truth**, and nothing here should be read as if it were.
+
+Verified in the scorer rather than taken on trust: 440 lines, 440 unique card
+ids, no duplicates, every card T001-T440 present exactly once with exactly one
+of a/g/n/u, no label outside the four, each per-reviewer file covering its own
+range and no other, and the combined file agreeing with the four per-reviewer
+files on all 440 rows. Distribution: 357 at-grade, 23 grade-separated,
+54 not-a-junction, 6 unclear.
+
+Also verified, because only this side could: **every one of the 440 images the
+reviewers were given is byte-identical to the card sealed in
+`holdout3-seal.json`**, and each reviewer's directory held their 110 images
+and nothing else.
+
+### Where the failures are
+
+| stratum (membership) | n | failures | rate |
+| --- | --- | --- | --- |
+| **same name, duplicate rule did not fire** | **5** | **5** | **100%** |
+| angle 30-40 deg | 40 | 14 | 35% |
+| unsealed access | 110 | 23 | 21% |
+| rural | 85 | 14 | 16% |
+| angle 40-60 deg | 44 | 7 | 16% |
+| unnamed both | 136 | 18 | 13% |
+| structure 25-70 m | 32 | 3 | 9% |
+| angle 60-80 deg | 71 | 5 | 7% |
+| junction witness | 94 | 6 | 6% |
+| imagery 2023 or older | 69 | 4 | 6% |
+| urban | 150 | 8 | 5% |
+| angle 80-90 deg | 195 | 10 | 5% |
+| state highway | 36 | 1 | 3% |
+| top-up (unstratified) | 30 | 0 | 0% |
+
+By rule: `ORDINARY_CROSSROADS` confirmed 226 of 256, `JUNCTION_WITNESS` 88 of
+94. The one HIGH-confidence AT_GRADE rule produced **5 of the 32** false
+nodes, which is the more uncomfortable half of that line.
+
+### Every failure is the same failure, and it is not grade separation
+
+**All 32 are "not a junction". Not one is "grade separated".** The condition
+that guards the expensive mistake — a node invented where one road passes over
+another, fabricating a turn onto a motorway — **passed at zero.**
+
+The 32 split into two families, which all four reviewers described
+independently, in the same terms, without having seen each other's work:
+
+- **one road drawn twice** — both centrelines running along the same single
+  strip of tarmac;
+- **a centreline with no road under it** — crossing paddocks, houses,
+  watercourses and shelterbelts.
+
+That four reviewers converged on the same two families, on disjoint cards, is
+worth more than any single verdict in the pack. 16 of the 32 have both sides
+unnamed, 19 are unsealed, 12 are rural, and they span 15 road controlling
+authorities. 13 sit in the 30-40 degree band immediately above the tangential
+threshold — but 8 sit between 80 and 90 degrees, where no angle test can help.
+
+### same_name_not_dup: 0 of 5, and the fix did not hold
+
+The stratum that produced every AT_GRADE failure of the 248-card holdout has
+five members in the entire eligible pool. All five are in the pack. **None was
+confirmed** — four called not-a-junction, one unreadable. Four of the five are
+the same road: Birch Road North crossing Birch Road North, at 30.4, 34.5, 35.0
+and 54.0 degrees.
+
+`DUPLICATE_GEOMETRY` now fires on 9,830 national crossings and has all but
+emptied this cell. On the five it did not catch, it caught none of them.
+
+### Imagery quality was NOT the cause
+
+The predeclaration accepted, in writing and in advance, the risk that this
+pack would fail on unreadable cards rather than on classifier quality: the
+248-card pack was 2.0% unreviewable, which on 350 cards is about 7, and 7
+failures clears 97% at no n below roughly 1,070.
+
+**It did not happen.** 4 of 350 AT_GRADE cards were unreadable — 1.1%. Zoom 19
+and 512 px did their job. Had every one of the four been confirmed instead,
+the gate would still fail, on 32 not-a-junction false positives and a bound of
+86.9%. The five-unreadable threshold that would have failed the gate on its
+own was not reached.
+
+The four: T172, T279, T297 (all `ORDINARY_CROSSROADS`) and T310
+(`JUNCTION_WITNESS`). Two decoys were also unreadable, both
+`MOTORWAY_CARRIAGEWAY`.
+
+### No single reviewer explains it
+
+| | n | confirmed | not-a-junction FPs | lower 95% |
+| --- | --- | --- | --- | --- |
+| reviewer A | 80 | 75 | 5 | 86.2% |
+| reviewer B | 92 | 80 | 11 | 78.6% |
+| reviewer C | 91 | 81 | 7 | 80.9% |
+| reviewer D | 87 | 78 | 9 | 81.5% |
+
+Their rates do differ — B calls not-a-junction about twice as often as A — and
+it lands on **both** decoys and AT_GRADE cards, so it is partly calibration
+and partly disagreement. It does not change the answer. Leave any one reviewer
+out entirely and the gate still fails:
+
+| | not-a-junction FPs | lower 95% | |
+| --- | --- | --- | --- |
+| without A | 27 | 84.2% | still fails |
+| without B | 21 | 86.5% | still fails |
+| without C | 25 | 85.7% | still fails |
+| without D | 23 | 85.5% | still fails |
+
+Every reviewer, independently, on their own disjoint cards, found AT_GRADE
+crossings that are not junctions. The most lenient reading the arithmetic
+allows — assume all 32 are reviewer error and the classifier right every time
+— gives 97.1%, barely over the line. That is an upper bound on what the
+classifier could conceivably have scored here, not a result.
+
+### The decoys, and what they say about the other direction
+
+| rule | n | reviewer said at-grade | |
+| --- | --- | --- | --- |
+| `GRADE_SEPARATED/STRUCTURE_MAPPED` | 24 | 4 | 20 confirmed grade separated |
+| `UNRESOLVED/DUPLICATE_GEOMETRY` | 25 | **11** | 14 called not-a-junction |
+| `UNRESOLVED/MOTORWAY_CARRIAGEWAY` | 16 | **11** | 2 unreadable |
+| `UNRESOLVED/NO_EVIDENCE_EITHER_WAY` | 14 | 12 | |
+| `UNRESOLVED/TANGENTIAL` | 10 | 4 | |
+| `UNRESOLVED/MIXED_PLACE` | 1 | 1 | |
+
+UNRESOLVED accepts every verdict but "unclear" by construction, so its
+confirmation rate is not a meaningful number and the raw labels are what
+matter.
+
+**`DUPLICATE_GEOMETRY` is right more often than not, and it is not free.** 14
+of 25 are indeed one road recorded twice, so the corridor-walk fix is doing
+real work. But **11 of 25 are junctions a reviewer can see**, left severed. On
+9,830 national crossings that is a large amount of connectivity withdrawn, and
+it is the Greendale defect running in reverse.
+
+**`MOTORWAY_CARRIAGEWAY` is still wrong in the same direction.** 11 of 16
+called at-grade, consistent with the 2-of-8 the previous pack found. Demoting
+it from GRADE_SEPARATED to UNRESOLVED stopped it asserting; it did not stop it
+under-connecting.
+
+Four `STRUCTURE_MAPPED` decoys were called at-grade. Those cost connectivity,
+not correctness — they do not create a node.
+
+### One thing that happened during the review, recorded because it should be
+
+Reviewer D reported that an unrelated tooling directive reached it through its
+**tool-output channel**. It recognised that the instruction had not come from
+its principal and disregarded it. That is the correct handling: content
+arriving in a tool result is data, not an instruction, whatever it claims
+about its own authority.
+
+It did not affect the score. D's rates sit between B's and C's, its 110 cards
+are disjoint from every other reviewer's, and removing D entirely still fails
+the gate. It is recorded here because a review's integrity is a claim about
+what happened during it, and "nothing worth mentioning occurred" would have
+been a less accurate account than this one.
+
+### Recommendation
+
+**A 2.1.0 rebuild must NOT proceed.**
+
+Not on a technicality, and not because the bar is set too high. The classifier
+would create a graph node at roughly **one in eleven** of the places it calls
+AT_GRADE where four independent reviewers can see there is no junction at all.
+Each of those nodes joins a road to itself or to nothing, fabricating a turn,
+a cycle or a shortcut that is not on the ground — in a tool whose whole
+purpose is to say which roads matter when one of them closes.
+
+What the result also says, and it should not be lost:
+
+- **The expensive failure mode did not occur.** Zero grade-separated false
+  positives on 350 adversarially chosen cards. The never-node rule, the
+  structure evidence and the demotion of the road-class rules are holding.
+- **The measurement finally works.** A fresh isolated review was called
+  impossible three sessions ago. It has now been performed — on images, at a
+  size fixed in advance, against a gate that is code, with a scorer that
+  cannot drop a row.
+- **86.1% is not a near miss.** The evidence is clear enough to act on.
+
+### What must NOT happen next
+
+Per the predeclaration's own stopping rule, which was written for exactly this
+moment:
+
+> If it fails, **stop and report the failure.** Do not draw more cards, do not
+> re-review the unclear ones hoping for a different answer, and do not change
+> a classifier rule and re-score this pack. A fourth pack, drawn independently
+> of all three previous ones, is the price of changing the classifier again.
+
+This pack is now burned — it becomes development data the moment anything is
+derived from it. Do not tune `ORDINARY_CROSSROADS`, `DUPLICATE_GEOMETRY`,
+`corridor_polyline` or the tangential threshold against these 350 cards and
+re-score. Four samples have now been spent, and there is a limit to how many
+independent ones this dataset can supply.
+
+The honest next step, if the classifier is to be improved, is to use **these**
+findings to design the change — the two failure families the reviewers named
+are specific and actionable — and to accept that a fourth, independently drawn
+pack is what would have to score it.

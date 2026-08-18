@@ -1210,9 +1210,20 @@ def seal(outdir: Path) -> int:
     src = REPO_ROOT / "python/src/nzcl"
     v2man = json.loads((AUDIT / "classified-v2-manifest.json")
                        .read_text(encoding="utf-8"))
+    # `git -C` rather than cwd=, and stderr surfaced rather than swallowed.
+    # The first version of this used cwd= and captured only stdout, so when
+    # git declined the directory the field was written as an empty string and
+    # the checkpoint recorded nothing while looking complete.
     import subprocess
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
-                          capture_output=True, text=True).stdout.strip()
+    proc = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True, text=True)
+    head = proc.stdout.strip()
+    if not head:
+        raise SystemExit(
+            "STOPPED: could not read the git HEAD to stamp the seal "
+            f"(exit {proc.returncode}): {proc.stderr.strip()!r}. A checkpoint "
+            "that cannot say which commit it belongs to is not a checkpoint.")
 
     checkpoint = {
         "what": ("The draw is sealed. Every card below existed, in exactly "
@@ -1312,6 +1323,21 @@ def score(outdir: Path, verdicts_path: Path, strict: bool = True) -> int:
         print("  " + ", ".join(collated.materialised) + "\n")
     print(f"scored {len(rows)} of {len(key['cards'])} cards")
 
+    # Reviewer attribution, if the verdicts arrived as per-reviewer files
+    # beside the combined one. Recorded so that a reviewer whose rates diverge
+    # from the others is visible rather than averaged away - four agents
+    # marking cards is four instruments, and an instrument that reads
+    # differently is a fact about the measurement.
+    by_reviewer_code: dict[str, str] = {}
+    for p in sorted(verdicts_path.parent.glob("verdicts-*.txt")):
+        who = p.stem.split("-", 1)[1]
+        if who.upper() == "ALL" or p == verdicts_path:
+            continue
+        for v in _load_verdicts(p):
+            by_reviewer_code[str(v.get("code", "")).strip()] = who
+    for r in collated.rows:
+        r["reviewer"] = by_reviewer_code.get(r["code"])
+
     ag = collated.of_disposition("AT_GRADE")
     counts = collated.counts("AT_GRADE")
     conf = counts["confirmed"]
@@ -1355,7 +1381,76 @@ def score(outdir: Path, verdicts_path: Path, strict: bool = True) -> int:
                        "gradeSeparatedFalsePositives": gs_fp,
                        "notAJunctionFalsePositives": nj_fp},
            "promotionGate": gate.as_dict(),
-           "byCell": {}, "byRule": {}, "decoys": {}, "verdicts": rows}
+           "byCell": {}, "byRule": {}, "decoys": {}, "decoysByReason": {},
+           "byReviewer": {}, "unclearCards": [], "contradictions": [],
+           "verdicts": rows}
+
+    # Every card the reviewer could not read, with what it was. Five or more
+    # of these landing on AT_GRADE fails the gate on their own at n=350.
+    for r in sorted(rows, key=lambda r: r["code"]):
+        if r["verdict"] == "unclear":
+            out["unclearCards"].append(
+                {"code": r["code"], "reviewer": r.get("reviewer"),
+                 "disposition": r["disposition"], "reason": r["reason"],
+                 "cell": r["cell"], "angleDeg": r.get("angleDeg"),
+                 "note": r.get("note", "")})
+
+    # Every contradiction, individually, both directions. An AT_GRADE card
+    # the reviewer contradicts is a node the graph would gain and should not;
+    # a decoy they contradict is connectivity the graph loses and should not.
+    for r in sorted(rows, key=lambda r: r["code"]):
+        if r["verdict"] != "unclear" and r["verdict"] not in ACCEPTS[r["disposition"]]:
+            out["contradictions"].append(
+                {"code": r["code"], "reviewer": r.get("reviewer"),
+                 "classifierSaid": f"{r['disposition']}/{r['reason']}",
+                 "reviewerSaid": r["verdict"],
+                 "confidence": r.get("confidence"),
+                 "cell": r["cell"], "qualifyingCells": r.get("qualifyingCells"),
+                 "angleDeg": r.get("angleDeg"),
+                 "nameA": r.get("nameA"), "nameB": r.get("nameB"),
+                 "groupA": r.get("groupA"), "groupB": r.get("groupB"),
+                 "x": r.get("x"), "y": r.get("y"),
+                 "rcaNameA": r.get("rcaNameA"), "rcaNameB": r.get("rcaNameB"),
+                 "structDistM": r.get("structDistM"),
+                 "imageryYear": r.get("imageryYear"),
+                 "note": r.get("note", "")})
+
+    # Per reviewer. Four agents are four instruments; one that reads
+    # differently from the others is a fact about the measurement, and
+    # averaging it away would hide it. Split by AT_GRADE versus decoy,
+    # because a reviewer who says "not a junction" more often is calibrated
+    # differently if it lands on decoys and disagreeing if it lands on n.
+    for who in sorted({r.get("reviewer") for r in rows if r.get("reviewer")}):
+        sub = [r for r in rows if r.get("reviewer") == who]
+        sub_ag = [r for r in sub if r["disposition"] == "AT_GRADE"]
+        sub_de = [r for r in sub if r["disposition"] != "AT_GRADE"]
+        out["byReviewer"][who] = {
+            "cards": len(sub),
+            "labels": dict(collections.Counter(r["verdict"] for r in sub)),
+            "atGrade": {
+                "n": len(sub_ag),
+                "confirmed": sum(1 for r in sub_ag
+                                 if r["verdict"] in ACCEPTS["AT_GRADE"]),
+                "contradicted": sum(1 for r in sub_ag
+                                    if r["verdict"] not in ACCEPTS["AT_GRADE"]
+                                    and r["verdict"] != "unclear"),
+                "unreviewable": sum(1 for r in sub_ag
+                                    if r["verdict"] == "unclear"),
+                "saidNotAJunction": sum(1 for r in sub_ag
+                                        if r["verdict"] == "not_a_junction"),
+                "saidGradeSeparated": sum(1 for r in sub_ag
+                                          if r["verdict"] == "grade_separated"),
+            },
+            "decoys": {
+                "n": len(sub_de),
+                "confirmed": sum(1 for r in sub_de
+                                 if r["verdict"] in ACCEPTS[r["disposition"]]),
+                "unreviewable": sum(1 for r in sub_de
+                                    if r["verdict"] == "unclear"),
+                "saidNotAJunction": sum(1 for r in sub_de
+                                        if r["verdict"] == "not_a_junction"),
+            },
+        }
     # By STRATUM MEMBERSHIP, not by which cell drew the card first. See
     # `qualifying_cells`. A card can appear in more than one row here; the
     # rows do not sum to n and are not meant to.
@@ -1380,7 +1475,52 @@ def score(outdir: Path, verdicts_path: Path, strict: bool = True) -> int:
         out["decoys"][disp] = {
             "n": len(sub),
             "confirmed": sum(1 for r in sub if r["verdict"] in ACCEPTS[disp]),
+            "contradicted": sum(1 for r in sub
+                                if r["verdict"] not in ACCEPTS[disp]
+                                and r["verdict"] != "unclear"),
             "unreviewable": sum(1 for r in sub if r["verdict"] == "unclear")}
+    # Decoys by deciding RULE as well as by disposition. UNRESOLVED accepts
+    # every verdict but "unclear" by construction, so its confirmation rate is
+    # not a meaningful number - what IS meaningful is what the reviewer
+    # actually called each rule's crossings, so the labels are reported raw.
+    for disp, reason in sorted({(r["disposition"], r["reason"]) for r in rows
+                                if r["disposition"] != "AT_GRADE"}):
+        sub = [r for r in rows if r["disposition"] == disp
+               and r["reason"] == reason]
+        out["decoysByReason"][f"{disp}/{reason}"] = {
+            "n": len(sub),
+            "labels": dict(collections.Counter(r["verdict"] for r in sub)),
+            "confirmed": sum(1 for r in sub if r["verdict"] in ACCEPTS[disp]),
+            "reviewerCalledItAtGrade": sum(1 for r in sub
+                                           if r["verdict"] == "at_grade"),
+            "codes": sorted(r["code"] for r in sub),
+        }
+    print("\n=== decoys, by deciding rule ===")
+    for k, v in out["decoysByReason"].items():
+        print(f"  {k:<38} n={v['n']:>3}  reviewer said at-grade: "
+              f"{v['reviewerCalledItAtGrade']:>3}  labels {v['labels']}")
+    print("\n=== per reviewer ===")
+    for who, v in out["byReviewer"].items():
+        a = v["atGrade"]
+        print(f"  {who}: {v['cards']} cards, labels {v['labels']}")
+        print(f"      AT_GRADE n={a['n']:>3} confirmed={a['confirmed']:>3} "
+              f"contradicted={a['contradicted']:>2} unclear={a['unreviewable']} "
+              f"(said not-a-junction {a['saidNotAJunction']}, "
+              f"grade-separated {a['saidGradeSeparated']})")
+        print(f"      decoys   n={v['decoys']['n']:>3} "
+              f"confirmed={v['decoys']['confirmed']:>3} "
+              f"said not-a-junction {v['decoys']['saidNotAJunction']}")
+    print(f"\n=== unreadable cards: {len(out['unclearCards'])} "
+          f"({sum(1 for c in out['unclearCards'] if c['disposition'] == 'AT_GRADE')} "
+          f"of them AT_GRADE) ===")
+    for c in out["unclearCards"]:
+        print(f"  {c['code']} [{c['reviewer']}] {c['disposition']}/{c['reason']}")
+    print(f"\n=== contradictions: {len(out['contradictions'])} ===")
+    for c in out["contradictions"]:
+        print(f"  {c['code']} [{c['reviewer']}] {c['classifierSaid']} "
+              f"-> reviewer said {c['reviewerSaid']}  "
+              f"({c['nameA']} x {c['nameB']}, {c['angleDeg']} deg)")
+
     (outdir / "holdout3-result.json").write_text(json.dumps(out, indent=2) + "\n",
                                                  encoding="utf-8")
     print(f"\nwrote {outdir/'holdout3-result.json'}")
