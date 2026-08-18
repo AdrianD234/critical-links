@@ -884,3 +884,72 @@ export interface V2BoundaryAnalysis {
   attribution?: string;
   limitations?: string[];
 }
+
+/*
+ * Topology sensitivity: a SEPARATE request, and a separate answer.
+ *
+ * The canonical replacement path comes from `/boundary-analysis` and is the
+ * product answer. Everything here is an assumption - "if this unresolved
+ * crossing were a junction, the answer would be X" - and the types keep the
+ * two apart so a component cannot render one as the other by accident.
+ *
+ * Measured: canonical is 1.27 s and fits an interactive budget; three
+ * counterfactuals take 6.7 s and do not. That is why it is a second request.
+ */
+
+/** The resolved states. `checking` is the client's own in-flight state. */
+export type V2SensitivityState =
+  | 'TOPOLOGY_SENSITIVE'
+  | 'NO_CHANGE_FOUND'
+  | 'SENSITIVITY_UNAVAILABLE'
+  | 'SENSITIVITY_INCOMPLETE';
+
+export interface V2AssumedJunction {
+  crossingId: number;
+  label: string | null;
+  classifierDisposition: string | null;
+  classifierReason: string | null;
+}
+
+export interface V2Counterfactual {
+  /** Always false. A counterfactual is never the canonical answer. */
+  isCanonical: false;
+  assumedJunctionCrossingIds: number[];
+  assumedJunctions: V2AssumedJunction[];
+  status: string;
+  distanceM: number | null;
+  tested: boolean;
+  untestedReason: string | null;
+  /** `null` when the candidate was not tested - never `false`. */
+  individuallyChangesAnswer: boolean | null;
+  whatChanged: string[];
+  assumptionKind: string;
+}
+
+export interface V2TopologySensitivity {
+  available: boolean;
+  /** Echoed back untouched, so a stale response can be discarded. */
+  token: string | null;
+  state: V2SensitivityState;
+  message: string;
+  headline?: string;
+  topologySensitive?: boolean;
+  canonicalAnswer?: {
+    isCanonical: true;
+    status: string;
+    distanceM: number | null;
+  };
+  counterfactuals?: V2Counterfactual[];
+  testedCandidates?: number;
+  candidateCap?: number;
+  capNote?: string | null;
+  analysisComplete?: boolean;
+  unavailableReason?: string | null;
+  candidateSearch?: {
+    candidateSource: string;
+    candidateSourceComplete: boolean;
+    candidates: number;
+    truncated: boolean;
+  };
+  timing?: Record<string, unknown>;
+}

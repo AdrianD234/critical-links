@@ -54,6 +54,8 @@ import {
 import type { LinkSummary, V2RouteGeometry } from './api/types.js';
 import {
   useBoundaryAnalysisV2,
+  useTopologySensitivityV2,
+  sensitivityToken,
   useMetadata,
   useRoadSearch,
   useV2Capabilities,
@@ -174,6 +176,29 @@ export default function ExploreScreen() {
     true,
   );
   const analysis = analysisQ.data ?? null;
+
+  /*
+   * Topology sensitivity: a SEPARATE, cancellable request, gated on the
+   * canonical analysis having arrived.
+   *
+   * Kept separate through the V2 promotion rather than folded into the
+   * canonical request. Measured: the canonical analysis is about 1.3 s and
+   * three counterfactuals are about 6.7 s, so bundling them would make every
+   * closure wait for a diagnostic most closures do not need. Promoting V2 to
+   * the product engine does not change that arithmetic.
+   *
+   * `tsToken` IS the current selection. The server echoes it back and the
+   * panel discards any response carrying a different one - a slow answer for a
+   * link the user has already left is confidently wrong output.
+   */
+  const tsParts = {
+    link,
+    scenario,
+    direction: focus,
+    version: v2ResultVersion(capsQ.data),
+  };
+  const tsToken = sensitivityToken(tsParts);
+  const sensitivityQ = useTopologySensitivityV2(tsParts, analysis !== null);
 
   /*
    * The result on screen belongs to the *current* query key by construction:
@@ -473,6 +498,10 @@ export default function ExploreScreen() {
         migration={migration}
         onDismissMigration={() => setMigration(null)}
         onRestoreScope={onRestoreScope}
+        sensitivity={sensitivityQ.data}
+        sensitivityLoading={sensitivityQ.isPending || sensitivityQ.isFetching}
+        sensitivityError={(sensitivityQ.error as Error) ?? null}
+        sensitivityToken={tsToken}
       />
     );
 

@@ -26,6 +26,7 @@ import type {
   V2Capabilities,
   V2BoundaryAnalysis,
   V2ClosureAnalysis,
+  V2TopologySensitivity,
 } from '../api/types.js';
 
 export function createQueryClient(): QueryClient {
@@ -256,4 +257,59 @@ export function useBoundaryAnalysisV2(
 export function v2ResultVersion(caps: V2Capabilities | undefined): string {
   if (!caps) return 'unknown';
   return `${caps.snapshotId}|${caps.algorithmVersion}|${caps.derivationVersion}`;
+}
+
+/**
+ * The token a sensitivity response must carry to be accepted.
+ *
+ * It IS the selection: link, metric, vehicle, scope, direction. A response
+ * whose token differs describes a link the user has already moved on from.
+ */
+export function sensitivityToken(parts: ClosureAnalysisKeyParts) {
+  const { link, scenario, direction } = parts;
+  return [
+    link,
+    scenario.metric,
+    scenario.vehicle,
+    scenario.closureScope,
+    direction,
+  ].join('|');
+}
+
+/**
+ * Topology sensitivity, fetched SEPARATELY from the canonical analysis.
+ *
+ * Deliberately a second request: the canonical answer is about 1.3 s and this
+ * is about 6.7 s for three candidates, so bundling them would make every
+ * closure wait for a diagnostic most closures do not need.
+ *
+ * `enabled` is gated on the canonical result being present, so the canonical
+ * answer is always on screen first - it is the product answer and this is a
+ * qualification of it.
+ */
+export function useTopologySensitivityV2(
+  parts: ClosureAnalysisKeyParts,
+  enabled: boolean,
+) {
+  const { link, scenario, direction } = parts;
+  const token = sensitivityToken(parts);
+  return useQuery<V2TopologySensitivity>({
+    queryKey: ['topology-sensitivity-v2', token, parts.version] as const,
+    queryFn: ({ signal }) =>
+      api.topologySensitivityV2(
+        {
+          link: link!,
+          metric: scenario.metric,
+          vehicle: scenario.vehicle,
+          closureScope: scenario.closureScope,
+          direction: scenario.closureScope === 'direction' ? direction : 'both',
+        },
+        token,
+        signal,
+      ),
+    enabled: enabled && link !== null && parts.version !== 'unknown',
+    /* One attempt. A diagnostic that retries turns a 7 s wait into a 21 s one
+     * for an answer the user did not block on. */
+    retry: false,
+  });
 }

@@ -186,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     snap = args.snapshot
     if not snap:
         row = db.query_one("SELECT snapshot_id FROM network_snapshots "
+                           "WHERE NOT is_transient "
                            "ORDER BY retrieved_at_utc DESC LIMIT 1")
         if not row:
             raise SystemExit("no snapshots; run nzcl-ingest first")

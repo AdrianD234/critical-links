@@ -32,6 +32,7 @@ import LinkAttributes from './LinkAttributes.js';
 import LinkHeader from './LinkHeader.js';
 import QualityFlags from './QualityFlags.js';
 import ScenarioControls from './ScenarioControls.js';
+import TopologySensitivity from './TopologySensitivity.js';
 import ScenarioSummary from './ScenarioSummary.js';
 import SourceMethodology from './SourceMethodology.js';
 import HeroMetric, { HeroSkeleton } from './HeroMetric.js';
@@ -56,6 +57,7 @@ import type {
   V2Isolation,
   V2ReplacementPath,
   V2RouteGeometry,
+  V2TopologySensitivity,
 } from '../api/types.js';
 
 /** A formatted magnitude, or the em dash the panel uses for one that is absent. */
@@ -91,6 +93,14 @@ export interface ClosureResultViewProps {
   migration: LegacyMigration | null;
   onDismissMigration: () => void;
   onRestoreScope: (scope: ClosureScope) => void;
+  /* Topology sensitivity arrives on its OWN request, after the canonical
+   * answer is on screen. `sensitivityToken` is the selection this panel is
+   * showing; a response carrying any other token is discarded, because a
+   * slow answer for a link the user has left is confidently wrong. */
+  sensitivity?: V2TopologySensitivity;
+  sensitivityLoading?: boolean;
+  sensitivityError?: Error | null;
+  sensitivityToken?: string;
 }
 
 export default function ClosureResultView({
@@ -114,6 +124,10 @@ export default function ClosureResultView({
   migration,
   onDismissMigration,
   onRestoreScope,
+  sensitivity,
+  sensitivityLoading,
+  sensitivityError,
+  sensitivityToken,
 }: ClosureResultViewProps) {
   const controlsId = useId();
 
@@ -264,6 +278,15 @@ export default function ClosureResultView({
           onDirectionChange={onDirectionChange}
         />
       )}
+
+      {sensitivityToken ? (
+        <TopologySensitivity
+          data={sensitivity}
+          loading={Boolean(sensitivityLoading)}
+          error={sensitivityError ?? null}
+          token={sensitivityToken}
+        />
+      ) : null}
 
       {analysis && !error && (
         <div className="disclosures">

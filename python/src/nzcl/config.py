@@ -71,7 +71,15 @@ LINK_WHERE = "status=1 AND modeVehicle=1"
 #: Bump when routing semantics change. This invalidates cached detours.
 ALGORITHM = "pgr-dijkstra-arc"
 ALGORITHM_VERSION = "2.0.0"
-PROCESSING_VERSION = "2.0.0"
+
+#: Bump when the GRAPH changes shape, not just when a number about it does.
+#:
+#: 2.1.0 - interior-to-interior crossings are classified and the AT_GRADE ones
+#:         are noded. Until 2.0.0 they were refused unconditionally, which
+#:         treated every flat rural crossroads in the country as a flyover.
+#:         The graph is genuinely different, so every snapshot id changes and
+#:         every cached detour is invalid, which is what this constant is for.
+PROCESSING_VERSION = "2.1.0"
 
 #: How settled the closure engine is. Rendered verbatim by the interface and
 #: never paraphrased there, which is why it is written as a sentence rather
@@ -116,9 +124,15 @@ LIMITATIONS = [
     "checked after a route is found rather than enforced while it is being found: "
     "a route that uses a published applicable restriction is withheld rather than "
     "offered, but the search itself was not constrained by them.",
-    "Junctions are inferred where one link ends on the interior of another, because "
-    "AMDS does not split through roads at side roads. Interior-to-interior crossings "
-    "are never noded, which preserves grade separation.",
+    "Junctions are inferred, because AMDS does not split through roads at side "
+    "roads. Where one road ENDS on another they are joined. Where two roads CROSS "
+    "with neither ending, they are NOT joined: the graph leaves the crossing "
+    "disconnected unless a reviewed, evidence-backed override records that a "
+    "junction is there. An automatic classifier was built for this and rejected "
+    "on measurement - it called 32 of 350 reviewed crossings junctions that are "
+    "not - so absence of contrary evidence is no longer treated as evidence. "
+    "Where an unresolved crossing would change a result, the result is reported "
+    "as topology-sensitive rather than as fact.",
     "Height, weight and other physical restrictions are recorded as link quality "
     "flags but do not yet constrain routing.",
 ]

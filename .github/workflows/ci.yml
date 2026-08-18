@@ -29,6 +29,27 @@ env:
   NODE_VERSION: '24'
 
 jobs:
+  # Runs alone and needs nothing, so it reports in seconds. A leaked credential
+  # is not a test failure - it is a disclosure, and every minute the other jobs
+  # spend is a minute the object sits on the remote.
+  #
+  # The at-grade review packs embed a LINZ Basemaps key in every tile URL.
+  # Generated pages were committed twice and purged twice by force-push, which
+  # does not remove a pushed blob from the remote at all - it only makes it
+  # unreachable. This guard is the control that "be careful next time" was not.
+  secrets:
+    name: No tracked credentials
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard scans tracked files at this commit. It does not need
+          # history, and fetching it would only slow the fastest signal here.
+          fetch-depth: 1
+
+      - name: Scan tracked files
+        run: bash scripts/check-no-secrets.sh
+
   checks:
     name: Types, unit tests, build
     runs-on: ubuntu-latest
