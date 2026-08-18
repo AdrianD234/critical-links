@@ -137,7 +137,7 @@ def _crossing_links(snapshot_id: str, c: sensitivity.Candidate):
 
 
 def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
-        route_link_ids=None, port_node_ids=None,
+        route_link_ids=None, port_node_ids=None, force_near=(),
         max_single: int = sensitivity.MAX_SINGLE,
         max_pairs: int = sensitivity.MAX_PAIRS,
         should_cancel=None) -> SensitivityRun:
@@ -169,7 +169,8 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
                             or ()),
         port_node_ids=list(port_node_ids if port_node_ids is not None
                            else getattr(canonical_result, "port_node_ids", ())
-                           or ()))
+                           or ()),
+        force_near=force_near)
     timing.candidates_ms = int((time.perf_counter() - t) * 1000)
 
     def unavailable(reason, validation=None):

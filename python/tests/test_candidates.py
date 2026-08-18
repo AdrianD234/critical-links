@@ -175,3 +175,86 @@ class TestTheSearchReportsItsShape:
     def test_it_says_why_a_buffer_is_the_wrong_search(self, monkeypatch):
         fake_db(monkeypatch, {})
         assert "2.8 km" in find("snap", closure_link_ids=[1]).as_dict()["why"]
+
+
+class TestTheNamingGateIsCheckedInBothDirections:
+    """A cleared source resolves to its name; an uncleared one resolves to the
+    withheld state.
+
+    Both halves, because I got this wrong in both directions at once. I read
+    the VIEW DEFINITION, saw a licence gate in the CASE expression, and
+    concluded the gate was closed - without querying `name_source_licences` to
+    see that `linz_road_sections` has display_cleared = TRUE. Then I diagnosed
+    from a stale `link_names` query instead of re-running against the governed
+    view, which had been returning the names all along.
+
+    The lesson is narrow and worth a test: check the gate STATE, not the gate
+    MECHANISM. `link_names.display_name` holds only the higher tier and is not
+    the governed answer; `link_display_names.display_name` is.
+    """
+
+    def test_a_cleared_source_resolves_to_its_name(self):
+        assert cand_mod._label("Clintons Road", None) == "Clintons Road"
+
+    def test_an_uncleared_source_resolves_to_the_withheld_state(self):
+        out = cand_mod._label(None, "nzta_street_names")
+        assert "withheld" in out and "nzta_street_names" in out
+
+    def test_a_genuinely_unnamed_road_is_neither(self):
+        assert cand_mod._label(None, None) is None
+
+    def test_a_name_wins_even_if_a_withheld_source_is_also_recorded(self):
+        assert cand_mod._label("Clintons Road", "nzta_ramm_carriageway") ==             "Clintons Road"
+
+    def test_the_query_reads_the_governed_view_not_the_raw_table(self):
+        """`link_names` holds only the higher tier. Reading it directly is the
+        bug this test exists to prevent recurring."""
+        assert "link_display_names" in cand_mod._SELECT
+        assert "LEFT JOIN link_names " not in cand_mod._SELECT
+
+    def test_the_withheld_source_is_selected_so_it_can_be_reported(self):
+        assert "withheld_name_source" in cand_mod._SELECT
+
+
+class TestTheExclusionRuleIsPinned:
+    """The decoy is excluded by a RULE, and a defensible rule with no test is
+    one refactor away from being an accidental one.
+
+    Measured against the national snapshot: Clintons x Greendale is 1,685.9 m
+    from the closed link (radius 600 m), 654.0 m from the canonical route
+    (radius 250 m), and outside the circuit hull. The causal crossing is 0.0 m
+    from the route and inside the hull.
+    """
+
+    def test_the_corridor_radius_excludes_the_decoy_and_admits_the_causal(self):
+        assert cand_mod.CORRIDOR_RADIUS_M < 654.0, (
+            "widening the corridor past 654 m would admit the Greendale decoy "
+            "and this test should fail so that becomes a decision")
+        assert cand_mod.CORRIDOR_RADIUS_M > 0.0
+
+    def test_the_closure_radius_excludes_the_decoy(self):
+        assert cand_mod.CLOSURE_RADIUS_M < 1685.9
+
+    def test_the_rule_is_the_four_named_sources_and_nothing_else(self):
+        """If a fifth relevance source is added, this fails and the exclusion
+        has to be re-argued rather than silently changing."""
+        assert cand_mod.SOURCES == ("closure", "corridor", "ports",
+                                    "inside_circuit")
+
+    def test_a_forced_candidate_is_labelled_as_not_selected_by_the_rule(
+            self, monkeypatch):
+        fake_db(monkeypatch, {"ST_MakePoint(%(fx)s": [row(77)]})
+        s = find("snap", closure_link_ids=[1], force_near=[(1526312.0,
+                                                           5181822.6)])
+        assert 77 in {c.crossing_id for c in s.candidates}
+        assert s.by_source["forced"] == 1
+        assert any("not there because the relevance rule selected it" in n
+                   for n in s.notes)
+
+    def test_forcing_bypasses_the_bound_because_it_is_an_audit_route(
+            self, monkeypatch):
+        fake_db(monkeypatch, {
+            "link_id = ANY(%(closure)s)": [row(i) for i in range(200)],
+            "ST_MakePoint(%(fx)s": [row(999)]})
+        s = find("snap", closure_link_ids=[1], force_near=[(0.0, 0.0)])
+        assert 999 in {c.crossing_id for c in s.candidates}

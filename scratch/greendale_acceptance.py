@@ -216,7 +216,8 @@ def main() -> int:
                  if p.movement else [])
         run = sensitivityrun.run(
             COPY, LINK, analyse_fn=analyse_fn, pin_fn=pin_fn,
-            route_link_ids=route_links, port_node_ids=ports)
+            route_link_ids=route_links, port_node_ids=ports,
+            force_near=[DECOY])
         d = run.as_dict()
         report["sensitivity"] = d
         report["totalSeconds"] = round(time.perf_counter() - t_total, 1)

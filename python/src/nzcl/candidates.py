@@ -175,6 +175,8 @@ def _query(sql_tail: str, params: dict) -> list[Candidate]:
 def find(snapshot_id: str, *, closure_link_ids: Sequence[int],
          route_link_ids: Sequence[int] = (),
          port_node_ids: Sequence[int] = (),
+         force_near: Sequence[tuple] = (),
+         force_radius_m: float = 30.0,
          max_candidates: int = MAX_CANDIDATES) -> CandidateSearch:
     """Candidates for one analysis, from deterministic evidence.
 
@@ -246,6 +248,31 @@ def find(snapshot_id: str, *, closure_link_ids: Sequence[int],
             "         AND link_id = ANY(%(all)s)), c.geom_2193)"
             " ORDER BY c.crossing_id",
             {"snap": snapshot_id, "all": route + closure}))
+
+    # 5. FORCED. Crossings named by the caller, admitted regardless of
+    #    relevance and regardless of the bound. Not a production source:
+    #    it exists so an audit can push a crossing the relevance rule
+    #    EXCLUDES through the counterfactual machinery and measure that it
+    #    changes nothing. Without it, an exclusion and a non-material
+    #    crossing look identical in the output, and the acceptance claim
+    #    that the decoy is non-material is vacuous rather than measured.
+    for fx, fy in force_near:
+        forced = _query(
+            "  AND ST_DWithin(c.geom_2193,"
+            "      ST_SetSRID(ST_MakePoint(%(fx)s,%(fy)s),2193), %(fr)s)"
+            " ORDER BY c.crossing_id",
+            {"snap": snapshot_id, "fx": fx, "fy": fy,
+             "fr": force_radius_m})
+        search.by_source.setdefault("forced", 0)
+        for c in forced:
+            if c.crossing_id not in seen:
+                seen[c.crossing_id] = c
+                search.by_source["forced"] += 1
+        if "forced" not in search.sources_used:
+            search.sources_used.append("forced")
+        search.notes.append(
+            "a crossing was FORCED into the candidate set for audit; it is "
+            "not there because the relevance rule selected it")
 
     search.candidates = list(seen.values())
     if search.truncated:
