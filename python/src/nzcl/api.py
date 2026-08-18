@@ -13,6 +13,8 @@ from PostGIS `ST_AsMVT` rather than a separate tiling library.
 
 from __future__ import annotations
 
+import asyncio
+
 from contextlib import asynccontextmanager
 from typing import Any, Literal, get_args
 
@@ -1251,6 +1253,113 @@ def boundary_analysis_v2(
     body["selectedLink"] = _link_summary(
         link, _locality_lookup(snap, [int(link["link_id"])]).get(
             int(link["link_id"])), labels=True)
+    return body
+
+
+@app.get("/api/v2/links/{link_ref:path}/topology-sensitivity")
+async def topology_sensitivity_v2(
+    request: Request,
+    link_ref: str,
+    scope: Literal["segment", "direction", "source_feature"] = "segment",
+    direction: Literal["forward", "reverse"] | None = None,
+    metric: Metric = "distance",
+    vehicle: Profile = "car",
+    token: str | None = None,
+) -> dict[str, Any]:
+    """Would this answer change if an unresolved crossing were a junction?
+
+    A SEPARATE endpoint, and that is the design rather than a convenience.
+    Measured: the canonical analysis is 1.27 s and fits an interactive budget;
+    three counterfactuals take 6.7 s and do not. Delivering them in the same
+    request would make every closure analysis wait for a diagnostic that most
+    closures do not need.
+
+    So the ordinary boundary analysis returns immediately and stays the
+    product answer, and this is fetched afterwards, separately, and can be
+    abandoned. It never returns a route for the client to draw as the
+    replacement path: what it returns is the canonical answer, a bounded set
+    of assumptions, and what each one would change.
+
+    `token` is echoed back untouched. A client that has moved on to another
+    link compares it against its current selection and discards a response
+    that belongs to the previous one - an older answer landing on a newer
+    click is confidently wrong output that looks entirely normal.
+    """
+    from . import impactv2, pinning, sensitivityrun
+
+    link = _resolve(link_ref)
+    snap = snapshot_id()
+    link_id = int(link["link_id"])
+
+    def analyse_fn(snapshot_id_, lid, pinned_movement=None):
+        return impactv2.analyse(
+            snapshot_id_, lid, scope=scope, direction=direction,
+            metric=metric, profile=vehicle, with_geometry=False,
+            with_corridor=False, with_isolation=True)
+
+    def pin_fn(impact):
+        p_ = impact.principal
+        iso = impact.isolation
+        return pinning.AnalysisPin(
+            closure_links=(link_id,),
+            profile=impact.profile, metric=impact.metric,
+            movement=pinning.MovementPin(
+                movement_id=str(getattr(p_, "movement_id", "") or ""),
+                entry_node=int(getattr(p_, "from_node", -1) or -1),
+                exit_node=int(getattr(p_, "to_node", -1) or -1),
+                entry_port_link=getattr(p_, "entry_port_id", None),
+                exit_port_link=getattr(p_, "exit_port_id", None))
+            if p_ else None,
+            route_arcs=tuple(getattr(p_, "arc_ids", ()) or ()) if p_ else (),
+            status=str(getattr(p_, "status", "") or ""),
+            distance_m=getattr(p_, "replacement_distance_m", None) if p_ else None,
+            is_bridge=getattr(iso, "closure_is_bridge", None),
+            isolated_link_count=getattr(iso, "isolated_link_count", None),
+            isolated_length_m=getattr(iso, "isolated_length_m", None),
+            restrictions_checked=bool(getattr(p_, "turn_check", None))
+            if p_ else False)
+
+    # Cancellation is the expected path, not the unlucky one: the client
+    # abandons this the moment the user clicks elsewhere. Every transient copy
+    # is dropped either way.
+    async def cancelled() -> bool:
+        return await request.is_disconnected()
+
+    cancel_flag = {"v": False}
+
+    async def watch() -> None:
+        while not cancel_flag["v"]:
+            if await request.is_disconnected():
+                cancel_flag["v"] = True
+                return
+            await asyncio.sleep(0.25)
+
+    watcher = asyncio.ensure_future(watch())
+    try:
+        run = await asyncio.to_thread(
+            sensitivityrun.run, snap, link_id,
+            analyse_fn=analyse_fn, pin_fn=pin_fn,
+            should_cancel=lambda: cancel_flag["v"], token=token)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    finally:
+        cancel_flag["v"] = True
+        watcher.cancel()
+
+    body = run.as_dict()
+    body["snapshotId"] = snap
+    body["attribution"] = _ACTIVE["meta"]["attribution"]
+    # There is no V1 path here and there must never be one: V1 measures a
+    # different quantity, and falling back to it would answer a question
+    # nobody asked while looking like this one.
+    body["comparableToV1"] = False
+    body["isSeparateFromCanonical"] = True
+    body["canonicalRouteSlot"] = (
+        "A counterfactual route is NEVER returned here for the client to draw "
+        "as the replacement path. The canonical answer comes from "
+        "/boundary-analysis and is not modified by anything in this response.")
     return body
 
 

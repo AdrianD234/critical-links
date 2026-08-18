@@ -81,13 +81,16 @@ class Timing:
 
 
 def candidates_mod_rank(cands):
-    """Deterministic order for the MVP cap.
+    """Order for the MVP cap: the search order, unchanged.
 
-    Ranking by measured impact needs the counterfactuals that have not run
-    yet, so this orders by crossing id - stable, and it does not pretend to
-    know which candidate matters before testing it.
+    `candidates.find` already returns them in relevance order - corridor
+    proximity first for on-demand detection, and source precedence for the
+    catalogue - so re-sorting here would DISCARD the ranking the search did.
+    An earlier version sorted by crossing id, which is detection order for
+    on-demand candidates and therefore arbitrary; it cost the Greendale
+    acceptance the causal crossing by testing three unrelated ones.
     """
-    return sorted(cands, key=lambda c: c.crossing_id)
+    return list(cands)
 
 
 @dataclass
@@ -203,6 +206,16 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
     t = time.perf_counter()
     canonical_result = analyse_fn(snapshot_id, link_id)
     canonical_pin = pin_fn(canonical_result)
+    # The canonical route, taken from the result itself when the caller did
+    # not supply it. Without it the candidate search has no corridor, which is
+    # the source that finds the crossing that matters - it is 2.8 km from the
+    # click and 0.0 m from the route.
+    if route_link_ids is None:
+        principal = getattr(canonical_result, "principal", None)
+        route_link_ids = list(getattr(principal, "link_ids", ()) or ())
+    if port_node_ids is None and canonical_pin.movement is not None:
+        port_node_ids = [canonical_pin.movement.entry_node,
+                         canonical_pin.movement.exit_node]
     timing.canonical_ms = int((time.perf_counter() - t) * 1000)
     canonical_answer = _answer_of(canonical_pin)
 

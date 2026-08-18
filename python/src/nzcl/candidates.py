@@ -274,6 +274,29 @@ def detect_on_demand(snapshot_id: str, *, closure_link_ids, route_link_ids,
         return [], False
 
     found = crossings_mod.detect(geoms, ids, end_guard_m=0.05)
+
+    # Ordered by distance to the CANONICAL ROUTE, nearest first. On-demand
+    # crossings have no catalogue id to rank by, and id order would be
+    # detection order, which is arbitrary. Proximity to the corridor is the
+    # signal the Greendale evidence supports: the causal crossing is 0.0 m
+    # from the route and the decoy is 654 m away.
+    route_geom = None
+    if route_link_ids:
+        rr = db.query_one(
+            "SELECT ST_AsBinary(ST_Collect(geom_2193)) AS g FROM links "
+            " WHERE snapshot_id=%s AND link_id = ANY(%s)",
+            (snapshot_id, list(route_link_ids)))
+        if rr and rr["g"]:
+            route_geom = wkb.loads(bytes(rr["g"]))
+
+    def _rank_key(x):
+        if route_geom is None:
+            return 0.0
+        from shapely.geometry import Point as _P
+        return route_geom.distance(_P(x.x, x.y))
+
+    found = sorted(found, key=_rank_key)
+
     out = []
     for i, x in enumerate(found):
         # Classified for RANKING only - it never decides anything.
