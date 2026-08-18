@@ -145,7 +145,27 @@ UNRESOLVED = "UNRESOLVED"
 #: Below this the two lines graze rather than cross. Noding a 5-degree
 #: "crossing" between two carriageways of the same road fabricates a turn that
 #: does not exist on the ground.
-TANGENTIAL_ANGLE_DEG = 20.0
+#:
+#: RAISED FROM 20 TO 30 by the blinded review. The 20-30 degree band was
+#: sampled deliberately because it sits next to this threshold, and it came
+#: back 8 confirmed and 8 contradicted - a coin toss. Every one of the eight
+#: failures was two records of ONE road grazing, not two roads meeting. The
+#: 30-60 band scored 17 of 18. The threshold was in the wrong place, and the
+#: only reason that is known is that the sample was drawn to test it.
+TANGENTIAL_ANGLE_DEG = 30.0
+
+#: Two centrelines that stay within this distance of each other for this far
+#: either side of a "crossing" are two records of one road, not two roads.
+#:
+#: The second systematic failure the blinded review found, and the larger one:
+#: eleven of the seventeen AT_GRADE misses were duplicate geometry. Some were
+#: obvious - Paulin Road crossing Paulin Road, Wallson Crescent crossing
+#: Wallson Crescent - but they are DIFFERENT AMDS source features, so
+#: SAME_SOURCE_FEATURE never fired, and several crossed at a healthy angle
+#: where the tangential veto never fired either. Neither an id nor an angle
+#: catches this. The geometry does.
+DUPLICATE_CORRIDOR_M = 8.0
+DUPLICATE_RUN_M = 60.0
 
 #: A crossing this far from a genuine junction still counts as being at one.
 #: A third road ending within a metre of the crossing means the source data
@@ -160,7 +180,13 @@ STRUCTURE_CONTEXT_M = 300.0
 #: structure. Both halves are load-bearing: within 15 m nationally there are
 #: 1,056 structures, but only 599 line up with a road - the other 420 cross
 #: both roads, which is what a river bridge beside a junction looks like.
-STRUCTURE_MATCH_M = 15.0
+#: Widened from 15 m to 25 m by the blinded review. The "structure just outside
+#: the match radius" cell was drawn precisely to test this threshold, and two
+#: of its fifteen were misses - including the only confirmed grade-separated
+#: false positive in the whole sample, SH8 on a truss bridge over a river with
+#: the other road on the bank. Alignment still has to hold, so widening does
+#: not let river bridges beside junctions back in.
+STRUCTURE_MATCH_M = 25.0
 STRUCTURE_ALIGN_DEG = 20.0
 
 #: `modelAssetType` values. Only 1 and 6 matter here.
@@ -211,6 +237,10 @@ class CrossingContext:
     #: crossing itself. A different question, and not one this answers.
     same_source_feature: bool = False
 
+    #: True when the two centrelines run alongside each other either side of
+    #: the crossing: two records of one road, whatever their ids say.
+    duplicate_corridor: bool = False
+
     #: Metres to the nearest LINZ Topo50 bridge or tunnel centreline, and the
     #: angle between that centreline and whichever of the two roads it lines up
     #: with better. `None` when no structure layer was loaded.
@@ -232,7 +262,7 @@ class CrossingContext:
 #:     These MIGHT be two roads meeting - but not in a way a plain graph node
 #:     can express. See `demote_mixed_places`.
 NEVER_NODE_REASONS = frozenset({"TANGENTIAL", "SAME_SOURCE_FEATURE",
-                                "MIXED_PLACE"})
+                                "DUPLICATE_GEOMETRY", "MIXED_PLACE"})
 
 #: How much the classifier is claiming. Reported alongside the disposition,
 #: because two AT_GRADE verdicts are not equally well founded.
@@ -323,6 +353,15 @@ def classify(ctx: CrossingContext) -> Classification:
             UNRESOLVED, "SAME_SOURCE_FEATURE",
             "Both sides come from one AMDS source feature: a road crossing "
             "itself, not two roads meeting.", ev)
+
+    if ctx.duplicate_corridor:
+        return Classification(
+            UNRESOLVED, "DUPLICATE_GEOMETRY",
+            f"The two centrelines stay within {DUPLICATE_CORRIDOR_M:.0f} m of "
+            f"each other for {DUPLICATE_RUN_M:.0f} m either side of this "
+            f"point. That is one road recorded twice, not two roads meeting - "
+            f"and the ids do not say so, because they are different AMDS "
+            f"source features. Noding it would join a road to itself.", ev)
 
     if ctx.angle_deg < TANGENTIAL_ANGLE_DEG:
         return Classification(
@@ -716,6 +755,34 @@ def structure_evidence(p: Point, line_a: LineString, along_a: float,
     return best
 
 
+def is_duplicate_corridor(line_a: LineString, along_a: float,
+                          line_b: LineString, along_b: float,
+                          corridor_m: float = DUPLICATE_CORRIDOR_M,
+                          run_m: float = DUPLICATE_RUN_M) -> bool:
+    """Do these two centrelines describe the same stretch of road?
+
+    Sampled either side of the crossing on BOTH lines, because a short stub
+    joining a long road looks like a duplicate if you only sample the stub.
+    Both directions must stay inside the corridor for the full run, so a road
+    that genuinely diverges after the junction is not caught.
+    """
+    for line, along, other in ((line_a, along_a, line_b),
+                               (line_b, along_b, line_a)):
+        for sign in (-1.0, 1.0):
+            far = along + sign * run_m
+            if far < 0.0 or far > line.length:
+                continue  # too short to judge in this direction
+            ok = True
+            for frac in (0.25, 0.5, 0.75, 1.0):
+                p = line.interpolate(along + sign * run_m * frac)
+                if other.distance(p) > corridor_m:
+                    ok = False
+                    break
+            if ok:
+                return True
+    return False
+
+
 def _fold90(deg: float) -> float:
     """Fold a signed angle difference into 0..90 degrees."""
     d = deg % 180.0
@@ -772,6 +839,8 @@ def build_context(crossing: DetectedCrossing,
         motorway_links_near=near(motorway_tree),
         ramp_links_near=near(ramp_tree),
         same_source_feature=crossing.amds_a == crossing.amds_b,
+        duplicate_corridor=is_duplicate_corridor(
+            geoms[i], crossing.along_a, geoms[j], crossing.along_b),
         structure_dist_m=s_dist,
         structure_align_deg=s_align,
         structure_kind=s_kind,

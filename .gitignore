@@ -43,3 +43,13 @@ venv/
 # Review sheets embed the LINZ Basemaps API key in every tile URL.
 # Generate them locally with scratch/review_sheets.py; never commit them.
 scratch/review/
+
+# Probe caches: raw service payloads, re-fetchable by the scripts beside them.
+scratch/_*
+
+# Derived: 10.9 MB, regenerable exactly. See classified-manifest.json.
+docs/audits/at-grade-crossings/classified.jsonl
+
+# Blinded review pack: same reason as scratch/review/ - the tile URLs carry
+# the LINZ Basemaps API key. Regenerate with scratch/blind_review.py build.
+scratch/blind/

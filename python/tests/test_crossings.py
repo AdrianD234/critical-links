@@ -270,7 +270,18 @@ class TestTheThirdCategoryIsNotSilent:
 
 
 class TestTangentialCrossingsAreRefused:
-    """Two carriageways of one road grazing each other is not a junction."""
+    """Two carriageways of one road grazing each other is not a junction.
+
+    Both vetoes were moved by the BLINDED review, which is the only reason
+    either is where it is:
+
+      * the tangential threshold went from 20 to 30 degrees, because the 20-30
+        band came back 8 confirmed and 8 contradicted;
+      * DUPLICATE_GEOMETRY was added, because eleven of the seventeen AT_GRADE
+        misses were one road recorded twice - under DIFFERENT source ids, so
+        SAME_SOURCE_FEATURE never saw them, and several at a healthy angle, so
+        the tangential veto never saw them either.
+    """
 
     def test_a_four_degree_crossing_is_never_cut(self):
         res = split_at_junctions([
@@ -280,7 +291,9 @@ class TestTangentialCrossingsAreRefused:
                 rca_code=74),
         ], crossing_policy="possible")
         assert len(res.crossings) == 1
-        assert res.crossings[0].classification.reason == "TANGENTIAL"
+        # These two run alongside each other, so the duplicate rule catches it
+        # before the angle does. Either way it must never be noded.
+        assert res.crossings[0].classification.reason == "DUPLICATE_GEOMETRY"
         assert res.crossings[0].classification.safe_to_node is False
         # Not even under POSSIBLE. UNRESOLVED gets connected there only where
         # "it is really a junction" is a live hypothesis, and two carriageways
@@ -288,6 +301,52 @@ class TestTangentialCrossingsAreRefused:
         # of one.
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
+
+    def test_a_25_degree_crossing_is_now_refused(self):
+        """Inside the band the blinded review found to be a coin toss. Two
+        lines that diverge, so DUPLICATE_GEOMETRY does not apply and the angle
+        veto has to do the work on its own."""
+        import math
+        d = 2000 * math.tan(math.radians(25))
+        res = split_at_junctions([
+            src("A", [(-2000, 0), (2000, 0)], model_asset_type=1, oneway=2,
+                rca_code=74),
+            src("B", [(-2000, -d), (2000, d)], model_asset_type=1, oneway=2,
+                rca_code=74),
+        ], crossing_policy="possible")
+        assert res.crossings[0].classification.reason == "TANGENTIAL"
+        assert res.crossing_cuts == 0
+
+    def test_a_35_degree_crossing_is_still_accepted(self):
+        import math
+        d = 2000 * math.tan(math.radians(35))
+        res = split_at_junctions([
+            src("A", [(-2000, 0), (2000, 0)], model_asset_type=1, oneway=2,
+                rca_code=74),
+            src("B", [(-2000, -d), (2000, d)], model_asset_type=1, oneway=2,
+                rca_code=74),
+        ])
+        assert res.crossings[0].disposition == crossings.AT_GRADE
+        assert res.crossing_cuts == 1
+
+    def test_one_road_recorded_twice_is_never_noded(self):
+        """Paulin Road crossing Paulin Road: different source features, a
+        crossing angle that passes every other test, and the same tarmac."""
+        res = split_at_junctions([
+            src("PAULIN_A", [(0, 0), (500, 3), (1000, 0)], model_asset_type=1,
+                oneway=2, rca_code=74, road_name="Paulin Road"),
+            src("PAULIN_B", [(0, 3), (500, 0), (1000, 3)], model_asset_type=1,
+                oneway=2, rca_code=74, road_name="Paulin Road"),
+        ], crossing_policy="possible")
+        assert res.crossings
+        assert all(c.classification.reason == "DUPLICATE_GEOMETRY"
+                   for c in res.crossings)
+        assert res.crossing_cuts == 0
+
+    def test_a_real_crossroads_is_not_mistaken_for_a_duplicate(self):
+        res = split_at_junctions(RURAL_GRID)
+        assert res.crossings[0].classification.reason == "ORDINARY_CROSSROADS"
+        assert res.crossing_cuts == 1
 
 
 class TestClassifierIsPure:
@@ -545,6 +604,55 @@ class TestTheAuditCatchesAnInventedMovement:
         violations = audit_no_invented_movements(forced)
         assert len(violations) == 1
         assert "MOTORWAY" in violations[0] and "LOCAL" in violations[0]
+
+
+class TestTheClusteringRadiusNeverDrivesNoding:
+    """The radius groups a review display. It must not decide topology.
+
+    Two properties are pinned here because getting either wrong turns an audit
+    convention into a source of graph errors.
+    """
+
+    def test_cuts_land_on_the_exact_crossing_point(self):
+        """Every cut coordinate is the intersection itself, never a cluster
+        centroid or a snapped grid position."""
+        res = split_at_junctions(RURAL_GRID)
+        x = res.crossings[0]
+        gd = [l for l in res.links if l.closure_group_id == "GREENDALE"]
+        cl = [l for l in res.links if l.closure_group_id == "CLINTONS"]
+        touching = [c for link in gd + cl for c in (link.coords[0], link.coords[-1])]
+        assert any(abs(cx - x.x) < 1e-9 and abs(cy - x.y) < 1e-9
+                   for cx, cy in touching)
+
+    def test_mixedness_is_monotone_in_the_radius(self):
+        """Merging clusters can only ADD disagreement, never remove it. So a
+        place mixed at 5 m is necessarily inside a place mixed at 25 m, and
+        clustering wider withdraws a superset. That is why the wider radius is
+        the conservative choice and why 'mixed at 5 m but clean at 25 m'
+        cannot happen."""
+        pts = [(0.0, 0.0), (8.0, 0.0), (60.0, 0.0), (63.0, 0.0)]
+        dispositions = ["AT_GRADE", "GRADE_SEPARATED", "AT_GRADE", "AT_GRADE"]
+
+        def mixed_places(eps: float) -> set[frozenset[str]]:
+            labels = crossings.cluster(pts, eps_m=eps)
+            groups: dict[int, set[str]] = {}
+            for lab, d in zip(labels, dispositions):
+                groups.setdefault(lab, set()).add(d)
+            return {frozenset(g) for g in groups.values() if len(g) > 1}
+
+        narrow = mixed_places(5.0)
+        wide = mixed_places(25.0)
+        widest = mixed_places(100.0)
+        assert narrow == set()          # 0 and 8 are 8 m apart: separate at 5 m
+        assert wide != set()            # they merge at 25 m, and disagree
+        assert len(widest) >= len(wide)
+
+    def test_a_place_mixed_at_any_radius_is_withdrawn(self):
+        """The implementation clusters at 25 m, which by the property above
+        detects a superset of what a narrower radius would."""
+        res = split_at_junctions(
+            TestAMixedInterchangeInventsNoMovement.CLUSTER)
+        assert res.crossing_cuts == 0
 
 
 class TestPairsAreNotPlaces:

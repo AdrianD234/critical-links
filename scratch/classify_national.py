@@ -78,7 +78,37 @@ def main() -> int:
         print(f"  {d:<16} {reason:<26} {n:>6}  {100.0*n/len(rows):5.1f}%")
 
     # --- the same thing counted as PLACES, not pairs ----------------------
+    #
+    # The radius is an AUDIT CONVENTION for grouping a review display. It never
+    # drives noding: every cut is made at its own exact crossing point, for its
+    # own specific source pair. All the radius does is decide which crossings
+    # are considered "the same interchange" when checking for disagreement.
+    #
+    # 25 m was chosen because it is wide enough to hold one physical
+    # intersection of two divided carriageways - four crossing points spread
+    # over 20-30 m - and narrower than an urban block, so two genuinely
+    # separate junctions do not merge.
+    #
+    # Reporting several radii makes the sensitivity of that choice visible
+    # rather than hiding it behind one number.
     pts = [(float(r["px"]), float(r["py"])) for r, _ in results]
+    print()
+    print("=== places, by clustering radius (an audit convention, not "
+          "topology identity) ===")
+    for eps in (5.0, 10.0, 25.0, 50.0):
+        lab = crossings.cluster(pts, eps_m=eps)
+        pd: dict[int, set[str]] = collections.defaultdict(set)
+        for (r, c), L in zip(results, lab):
+            pd[L].add(c.disposition)
+        mixed = sum(1 for ds in pd.values() if len(ds) > 1)
+        print(f"  {eps:5.0f} m: {len(pd):>6} places, {mixed:>4} mixed "
+              f"({100.0*mixed/len(pd):4.1f}%)")
+    print("  Mixedness is MONOTONE in the radius: merging clusters can only "
+          "add disagreement, never remove it. So a place that is mixed at 5 m "
+          "is necessarily inside a place that is mixed at 25 m, and clustering "
+          "at the wider radius withdraws a SUPERSET. 25 m is the conservative "
+          "choice, not a convenient one.")
+
     labels = crossings.cluster(pts, eps_m=25.0)
     place_disp: dict[int, set[str]] = collections.defaultdict(set)
     for (r, c), lab in zip(results, labels):
