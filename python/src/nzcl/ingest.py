@@ -1058,12 +1058,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument(
         "--crossing-policy", choices=list(CROSSING_POLICIES),
-        default="confirmed",
-        help="which interior crossings to node. 'confirmed' (the default) "
-             "nodes AT_GRADE only and is the canonical graph. 'possible' also "
-             "nodes UNRESOLVED and is a SENSITIVITY INSTRUMENT - never publish "
-             "a route from it. 'none' reproduces the pre-2.1.0 rule, for "
-             "measuring the difference.")
+        default=CANONICAL_CROSSING_POLICY,
+        help="which interior crossings to node. 'evidence' (the default) is "
+             "the canonical graph: a crossing is noded only where a reviewed, "
+             "evidence-backed override authorises it, and the classifier "
+             "decides nothing. 'confirmed' and 'possible' let the CLASSIFIER "
+             "cut and are RESEARCH policies - `split_at_junctions` refuses "
+             "them without research=True, which this command never passes. "
+             "'none' reproduces the pre-2.1.0 rule, for measuring the "
+             "difference.")
     args = ap.parse_args(argv)
 
     db.migrate()
