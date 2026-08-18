@@ -1,0 +1,14 @@
+{
+  "file": "classified-v2.jsonl",
+  "why_not_committed": "Derived data, 13.0 MB, reproducible exactly from committed code plus the snapshot id below. Same convention as classified-manifest.json: kept out of git so the topology change stays readable, kept verifiable by the sha256 here.",
+  "sha256": "34cc50932627b8005c4dad726cbc218f9f2beee926b262a98fcf968cd0d50b9b",
+  "bytes": 13049701,
+  "rows": 22062,
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "regenerate": "cd python && PYTHONPATH=src python ../scratch/classify_national_v2.py ../docs/audits/at-grade-crossings",
+  "prerequisites": [
+    "an ingested national snapshot in PostGIS",
+    "scratch/load_topo50_structures.py (populates ext_structures)"
+  ],
+  "note": "The row count is CROSSING POINTS between SOURCE FEATURES, which is what topology.split_at_junctions classifies. It is not comparable to classified.jsonl's row count: that file counted crossing PAIRS of graph LINKS. See classification-summary-v2.json."
+}

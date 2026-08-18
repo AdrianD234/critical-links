@@ -1,0 +1,43 @@
+{
+  "n": 40,
+  "agreed": 38,
+  "rawAgreement": 0.95,
+  "expectedByChance": 0.6737500000000001,
+  "cohensKappa": 0.8467432950191569,
+  "agreementLower95": 0.834958291820748,
+  "agreementUpper95": 0.9861796228538989,
+  "labels": [
+    "at_grade",
+    "grade_separated",
+    "not_a_junction",
+    "unclear"
+  ],
+  "disagreements": [
+    {
+      "code": "H001",
+      "pass1": "not_a_junction",
+      "pass2": "at_grade",
+      "linkA": 83156,
+      "linkB": 83590,
+      "nameA": "Council Place Loop",
+      "nameB": "Council Place Loop",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "cell": "same_name_not_dup",
+      "note2": ""
+    },
+    {
+      "code": "H107",
+      "pass1": "grade_separated",
+      "pass2": "not_a_junction",
+      "linkA": 2248,
+      "linkB": 184707,
+      "nameA": "State Highway 1",
+      "nameB": null,
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "cell": "gs_motorway",
+      "note2": ""
+    }
+  ]
+}

@@ -1,0 +1,448 @@
+{
+  "pack": "holdout",
+  "seed": "at-grade-holdout-2026-08-18",
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "cards": 248,
+  "independence": {
+    "excludedByLinkPair": 288,
+    "excludedAsNearNeighbourWithin50m": 152,
+    "eligiblePool": 12616,
+    "why": "The 208-card pack is development data: the 30-degree tangential threshold and the DUPLICATE_GEOMETRY rule were both derived from it. Excluding its pairs alone would still admit a neighbouring pair at the same physical intersection, so everything within 50 m of a development card was removed too."
+  },
+  "byDisposition": {
+    "AT_GRADE": {
+      "n": 196,
+      "confirmed": 189,
+      "contradicted": 3,
+      "unreviewable": 4,
+      "lower95_unreviewableAsFailures": 92.8,
+      "lower95_unreviewableExcluded": 95.5
+    },
+    "GRADE_SEPARATED": {
+      "n": 24,
+      "confirmed": 15,
+      "contradicted": 9,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 42.7,
+      "lower95_unreviewableExcluded": 42.7
+    },
+    "UNRESOLVED": {
+      "n": 28,
+      "confirmed": 28,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 87.9,
+      "lower95_unreviewableExcluded": 87.9
+    }
+  },
+  "atGradeByRule": {
+    "JUNCTION_WITNESS": {
+      "n": 12,
+      "confirmed": 11,
+      "contradicted": 0,
+      "unreviewable": 1,
+      "lower95_unreviewableAsFailures": 64.6,
+      "lower95_unreviewableExcluded": 74.1
+    },
+    "ORDINARY_CROSSROADS": {
+      "n": 184,
+      "confirmed": 178,
+      "contradicted": 3,
+      "unreviewable": 3,
+      "lower95_unreviewableAsFailures": 93.1,
+      "lower95_unreviewableExcluded": 95.2
+    }
+  },
+  "atGradeByCell": {
+    "angle_30_40": {
+      "n": 22,
+      "confirmed": 20,
+      "contradicted": 1,
+      "unreviewable": 1,
+      "lower95_unreviewableAsFailures": 72.2,
+      "lower95_unreviewableExcluded": 77.3
+    },
+    "angle_40_60": {
+      "n": 16,
+      "confirmed": 16,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 80.6,
+      "lower95_unreviewableExcluded": 80.6
+    },
+    "angle_60_80": {
+      "n": 16,
+      "confirmed": 16,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 80.6,
+      "lower95_unreviewableExcluded": 80.6
+    },
+    "angle_80_90": {
+      "n": 20,
+      "confirmed": 20,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 83.9,
+      "lower95_unreviewableExcluded": 83.9
+    },
+    "imagery_older": {
+      "n": 14,
+      "confirmed": 13,
+      "contradicted": 1,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 68.5,
+      "lower95_unreviewableExcluded": 68.5
+    },
+    "imagery_unknown": {
+      "n": 2,
+      "confirmed": 2,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 34.2,
+      "lower95_unreviewableExcluded": 34.2
+    },
+    "junction_witness": {
+      "n": 12,
+      "confirmed": 11,
+      "contradicted": 0,
+      "unreviewable": 1,
+      "lower95_unreviewableAsFailures": 64.6,
+      "lower95_unreviewableExcluded": 74.1
+    },
+    "rural": {
+      "n": 14,
+      "confirmed": 14,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 78.5,
+      "lower95_unreviewableExcluded": 78.5
+    },
+    "same_name_not_dup": {
+      "n": 14,
+      "confirmed": 12,
+      "contradicted": 1,
+      "unreviewable": 1,
+      "lower95_unreviewableAsFailures": 60.1,
+      "lower95_unreviewableExcluded": 66.7
+    },
+    "state_highway": {
+      "n": 12,
+      "confirmed": 12,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 75.7,
+      "lower95_unreviewableExcluded": 75.7
+    },
+    "structure_near": {
+      "n": 16,
+      "confirmed": 15,
+      "contradicted": 0,
+      "unreviewable": 1,
+      "lower95_unreviewableAsFailures": 71.7,
+      "lower95_unreviewableExcluded": 79.6
+    },
+    "unnamed_both": {
+      "n": 12,
+      "confirmed": 12,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 75.7,
+      "lower95_unreviewableExcluded": 75.7
+    },
+    "unsealed_access": {
+      "n": 14,
+      "confirmed": 14,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 78.5,
+      "lower95_unreviewableExcluded": 78.5
+    },
+    "urban": {
+      "n": 12,
+      "confirmed": 12,
+      "contradicted": 0,
+      "unreviewable": 0,
+      "lower95_unreviewableAsFailures": 75.7,
+      "lower95_unreviewableExcluded": 75.7
+    }
+  },
+  "promotionGate": {
+    "met": false,
+    "requiresAllOf": [
+      "zeroConfirmedGradeSeparatedFalsePositives",
+      "zeroConfirmedNotAJunctionFalsePositives",
+      "lowerBound95OnAtGradePrecision",
+      "unreviewableCountedAsFailures"
+    ],
+    "conditions": [
+      {
+        "name": "zeroConfirmedGradeSeparatedFalsePositives",
+        "requirement": "must be 0",
+        "observed": 0,
+        "met": true,
+        "why": "an AT_GRADE crossing the reviewer calls grade separated is a node created where one road passes over another: it invents a turn onto a motorway, which is the confident wrong answer the never-node rule existed to prevent"
+      },
+      {
+        "name": "zeroConfirmedNotAJunctionFalsePositives",
+        "requirement": "must be 0",
+        "observed": 3,
+        "met": false,
+        "why": "an AT_GRADE crossing the reviewer calls not-a-junction is usually one road recorded twice; noding it joins a road to itself and fabricates a cycle, a shortcut or a turn that is not on the ground"
+      },
+      {
+        "name": "lowerBound95OnAtGradePrecision",
+        "requirement": "must be >= 97%",
+        "observed": 92.8,
+        "met": false,
+        "why": "AT_GRADE is the only disposition that changes the canonical graph, so its precision is the number that governs whether the classifier may rebuild it"
+      },
+      {
+        "name": "unreviewableCountedAsFailures",
+        "requirement": "the bound above must be computed with unreviewable cards counted as failures",
+        "observed": {
+          "unreviewable": 4,
+          "lowerBoundCountingThemAsFailures": 92.8,
+          "lowerBoundExcludingThem": 95.5
+        },
+        "met": true,
+        "why": "a card the reviewer could not read is not evidence that the classifier was right; excluding them measures precision on the subset that was easiest to see, which is the subset least likely to hold the errors. Recorded as met because it describes HOW the bound above was computed - it is a property of the method, not of the result"
+      }
+    ],
+    "detail": "n=196: 189 confirmed, 3 contradicted, 4 unreviewable. Lower 95% bound 92.8% counting unreviewable as failures, 95.5% excluding them. NOT MET: zeroConfirmedNotAJunctionFalsePositives, lowerBound95OnAtGradePrecision.",
+    "falsePositiveCodes": {
+      "gradeSeparated": [],
+      "notAJunction": [
+        "H001",
+        "H040",
+        "H192"
+      ]
+    },
+    "counts": {
+      "confirmed": 189,
+      "contradicted": 3,
+      "unreviewable": 4
+    },
+    "supersedes": "an earlier block that encoded only confirmedGradeSeparatedFalsePositives and reported met: true. The agreed gate was always both conditions; the counts were right and the verdict drawn from them was not."
+  },
+  "contradictions": [
+    {
+      "code": "H001",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 83156,
+      "linkB": 83590,
+      "nameA": "Council Place Loop",
+      "nameB": "Council Place Loop",
+      "angleDeg": 31.56,
+      "cell": "same_name_not_dup",
+      "verdict": "not_a_junction",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H040",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 278923,
+      "linkB": 279112,
+      "nameA": "Hansen Road",
+      "nameB": "Hansen Road",
+      "angleDeg": 31.39,
+      "cell": "angle_30_40",
+      "verdict": "not_a_junction",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H067",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 90680,
+      "linkB": 361353,
+      "nameA": "Ruahine Street",
+      "nameB": null,
+      "angleDeg": 89.86,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H099",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 3196,
+      "linkB": 17894,
+      "nameA": "Cambridge Road (West Bound)",
+      "nameB": "Mccracken Avenue",
+      "angleDeg": 89.67,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H109",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 6102,
+      "linkB": 270215,
+      "nameA": "Dee Street West (Sh6)",
+      "nameB": "Louisa Street",
+      "angleDeg": 89.89,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H114",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 170,
+      "linkB": 242546,
+      "nameA": "State Highway 3 Interchange 401 Roundabout",
+      "nameB": "Liffiton Street (By Pass)",
+      "angleDeg": 88.48,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H121",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "RAMP",
+      "linkA": 3140,
+      "linkB": 8882,
+      "nameA": "State Highway 59",
+      "nameB": "State Highway 59",
+      "angleDeg": 57.7,
+      "cell": "gs_other",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H134",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 4559,
+      "linkB": 182013,
+      "nameA": "State Highway 20",
+      "nameB": "Oakley Avenue",
+      "angleDeg": 62.02,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H192",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 82774,
+      "linkB": 327541,
+      "nameA": "Ngaio Road",
+      "nameB": null,
+      "angleDeg": 87.25,
+      "cell": "imagery_older",
+      "verdict": "not_a_junction",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H221",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "CONNECTOR",
+      "linkA": 84049,
+      "linkB": 138202,
+      "nameA": "North Street",
+      "nameB": null,
+      "angleDeg": 88.45,
+      "cell": "gs_other",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H232",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "MOTORWAY_CARRIAGEWAY",
+      "linkA": 5863,
+      "linkB": 270508,
+      "nameA": "Clyde Street East (Sh1)",
+      "nameB": "Forth Street",
+      "angleDeg": 89.48,
+      "cell": "gs_motorway",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    },
+    {
+      "code": "H244",
+      "disposition": "GRADE_SEPARATED",
+      "reason": "STRUCTURE_MAPPED",
+      "linkA": 227602,
+      "linkB": 230259,
+      "nameA": null,
+      "nameB": "River Road",
+      "angleDeg": 80.71,
+      "cell": "gs_structure",
+      "verdict": "at_grade",
+      "duplicateCorridor": false
+    }
+  ],
+  "unreviewable": [
+    {
+      "code": "H016",
+      "disposition": "AT_GRADE",
+      "reason": "JUNCTION_WITNESS",
+      "linkA": 274230,
+      "linkB": 275488,
+      "cell": "junction_witness"
+    },
+    {
+      "code": "H029",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 111759,
+      "linkB": 112452,
+      "cell": "angle_30_40"
+    },
+    {
+      "code": "H144",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 250743,
+      "linkB": 252086,
+      "cell": "structure_near"
+    },
+    {
+      "code": "H185",
+      "disposition": "AT_GRADE",
+      "reason": "ORDINARY_CROSSROADS",
+      "linkA": 34640,
+      "linkB": 34659,
+      "cell": "same_name_not_dup"
+    }
+  ],
+  "readingTheNumbers": "The pack is STRATIFIED and deliberately over-weights the cells most likely to fail - the band just above the tangential threshold, structures just outside the match radius, same-named roads that DUPLICATE_GEOMETRY did not catch, unsealed access roads. So these are PERFORMANCE ON A DELIBERATELY DIFFICULT, STRATIFIED HOLDOUT. This is not a probability sample and is not an estimate or formal lower bound on national precision. The Wilson bound applies to this holdout reviewed cases, not to a nationally weighted population.",
+  "spread": {
+    "northingSpanKm": 1269.0,
+    "occupied200kmNorthingBands": 7,
+    "distinctRoadControllingAuthorities": 50,
+    "perAuthorityCap": 23,
+    "topAuthorities": {
+      "Land Information New Zealand": 31,
+      "Waka Kotahi NZ Transport Agency": 29,
+      "Auckland Transport": 28,
+      "Manawatu District Council": 17,
+      "unknown": 16,
+      "Ashburton District Council": 14,
+      "Palmerston North City Council": 11,
+      "Selwyn District Council": 8
+    },
+    "imageryYear": {
+      "2019": 1,
+      "2022": 22,
+      "2023": 11,
+      "2024": 62,
+      "2025": 123,
+      "2026": 27,
+      "None": 2
+    },
+    "note": "The per-authority cap exists so the biggest councils do not supply every cell; without it the pack measures Auckland rather than New Zealand."
+  },
+  "retractedClaim": "This field previously called the figures a conservative floor. That was not established and is withdrawn. A floor is a claim about the POPULATION - it says national precision is at least this - and it needs the strata to be a probability sample with population weights. These cells overlap, they were chosen for being hard, and no weights exist. Over-weighting hard cases makes a number likely to be pessimistic; it does not make it a bound."
+}

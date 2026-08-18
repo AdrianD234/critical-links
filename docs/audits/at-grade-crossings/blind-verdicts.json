@@ -1,0 +1,17 @@
+{
+  "pass": 1,
+  "method": "Blinded. Each card showed LINZ aerial imagery at zoom 18, both AMDS centrelines (link A red, link B cyan), the crossing point in yellow, a card code, the two link ids and the two road names. The classifier's disposition and deciding rule were NOT shown; they live in answer-key.json and were joined only after every verdict below was written. Card order was randomised across strata with seed 'at-grade-blinded-review-1'.",
+  "reviewer": "single reviewer (the model), one pass. NOT independent human ground truth: it is a model-assisted visual review by the same agent that wrote the classifier, blinded to the classifier's answer but not a separate party. Pass 2 in blind-verdicts-recode.json double-codes a subset to measure consistency.",
+  "legend": {"a": "at_grade", "g": "grade_separated", "n": "not_a_junction", "u": "unclear"},
+  "verdicts": "C001 a C002 a C003 a C004 g C005 a C006 a C007 a C008 a C009 a C010 a C011 a C012 u C013 a C014 a C015 g C016 a C017 u C018 a C019 a C020 a C021 a C022 a C023 a C024 a C025 a C026 n C027 a C028 u C029 a C030 a C031 a C032 a C033 a C034 a C035 a C036 a C037 a C038 a C039 g C040 g C041 a C042 n C043 a C044 g C045 a C046 a C047 a C048 a C049 a C050 g C051 a C052 n C053 a C054 a C055 a C056 a C057 g C058 a C059 g C060 a C061 a C062 g C063 a C064 a C065 a C066 a C067 a C068 a C069 a C070 a C071 a C072 a C073 a C074 g C075 a C076 a C077 a C078 a C079 a C080 a C081 a C082 n C083 u C084 a C085 a C086 a C087 n C088 a C089 a C090 a C091 n C092 a C093 a C094 a C095 a C096 a C097 a C098 a C099 a C100 g C101 g C102 a C103 a C104 g C105 n C106 a C107 a C108 a C109 g C110 a C111 g C112 a C113 a C114 a C115 a C116 a C117 u C118 n C119 a C120 n C121 a C122 a C123 n C124 a C125 a C126 n C127 a C128 a C129 a C130 a C131 a C132 a C133 a C134 g C135 a C136 a C137 n C138 a C139 g C140 g C141 a C142 a C143 a C144 a C145 a C146 n C147 a C148 a C149 a C150 a C151 a C152 a C153 a C154 a C155 a C156 a C157 a C158 n C159 a C160 a C161 a C162 a C163 a C164 n C165 a C166 a C167 a C168 n C169 a C170 a C171 a C172 a C173 a C174 a C175 a C176 a C177 n C178 a C179 a C180 a C181 a C182 g C183 a C184 a C185 a C186 a C187 a C188 a C189 a C190 a C191 a C192 a C193 a C194 a C195 n C196 g C197 a C198 a C199 a C200 a C201 a C202 a C203 a C204 a C205 a C206 a C207 g C208 a",
+  "notesOnHardCases": {
+    "C012": "red centreline runs through back sections; no road visible on the ground",
+    "C017": "open grass beside a motorway; no road at either line",
+    "C028": "lines cross in a riverbed; no formed road visible at the marker",
+    "C083": "red centreline crosses back sections",
+    "C117": "road and rail corridor; a rail bridge is present and the imagery does not settle which line is on it",
+    "C030": "Arnold Road against Arnold Road (Beyond The Peg) - two named parts of one road meeting end to end; judged at grade because a vehicle passes through",
+    "C062": "SH8 on a truss bridge over a river, the other line on the bank",
+    "C101": "cyan on the Dublin Street Bridge, red passing beneath"
+  }
+}

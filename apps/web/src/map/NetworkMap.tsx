@@ -32,7 +32,12 @@ import {
   mergeRouteToLineString,
   revealGradient,
 } from './route.js';
-import { palette } from '../styles/palette.js';
+import {
+  ROUTE_TARGETS,
+  otherTarget,
+  routeTarget,
+  type PossibleProvenance,
+} from './routeTarget.js';
 import { api } from '../api/client.js';
 
 export interface HoverInfo {
@@ -50,6 +55,14 @@ export interface MapResult {
   closure: GeoJSON.FeatureCollection | null;
   /** The focused direction's route, in path order. */
   focus: GeoJSON.FeatureCollection | null;
+  /**
+   * Set when `focus` was found on the POSSIBLE graph, and null otherwise.
+   *
+   * The map never interprets it. It is handed straight to `routeTarget`, which
+   * is the only thing in this application that decides how a route is drawn —
+   * see routeTarget.ts for why that has to be one place.
+   */
+  focusProvenance?: PossibleProvenance | null;
   /** The other direction, drawn dashed for comparison. */
   compare: GeoJSON.FeatureCollection | null;
   corridor: GeoJSON.FeatureCollection | null;
@@ -283,13 +296,23 @@ export default function NetworkMap({
       map.addSource(SRC.corridor, { type: 'geojson', data: emptyCollection() });
       map.addSource(SRC.stranded, { type: 'geojson', data: emptyCollection() });
 
-      /* lineMetrics is what makes `line-progress` — and therefore the reveal —
-       * exist at all. It cannot be enabled after the fact. */
-      map.addSource(SRC.routeFocus, {
-        type: 'geojson',
-        data: emptyCollection(),
-        lineMetrics: true,
-      });
+      /*
+       * One source per route target — canonical and speculative — created
+       * from the same list the drawing decision is made from, so a target can
+       * never exist as a choice without a source behind it.
+       *
+       * lineMetrics is what makes `line-progress`, and therefore the reveal,
+       * exist at all, and it cannot be enabled after the fact. It follows the
+       * target's own `animated`: the speculative layer is dashed and MapLibre
+       * will not put a gradient on it, so metrics there would be dead weight.
+       */
+      for (const t of ROUTE_TARGETS) {
+        map.addSource(t.source, {
+          type: 'geojson',
+          data: emptyCollection(),
+          lineMetrics: t.animated,
+        });
+      }
 
       for (const l of OVERLAY_LAYERS) map.addLayer(l);
 
@@ -388,11 +411,11 @@ export default function NetworkMap({
       for (const id of [
         SRC.closure,
         SRC.closureLabel,
-        SRC.routeFocus,
         SRC.routeCompare,
         SRC.routeHit,
         SRC.corridor,
         SRC.stranded,
+        ...ROUTE_TARGETS.map((t) => t.source),
       ]) {
         src(id)?.setData(emptyCollection());
       }
@@ -420,19 +443,33 @@ export default function NetworkMap({
     const merged = mergeRouteToLineString(result.focus);
     gapsRef.current = merged.hasGaps;
 
-    src(SRC.routeFocus)?.setData(
+    /*
+     * WHERE THE ROUTE IS ALLOWED TO BE DRAWN.
+     *
+     * The single call that decides it. A route found on the POSSIBLE graph
+     * gets the speculative source and can never reach the teal layer, because
+     * the teal layer is fed from a source this branch does not touch — and the
+     * one it did not choose is emptied, so a policy change between results
+     * cannot leave a stale route drawn in the wrong colour.
+     */
+    const target = routeTarget(result.focusProvenance);
+    src(otherTarget(target).source)?.setData(emptyCollection());
+
+    src(target.source)?.setData(
       merged.parts.length
         ? { type: 'FeatureCollection', features: merged.parts }
         : emptyCollection(),
     );
 
     /* line-gradient measures progress per feature, so with several parts the
-     * reveal would restart in each one simultaneously. Pin it solid instead. */
-    if (map.getLayer(LYR.routeFocus)) {
+     * reveal would restart in each one simultaneously. Pin it solid instead.
+     * Only on a layer that animates at all: the speculative layer is dashed
+     * and MapLibre rejects a gradient beside a dash array. */
+    if (target.animated && map.getLayer(target.layer)) {
       map.setPaintProperty(
-        LYR.routeFocus,
+        target.layer,
         'line-gradient',
-        revealGradient(palette.route, 1) as never,
+        revealGradient(target.colour, 1) as never,
       );
     }
 
@@ -479,13 +516,20 @@ export default function NetworkMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready.current || !map.getLayer(LYR.routeFocus)) return;
+    if (!map || !ready.current) return;
+
+    /* Same decision, same function. A speculative route reports `animated:
+     * false` and the reveal never runs on it — which is correct twice over: it
+     * is dashed, so a gradient cannot be set at all, and a sensitivity result
+     * has no business arriving with the flourish the published answer gets. */
+    const target = routeTarget(result?.focusProvenance);
+    if (!target.animated || !map.getLayer(target.layer)) return;
 
     const set = (t: number) =>
       map.setPaintProperty(
-        LYR.routeFocus,
+        target.layer,
         'line-gradient',
-        revealGradient(palette.route, t) as never,
+        revealGradient(target.colour, t) as never,
       );
 
     if (!result?.focus?.features?.length) {
@@ -523,7 +567,7 @@ export default function NetworkMap({
     set(0);
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [result?.revealKey, result?.focus, mapReady]);
+  }, [result?.revealKey, result?.focus, result?.focusProvenance, mapReady]);
 
   /* -------------------------------------------------------- layer state */
 

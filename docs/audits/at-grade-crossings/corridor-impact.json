@@ -1,0 +1,451 @@
+{
+  "byRuleWalkOff": {
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY": 453,
+    "UNRESOLVED/CONNECTOR": 36,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED": 1017,
+    "UNRESOLVED/MIXED_PLACE": 1059,
+    "UNRESOLVED/DUPLICATE_GEOMETRY": 9160,
+    "UNRESOLVED/TANGENTIAL": 690,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY": 4007,
+    "UNRESOLVED/MOTORWAY_CONTEXT": 446,
+    "UNRESOLVED/RAMP": 71,
+    "AT_GRADE/ORDINARY_CROSSROADS": 3923,
+    "AT_GRADE/JUNCTION_WITNESS": 1076,
+    "UNRESOLVED/RAMP_CONTEXT": 106,
+    "UNRESOLVED/HEIGHT_LIMIT": 15,
+    "UNRESOLVED/NAMED_ROAD_CLASS": 3
+  },
+  "byRuleWalkOn": {
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY": 452,
+    "UNRESOLVED/CONNECTOR": 35,
+    "UNRESOLVED/DUPLICATE_GEOMETRY": 9830,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED": 1010,
+    "UNRESOLVED/MIXED_PLACE": 946,
+    "UNRESOLVED/TANGENTIAL": 404,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY": 3838,
+    "UNRESOLVED/MOTORWAY_CONTEXT": 441,
+    "UNRESOLVED/RAMP": 69,
+    "AT_GRADE/ORDINARY_CROSSROADS": 3897,
+    "AT_GRADE/JUNCTION_WITNESS": 1017,
+    "UNRESOLVED/RAMP_CONTEXT": 105,
+    "UNRESOLVED/HEIGHT_LIMIT": 15,
+    "UNRESOLVED/NAMED_ROAD_CLASS": 3
+  },
+  "transitions": {
+    "UNRESOLVED/CONNECTOR -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/TANGENTIAL -> UNRESOLVED/DUPLICATE_GEOMETRY": 286,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY -> UNRESOLVED/DUPLICATE_GEOMETRY": 169,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/MIXED_PLACE": 4,
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/RAMP -> UNRESOLVED/DUPLICATE_GEOMETRY": 2,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/DUPLICATE_GEOMETRY": 3,
+    "UNRESOLVED/RAMP_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/MIXED_PLACE -> UNRESOLVED/DUPLICATE_GEOMETRY": 123,
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/DUPLICATE_GEOMETRY": 24,
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/DUPLICATE_GEOMETRY": 55,
+    "UNRESOLVED/MOTORWAY_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": 5,
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/MIXED_PLACE": 4,
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/MIXED_PLACE": 2
+  },
+  "examples": {
+    "UNRESOLVED/CONNECTOR -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1794816.6,
+        "y": 5821635.1,
+        "a": "{109241da-1a80-47e9-b084-488e9223085b}",
+        "b": "{6984768b-0336-4b9d-9721-d88267669315}",
+        "angle": 68.4
+      }
+    ],
+    "UNRESOLVED/TANGENTIAL -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1806029.5,
+        "y": 5812362.8,
+        "a": "{a2bbd88d-5481-4ec5-9fb6-f66ca9490db0}",
+        "b": "{4f5c24aa-7e42-46f0-bcc5-524ceea33ff6}",
+        "angle": 9.3
+      },
+      {
+        "x": 1565905.4,
+        "y": 5178245.1,
+        "a": "{eb9c03f0-f853-41fc-93ef-39e8dc652aef}",
+        "b": "{c66d3adc-6a56-4714-a524-e55397ac2065}",
+        "angle": 16.2
+      },
+      {
+        "x": 1566281.3,
+        "y": 5178102.2,
+        "a": "{51be0290-2fd6-4e19-b534-179bfa99e40c}",
+        "b": "{8b107168-f525-4d33-86f4-2d683bf82589}",
+        "angle": 13.3
+      },
+      {
+        "x": 1934145.7,
+        "y": 5620956.8,
+        "a": "{f1013af8-80e1-4ca5-9f62-9750edeb033d}",
+        "b": "{05021c7b-3432-4f1d-b68a-2e2fdc8b457a}",
+        "angle": 0.2
+      },
+      {
+        "x": 1934147.5,
+        "y": 5620956.5,
+        "a": "{f1013af8-80e1-4ca5-9f62-9750edeb033d}",
+        "b": "{05021c7b-3432-4f1d-b68a-2e2fdc8b457a}",
+        "angle": 0.0
+      },
+      {
+        "x": 1934138.2,
+        "y": 5620956.6,
+        "a": "{f1013af8-80e1-4ca5-9f62-9750edeb033d}",
+        "b": "{05021c7b-3432-4f1d-b68a-2e2fdc8b457a}",
+        "angle": 0.1
+      }
+    ],
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1822170.0,
+        "y": 5529178.5,
+        "a": "{566ec79a-6222-4e32-be16-82971379351e}",
+        "b": "{8a31e2d4-1945-49ca-ba30-6d276a1db2d2}",
+        "angle": 74.2
+      },
+      {
+        "x": 1824553.9,
+        "y": 5530128.8,
+        "a": "{1937a328-7938-4da8-be41-b8c96482927c}",
+        "b": "{8a5fe285-b740-4990-98d5-1971ad8afa4e}",
+        "angle": 68.1
+      },
+      {
+        "x": 1788884.1,
+        "y": 5564708.3,
+        "a": "{69debec8-74b6-4bbf-bc5c-fb8e457040ff}",
+        "b": "{73375e2c-29f6-482c-8dce-97374f81b1a6}",
+        "angle": 87.8
+      },
+      {
+        "x": 1788852.3,
+        "y": 5564751.8,
+        "a": "{69debec8-74b6-4bbf-bc5c-fb8e457040ff}",
+        "b": "{ba60939e-759d-42b1-b79a-9028407837b4}",
+        "angle": 85.1
+      },
+      {
+        "x": 1834174.3,
+        "y": 5537024.5,
+        "a": "{91effd89-467b-4762-9da5-2ca778313c2f}",
+        "b": "{37436b56-d7ab-4047-96d4-c3e4922ff243}",
+        "angle": 86.5
+      },
+      {
+        "x": 1834562.9,
+        "y": 5536244.0,
+        "a": "{1428b7c3-42d2-43e2-86fb-9e46efe011e1}",
+        "b": "{1bbaad8f-7084-4a4d-b2d4-3502c7d7c17e}",
+        "angle": 85.5
+      }
+    ],
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/MIXED_PLACE": [
+      {
+        "x": 1879208.4,
+        "y": 5825460.1,
+        "a": "{dcf4a89c-a6c8-4a8a-8708-464041cad045}",
+        "b": "{ecefa6bb-e94b-492b-be26-156f7c1025a6}",
+        "angle": 30.6
+      },
+      {
+        "x": 1879229.7,
+        "y": 5825464.5,
+        "a": "{82f2bfc5-5754-4927-a50a-7dc2534292e0}",
+        "b": "{0626f576-e80e-4f77-ad6b-16bbcb8bc267}",
+        "angle": 71.3
+      },
+      {
+        "x": 1879225.1,
+        "y": 5825476.8,
+        "a": "{82f2bfc5-5754-4927-a50a-7dc2534292e0}",
+        "b": "{cdcf81a1-145b-449a-89d6-5aeaff346e30}",
+        "angle": 65.1
+      },
+      {
+        "x": 1879234.0,
+        "y": 5825453.1,
+        "a": "{82f2bfc5-5754-4927-a50a-7dc2534292e0}",
+        "b": "{12d5ab94-9c3b-4b69-9f1b-1d52965d9dcf}",
+        "angle": 67.9
+      }
+    ],
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1882863.5,
+        "y": 5826470.7,
+        "a": "{558f9f07-4b06-45e1-9b8a-85abf4009ac9}",
+        "b": "{38380d17-bada-4560-97be-490f19f33748}",
+        "angle": 70.1
+      }
+    ],
+    "UNRESOLVED/RAMP -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1773401.8,
+        "y": 5446290.3,
+        "a": "{fe163c23-34ad-4911-9c2b-b8c8c84900b8}",
+        "b": "{7a95642f-9d7b-4e04-b3de-18265efa851e}",
+        "angle": 89.2
+      },
+      {
+        "x": 1748540.7,
+        "y": 5428182.4,
+        "a": "{15842226-9b51-4bc4-b220-ba2990c65272}",
+        "b": "{418a0c45-7003-48df-8014-009e675ab160}",
+        "angle": 52.4
+      }
+    ],
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1751724.9,
+        "y": 5917239.0,
+        "a": "{3f4bed71-4fb4-40b0-a4ad-cd11c4474562}",
+        "b": "{b8f0d279-13cd-4906-a27e-194484ea36d0}",
+        "angle": 63.1
+      },
+      {
+        "x": 1822342.0,
+        "y": 5531915.7,
+        "a": "{c7274c92-06f1-4ba9-8b3f-af841f05bb89}",
+        "b": "{b9f45677-84b6-4aea-9faa-5d1fdc218537}",
+        "angle": 90.0
+      },
+      {
+        "x": 1841187.7,
+        "y": 5869662.0,
+        "a": "{6c13ce39-751f-4070-aed3-7ddd9d6b04aa}",
+        "b": "{6bb6830f-3251-4915-b787-6e4cf910ac2b}",
+        "angle": 75.7
+      }
+    ],
+    "UNRESOLVED/RAMP_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1782788.6,
+        "y": 5486205.4,
+        "a": "{756701b0-d324-49ff-933b-8592b8e6b7ed}",
+        "b": "{26c431f6-30a1-4880-849f-f34f83d3d7a0}",
+        "angle": 52.3
+      }
+    ],
+    "UNRESOLVED/MIXED_PLACE -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1798357.0,
+        "y": 5823080.3,
+        "a": "{c1562481-4c36-43bb-b9e6-b8f8e9132da9}",
+        "b": "{143456eb-7d7e-41ba-99fe-07a7cd20450b}",
+        "angle": 4.7
+      },
+      {
+        "x": 1798355.0,
+        "y": 5823088.2,
+        "a": "{aa2fe34d-6239-445d-8c4b-fa4a1c442ffa}",
+        "b": "{8984c144-8d32-4c64-8807-4ed013074141}",
+        "angle": 58.5
+      },
+      {
+        "x": 1798362.1,
+        "y": 5823083.1,
+        "a": "{aa2fe34d-6239-445d-8c4b-fa4a1c442ffa}",
+        "b": "{db6dc403-f8c4-44ef-b9f7-8aeabf870887}",
+        "angle": 11.4
+      },
+      {
+        "x": 1798356.8,
+        "y": 5823081.8,
+        "a": "{aa2fe34d-6239-445d-8c4b-fa4a1c442ffa}",
+        "b": "{143456eb-7d7e-41ba-99fe-07a7cd20450b}",
+        "angle": 60.3
+      },
+      {
+        "x": 1795770.6,
+        "y": 5815943.5,
+        "a": "{ad84748d-565d-4e6a-b673-f9c4f8f7a29f}",
+        "b": "{75d444ec-990f-4dee-b9c1-8403a9f6d3cf}",
+        "angle": 71.8
+      },
+      {
+        "x": 1795759.3,
+        "y": 5815957.1,
+        "a": "{76a8e618-e142-4227-97f5-ff2908ff14d2}",
+        "b": "{75d444ec-990f-4dee-b9c1-8403a9f6d3cf}",
+        "angle": 7.4
+      }
+    ],
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1796412.7,
+        "y": 5814672.0,
+        "a": "{7d5935fb-6736-4718-956e-2abf6d8cfe44}",
+        "b": "{bf9d4b17-449d-40cb-9301-bf5f3e54ab7e}",
+        "angle": 79.2
+      },
+      {
+        "x": 1756916.0,
+        "y": 5444379.8,
+        "a": "{c2f0ef29-d37f-4d39-9457-0cdb647b883d}",
+        "b": "{a4fafe70-1830-4e1c-9ec9-eaa4aade371d}",
+        "angle": 67.7
+      },
+      {
+        "x": 1833286.9,
+        "y": 5795732.1,
+        "a": "{9cac6376-7885-465b-aa4d-975e8f9435fa}",
+        "b": "{6e7a9639-9b5a-416e-8576-657b86b84e53}",
+        "angle": 88.1
+      },
+      {
+        "x": 1813280.3,
+        "y": 5806779.9,
+        "a": "{51e14df4-898d-42db-bef1-0076c43279c0}",
+        "b": "{2977da8f-a2eb-4036-b2d6-227f7385bc1a}",
+        "angle": 56.3
+      },
+      {
+        "x": 1410124.3,
+        "y": 4932146.0,
+        "a": "{b9e3678c-1dec-464f-9597-d68947338a45}",
+        "b": "{d32b7cd8-8595-46a4-a1ef-a3a3d5e84454}",
+        "angle": 64.7
+      },
+      {
+        "x": 1807518.3,
+        "y": 5816224.2,
+        "a": "{48cd59f7-5b66-4364-8a52-9cdd41d9949f}",
+        "b": "{262d0d95-ce9b-40ea-8acc-b25437ec09a6}",
+        "angle": 41.9
+      }
+    ],
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1799642.8,
+        "y": 5811994.7,
+        "a": "{7a698fb3-627f-4c0e-9aed-66192dc6b743}",
+        "b": "{f6161036-3243-4c05-9c3b-b3b71fca7e5e}",
+        "angle": 87.6
+      },
+      {
+        "x": 1881027.0,
+        "y": 5817164.8,
+        "a": "{ca4f8f22-3bd2-4a96-aa64-114bcad5b5df}",
+        "b": "{f18d47cb-488b-4267-994e-d47c67affb7f}",
+        "angle": 63.8
+      },
+      {
+        "x": 1798157.8,
+        "y": 5813471.8,
+        "a": "{3961cf64-57fe-45b5-80a3-04082e55e460}",
+        "b": "{e05385d5-5a61-4faa-b8e0-927d87017663}",
+        "angle": 88.9
+      },
+      {
+        "x": 1799000.3,
+        "y": 5822858.4,
+        "a": "{c54c2760-d40d-4fca-af63-14ef7b14a8b0}",
+        "b": "{60bd0d27-b28c-4dd3-8462-04cd89642fb4}",
+        "angle": 56.6
+      },
+      {
+        "x": 1797391.8,
+        "y": 5823167.1,
+        "a": "{4ae4d5c8-ffbc-49d6-9f14-3f931721ecee}",
+        "b": "{60c7c9fc-afd8-4738-b82f-f3914b6a9a47}",
+        "angle": 87.3
+      },
+      {
+        "x": 1813279.9,
+        "y": 5806766.9,
+        "a": "{51e14df4-898d-42db-bef1-0076c43279c0}",
+        "b": "{2977da8f-a2eb-4036-b2d6-227f7385bc1a}",
+        "angle": 86.8
+      }
+    ],
+    "UNRESOLVED/MOTORWAY_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": [
+      {
+        "x": 1801785.7,
+        "y": 5822545.6,
+        "a": "{373e332f-1046-423f-8d74-2afc73857f0d}",
+        "b": "{7f0f926d-f0bc-481a-971b-300ed0382ecf}",
+        "angle": 89.8
+      },
+      {
+        "x": 1801784.8,
+        "y": 5822546.0,
+        "a": "{7f0f926d-f0bc-481a-971b-300ed0382ecf}",
+        "b": "{29b3e21a-baaf-4224-96f0-ae8f285815c1}",
+        "angle": 87.4
+      },
+      {
+        "x": 1824058.9,
+        "y": 5530723.5,
+        "a": "{5d0ed707-f6cb-4763-8acb-0c74465214a1}",
+        "b": "{28af70fd-86bf-4023-8ae5-20a3922b0dec}",
+        "angle": 78.5
+      },
+      {
+        "x": 1842246.6,
+        "y": 5531360.1,
+        "a": "{8639042b-b043-4bcd-bb0f-2fad6227cfea}",
+        "b": "{790a86b5-6e2f-4644-b110-747939d4f4b0}",
+        "angle": 70.6
+      },
+      {
+        "x": 1623886.0,
+        "y": 6115957.1,
+        "a": "{f067a6f4-c79f-4837-944d-c10b257931be}",
+        "b": "{99830a41-0521-44ae-9178-8e532b851108}",
+        "angle": 78.7
+      }
+    ],
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/MIXED_PLACE": [
+      {
+        "x": 1927788.2,
+        "y": 5615429.8,
+        "a": "{b8807fcf-330e-41d3-99d6-1e9e5a36427e}",
+        "b": "{2df183a7-5cd8-4999-ba08-80d30529e281}",
+        "angle": 82.8
+      },
+      {
+        "x": 1927788.2,
+        "y": 5615429.8,
+        "a": "{b8807fcf-330e-41d3-99d6-1e9e5a36427e}",
+        "b": "{a87714ff-b1eb-4e76-86a3-49f56a546047}",
+        "angle": 82.8
+      },
+      {
+        "x": 1840623.3,
+        "y": 5921927.1,
+        "a": "{1f16ed5e-58c0-4a36-b0db-0a4203d8a9e1}",
+        "b": "{bc6a3e3a-8e53-4a61-ba11-59d30c92d68b}",
+        "angle": 74.7
+      },
+      {
+        "x": 1840623.3,
+        "y": 5921927.2,
+        "a": "{1f16ed5e-58c0-4a36-b0db-0a4203d8a9e1}",
+        "b": "{dfd7ce03-b3da-470b-8747-396e2ce159c0}",
+        "angle": 56.9
+      }
+    ],
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/MIXED_PLACE": [
+      {
+        "x": 1787311.6,
+        "y": 5883677.0,
+        "a": "{50f20747-0b4e-4036-ba4e-36ecb7342e96}",
+        "b": "{87429d3f-8cbc-4b70-a478-b7370851b4d0}",
+        "angle": 41.4
+      },
+      {
+        "x": 1787333.5,
+        "y": 5883667.0,
+        "a": "{a92615f7-4215-4175-aae5-d03bb37fde4d}",
+        "b": "{87429d3f-8cbc-4b70-a478-b7370851b4d0}",
+        "angle": 34.5
+      }
+    ]
+  }
+}

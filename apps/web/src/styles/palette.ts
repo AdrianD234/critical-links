@@ -32,6 +32,14 @@ export const palette = {
   compare: '#ffb020',
   stranded: '#ffb020',
   corridor: '#7fb2e0',
+  /*
+   * A route found on the POSSIBLE graph, which assumed that crossings the
+   * classifier could not resolve are junctions. Violet because it must not be
+   * mistaken for any of the four above at a glance — and never teal, because
+   * teal is the canonical replacement path and a sensitivity result must never
+   * be readable as the official answer.
+   */
+  speculative: '#b48cf2',
 } as const;
 
 /** The CSS custom property each key mirrors. Used by the drift test. */
@@ -55,4 +63,5 @@ export const paletteTokenNames: Record<keyof typeof palette, string> = {
   compare: '--compare',
   stranded: '--stranded',
   corridor: '--corridor',
+  speculative: '--speculative',
 };

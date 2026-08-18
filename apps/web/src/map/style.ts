@@ -54,6 +54,9 @@ export const SRC = {
   network: 'network',
   closure: 'closure',
   routeFocus: 'route-focus',
+  /* A route found on the POSSIBLE graph. Its own source, not a paint variant
+   * of routeFocus — see `routeTarget.ts`. */
+  routeSpeculative: 'route-speculative',
   routeCompare: 'route-compare',
   routeHit: 'route-hit',
   corridor: 'corridor',
@@ -76,6 +79,7 @@ export const LYR = {
   stranded: 'stranded-line',
   corridor: 'corridor-line',
   routeCompare: 'route-compare-line',
+  routeSpeculative: 'route-speculative-line',
   routeFocus: 'route-focus-line',
   routeHit: 'route-hit-line',
   closureHalo: 'closure-halo',
@@ -489,6 +493,41 @@ export const OVERLAY_LAYERS: LayerSpecification[] = [
        * keeps a shared corridor readable as two lines rather than one muddy
        * one. */
       'line-offset': 3,
+    },
+  },
+  {
+    /*
+     * A route found on the POSSIBLE graph.
+     *
+     * A SEPARATE SOURCE AND LAYER, not a paint variant of the focused route,
+     * and that separation is the safety property rather than a style choice.
+     * The teal below is the canonical replacement path — the answer this
+     * system publishes. A POSSIBLE-graph route assumed that crossings the
+     * classifier could not resolve are junctions, and it exists to measure
+     * sensitivity, never to be shown as the official route. Sharing one layer
+     * would put that distinction behind a `setPaintProperty` call that any
+     * later edit could drop, and the failure would be silent: a speculative
+     * route drawn in the colour of a verified one.
+     *
+     * Dashed, so it reads as provisional even in a screenshot with no legend.
+     * Dashed also means it can never animate — `line-gradient` and
+     * `line-dasharray` cannot coexist on one MapLibre layer — which is why
+     * `routeTarget` reports this layer as not animated rather than leaving the
+     * caller to discover it.
+     *
+     * Beneath the focused route, so that if both were ever populated at once
+     * the canonical answer would be the one on top. That should not happen:
+     * `routeTarget` chooses exactly one and NetworkMap clears the other.
+     */
+    id: LYR.routeSpeculative,
+    type: 'line',
+    source: SRC.routeSpeculative,
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': palette.speculative,
+      'line-width': 3.4,
+      'line-opacity': 0.9,
+      'line-dasharray': [1.8, 1.4],
     },
   },
   {

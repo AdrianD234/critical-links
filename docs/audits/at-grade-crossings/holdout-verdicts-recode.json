@@ -1,0 +1,55 @@
+{
+  "pass": 2,
+  "pack": "holdout recode",
+  "method": "Double-coding pass over 40 cases drawn from the holdout pack, re-rendered with fresh codes from a different seed, reshuffled, and with ALL identifiers removed: no link ids, no road names, no card codes from pass 1. The mapping lives in recode-key.json and was joined only when agreement was computed.",
+  "reviewerIndependence": "NOT a second person. The same reviewer (the model), a second time, with the cases anonymised and reshuffled. This measures INTRA-rater reliability - test-retest consistency - and not inter-rater agreement. A single coder agreeing with itself is a weaker claim than two coders agreeing, and the number below must not be read as the latter.",
+  "knownBias": "Pass 2 was taken AFTER pass 1 had been scored against the answer key, so the reviewer had already seen that MOTORWAY_CARRIAGEWAY over-calls grade separation on urban arterials. That knowledge can only push pass 2 towards repeating pass 1, so the agreement figure is an UPPER BOUND on this reviewer's true test-retest consistency. Running the recode before scoring would have avoided this and is what a repeat of this exercise should do.",
+  "legend": {
+    "a": "at_grade",
+    "g": "grade_separated",
+    "n": "not_a_junction",
+    "u": "unclear"
+  },
+  "verdicts": "R01 a R02 a R03 a R04 a R05 a R06 a R07 a R08 a R09 a R10 a R11 a R12 a R13 a R14 n R15 g R16 a R17 a R18 a R19 a R20 a R21 a R22 a R23 n R24 a R25 a R26 a R27 a R28 n R29 a R30 g R31 a R32 a R33 a R34 a R35 a R36 g R37 a R38 a R39 a R40 u",
+  "notes": {},
+  "agreement": {
+    "n": 40,
+    "agreed": 38,
+    "rawAgreement": 0.95,
+    "rawAgreement95": [
+      0.835,
+      0.986
+    ],
+    "expectedByChance": 0.674,
+    "cohensKappa": 0.847,
+    "whatKappaIsFor": "Raw agreement flatters any task with one dominant answer: two coders who always said 'at grade' would agree about 90 percent of the time here while demonstrating nothing. Kappa discounts the agreement chance alone would produce. 0.847 is substantial, and it is still only a consistency figure, not an accuracy one."
+  },
+  "adjudications": [
+    {
+      "code": "H001",
+      "linkA": 83156,
+      "linkB": 83590,
+      "names": "Council Place Loop x Council Place Loop",
+      "classifier": "AT_GRADE/ORDINARY_CROSSROADS",
+      "angleDeg": 31.56,
+      "pass1": "not_a_junction",
+      "pass2": "at_grade",
+      "adjudicated": "not_a_junction",
+      "basis": "Re-rendered at zoom 21. It is a car park. Both lines follow the SAME aisle between the parked bays and the building, overlapping from the crossing point northwards before diverging by a couple of metres. That is one aisle recorded twice, not two ways meeting, and noding it would join a road to itself. Pass 1 stands.",
+      "effectOnScore": "None - it remains a contradiction against the classifier. Adjudicating it the other way would have improved the headline figure, which is why the basis is recorded rather than just the conclusion."
+    },
+    {
+      "code": "H107",
+      "linkA": 2248,
+      "linkB": 184707,
+      "names": "State Highway 1 x (unnamed)",
+      "classifier": "GRADE_SEPARATED/MOTORWAY_CARRIAGEWAY",
+      "pass1": "grade_separated",
+      "pass2": "not_a_junction",
+      "adjudicated": "grade_separated",
+      "basis": "Re-rendered at zoom 21. The motorway is on a bridge: the parapet runs along both sides of the deck, and the second road is visible passing underneath at the lower left, with a vehicle on it. Pass 1 stands and the classifier is right here.",
+      "effectOnScore": "None. Both verdicts are accepted for GRADE_SEPARATED, which claims no more than 'not a plain at-grade junction', so this disagreement never affected the score."
+    }
+  ],
+  "adjudicationCaveat": "Both adjudications were made AFTER unblinding, with the classifier's answer visible. That is normal for resolving a disagreement and it is not evidence: the basis recorded above is what the imagery shows, and it is stated so a reader can disagree with it."
+}

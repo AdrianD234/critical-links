@@ -113,6 +113,15 @@
   --stranded: #ffb020;
   --corridor: #7fb2e0;
 
+  /*
+   * A route found on the POSSIBLE graph — the sensitivity graph, which nodes
+   * the crossings the classifier could not resolve. Drawn violet and dashed,
+   * and deliberately NOT `--route`: teal is the canonical replacement path,
+   * and a result that assumed an unverified junction must never be readable
+   * as the official answer.
+   */
+  --speculative: #b48cf2;
+
   /* ------------------------------------------------ semantic: on paper */
 
   /*

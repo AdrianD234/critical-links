@@ -1,0 +1,19 @@
+{
+  "file": "classified.jsonl",
+  "why_not_committed": "Derived data, 13.7 MB, reproducible exactly from committed code plus the snapshot id below. Kept out of git so the topology change is readable; kept verifiable by the sha256 here.",
+  "sha256": "4c4a2e89abbd93b8cc92149ce3f566e651a70b8ac9753fbed5892d03c46398b7",
+  "bytes": 13705296,
+  "rows": 13056,
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "regenerate": "cd python && PYTHONPATH=src python ../scratch/classify_national.py ../docs/audits/at-grade-crossings",
+  "prerequisites": [
+    "scratch/detect_national.sql   (builds scratch_crossings)",
+    "scratch/cluster_national.sql  (builds scratch_xpoints)",
+    "scratch/features_national.sql (builds scratch_features)",
+    "scratch/fix_angle.sql",
+    "scratch/load_topo50_structures.py",
+    "scratch/structure_evidence.sql",
+    "scratch/structure_fix.sql"
+  ],
+  "note": "The row count is CROSSING PAIRS, not places and not intersections. See classification-summary.json for all three numbers."
+}

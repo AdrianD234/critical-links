@@ -44,7 +44,9 @@ from .config import (
 )
 from .geo import nztm_to_lonlat, nztm_to_lonlat_many, polyline_length
 from .speed import assign_speed
-from .topology import SourceLink, assign_nodes, split_at_junctions
+from . import crossings as crossings_mod
+from .topology import (CROSSING_POLICIES, SourceLink, assign_nodes,
+                       audit_no_invented_movements, split_at_junctions)
 
 LINK_FIELDS = [
     "OBJECTID", "amdsIDNetworkModel", "status", "modelAssetType", "oneway",
@@ -291,6 +293,15 @@ def _check_transition_cost(cur, snapshot_id: str) -> int:
 # protection is a timeout rather than a claim about the cause.
 TRANSITION_BUILD_TIMEOUT_MS = 20 * 60 * 1000
 
+#: Which dispositions each crossing policy actually cuts at. Mirrors
+#: `topology._POLICY_DISPOSITIONS`; kept here only so `crossings.noded` can be
+#: recorded without re-deriving it from the geometry.
+_POLICY_HONOURS = {
+    "none": frozenset(),
+    "confirmed": frozenset({"AT_GRADE"}),
+    "possible": frozenset({"AT_GRADE", "UNRESOLVED"}),
+}
+
 
 def _build_transitions(cur, snapshot_id: str) -> None:
     """Build the edge-expanded graph, bounded and instrumented.
@@ -381,7 +392,11 @@ def run(
     analysis_bbox: Bbox | None = None,
     name: str | None = None,
     concurrency: int = 6,
+    crossing_policy: str = "confirmed",
 ) -> str:
+    if crossing_policy not in CROSSING_POLICIES:
+        raise SystemExit(f"--crossing-policy must be one of "
+                         f"{', '.join(CROSSING_POLICIES)}")
     s = get_settings()
     extract: Bbox | None = None
     analysis: Bbox | None = None
@@ -563,12 +578,18 @@ def run(
         number = selection.route_number if selection else None
         if selection:
             flags.extend(selection.notes)
+        # `is_ramp` is needed by the crossing classifier, which runs during
+        # splitting - before `link_names` exists. Taking it from the selection
+        # here is what lets a ramp be recognised as a ramp at the only moment
+        # the decision can be made.
+        is_ramp = bool(selection.is_ramp) if selection else False
 
         seen_amds.add(amds_id)
         sources.append(SourceLink(amds_id=amds_id, coords=coords, attrs={
             "source_object_id": a.get("OBJECTID"),
             "road_name": road_name,
             "road_number": number,
+            "is_ramp": is_ramp,
             "rca_code": a.get("assetOwnerOrganisation"),
             "rca_name": authority_name.get(a.get("amdsIDAuthority")),
             "model_asset_type": a.get("modelAssetType"),
@@ -593,11 +614,46 @@ def run(
 
     # --- 5. split at junctions -------------------------------------------
     print("  splitting links at junctions")
-    split = split_at_junctions(sources)
+    structures = _load_structures(extract)
+    print(f"    {len(structures)} LINZ Topo50 bridge/tunnel centrelines "
+          f"available as structure evidence"
+          if structures else
+          "    NO structure evidence loaded: ext_structures is empty. Run "
+          "scratch/load_topo50_structures.py first, or crossings that ARE on "
+          "a mapped bridge will fall through to weaker rules.")
+    split = split_at_junctions(sources, crossing_policy=crossing_policy,
+                               structures=structures)
     print(f"    {split.parents_split} source links cut at {split.cuts_made} "
           f"junctions, {len(sources)} -> {len(split.links)} links")
     print(f"    {len(split.near_misses)} endpoints within review distance "
           f"but not connected")
+
+    by_disposition: dict[str, int] = {}
+    for x in split.crossings:
+        by_disposition[x.disposition] = by_disposition.get(x.disposition, 0) + 1
+    places = split.crossing_places
+    print(f"    {len(split.crossings)} interior crossings at "
+          f"{len(set(places))} distinct places; "
+          + ", ".join(f"{k} {v}" for k, v in sorted(by_disposition.items())))
+    print(f"    {split.mixed_place_demotions} crossings withdrawn because "
+          f"other crossings at the same place disagreed")
+    print(f"    crossing policy '{crossing_policy}': "
+          f"{split.crossing_cuts} crossings noded")
+
+    # The safety property, asserted rather than reasoned about: nothing that
+    # was left disconnected may have become connected by a coincidence of
+    # coordinates. A violation here is a graph that contains a movement the
+    # road network does not, which is worse than the defect being fixed.
+    violations = audit_no_invented_movements(split)
+    if violations:
+        for v in violations[:20]:
+            print(f"    INVENTED MOVEMENT: {v}", file=sys.stderr)
+        raise SystemExit(
+            f"refusing to load: {len(violations)} crossing(s) left "
+            f"disconnected by the classifier are connected in the graph "
+            f"anyway. See docs/audits/at-grade-crossings/.")
+    print("    no invented movements: every crossing left disconnected by the "
+          "classifier shares no node")
 
     # --- 6. nodes, arcs, components --------------------------------------
     pairs, node_coords = assign_nodes(split.links)
@@ -608,11 +664,15 @@ def run(
     if analysis:
         analysis_poly = shapely.from_wkt(analysis.wkt())
 
+    # `crossing_policy` joins the snapshot-id hash because it changes the
+    # GRAPH, not just a report about it. Two snapshots of identical source
+    # data built under different policies are different networks and must not
+    # be able to collide on an id.
     snapshot_id = "-".join([
         "amds", area, retrieved.date().isoformat(),
         hashlib.sha256(
             (dl.sha256 + LINK_WHERE + json.dumps(ext or {}, sort_keys=True)
-             + PROCESSING_VERSION).encode()
+             + PROCESSING_VERSION + crossing_policy).encode()
         ).hexdigest()[:8],
     ])
 
@@ -642,6 +702,15 @@ def run(
         "AMDS publishes no speed attribute; speeds are estimated "
         "(see nzcl/speed.py)"
     )
+    notes.append(
+        f"interior crossings: {len(split.crossings)} pairs at "
+        f"{len(set(places))} distinct places; "
+        + ", ".join(f"{k} {v}" for k, v in sorted(by_disposition.items()))
+        + f". Crossing policy '{crossing_policy}' noded "
+          f"{split.crossing_cuts} of them. GRADE_SEPARATED and UNRESOLVED are "
+          f"both left disconnected; the difference is that UNRESOLVED lowers "
+          f"the confidence of any route it could change."
+    )
 
     arc_count = _load(
         snapshot_id=snapshot_id,
@@ -650,6 +719,9 @@ def run(
         node_coords=node_coords,
         components=components,
         near_misses=split.near_misses,
+        crossings=split.crossings,
+        crossing_places=places,
+        crossing_policy=crossing_policy,
         turns=turns,
         analysis_poly=analysis_poly,
         extract=extract,
@@ -671,12 +743,15 @@ def run(
     print(f"  arcs:       {arc_count}")
     print(f"  nodes:      {len(node_coords)}")
     print(f"  components: {max(components) + 1 if components else 0}")
+    print(f"  crossings:  {len(split.crossings)} recorded, "
+          f"{split.crossing_cuts} noded")
     for n in notes:
         print(f"  note: {n}")
     return snapshot_id
 
 
 def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misses,
+          crossings, crossing_places, crossing_policy,
           turns, analysis_poly, extract, analysis, retrieved, source_count,
           downloaded, raw_sha256, source_version, status, notes,
           coverage_kind: str, coverage_name: str) -> int:
@@ -814,6 +889,31 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
                                       nm.distance_m,
                                       _ewkb(Point(nm.x, nm.y), srid)))
 
+            # every interior crossing, INCLUDING the ones left disconnected.
+            # A GRADE_SEPARATED row is a claim this system is making and can be
+            # audited against; an UNRESOLVED row is doubt that has to survive
+            # as far as the answer.
+            if crossings:
+                honoured = _POLICY_HONOURS[crossing_policy]
+                with cur.copy(
+                    "COPY crossings (snapshot_id, crossing_id, source_a, "
+                    "source_b, disposition, reason, detail, evidence, noded, "
+                    "safe_to_node, confidence, angle_deg, place_id, geom_2193) "
+                    "FROM STDIN"
+                ) as cp:
+                    for cid, x in enumerate(crossings):
+                        cls = x.classification
+                        noded = (x.disposition in honoured
+                                 and cls.safe_to_node)
+                        cp.write_row((
+                            snapshot_id, cid, x.amds_a, x.amds_b,
+                            x.disposition, cls.reason, cls.detail,
+                            list(cls.evidence), noded, cls.safe_to_node,
+                            cls.confidence, x.angle_deg,
+                            crossing_places[cid] if crossing_places else None,
+                            _ewkb(Point(x.x, x.y), srid),
+                        ))
+
             # turn restrictions, resolved to a connected chain of graph links
             _load_turns(cur, snapshot_id, turns, links, pairs)
 
@@ -848,6 +948,35 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
         with conn.cursor() as cur:
             cur.execute("ANALYZE links; ANALYZE arcs; ANALYZE nodes;")
     return arc_id
+
+
+def _load_structures(extract: Bbox | None) -> list[tuple[LineString, str]]:
+    """LINZ Topo50 bridge and tunnel centrelines, for the crossing classifier.
+
+    Read from `ext_structures`, which is deliberately not snapshot-scoped: it
+    is an external reference dataset and re-ingesting AMDS must not discard it.
+    An empty table is not an error - it means this snapshot's crossings were
+    classified without the one authoritative structure source that exists, and
+    the ingest says so rather than quietly producing a weaker answer.
+    """
+    where = ""
+    params: tuple = ()
+    if extract is not None:
+        where = ("WHERE ST_Intersects(geom_2193, "
+                 "ST_MakeEnvelope(%s,%s,%s,%s,2193))")
+        params = (extract.xmin, extract.ymin, extract.xmax, extract.ymax)
+    try:
+        rows = db.query(
+            f"SELECT kind, ST_AsText(geom_2193) AS wkt FROM ext_structures {where}",
+            params or None)
+    except Exception:  # noqa: BLE001 - table may not exist on an old database
+        return []
+    out: list[tuple[LineString, str]] = []
+    for r in rows:
+        g = shapely.from_wkt(r["wkt"])
+        if g.geom_type == "LineString" and not g.is_empty:
+            out.append((g, r["kind"]))
+    return out
 
 
 def _load_turns(cur, snapshot_id: str, turns, links, pairs) -> None:
@@ -923,12 +1052,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--analysis-bbox", type=_parse_bbox)
     ap.add_argument("--name")
     ap.add_argument("--concurrency", type=int, default=6)
+    ap.add_argument(
+        "--crossing-policy", choices=list(CROSSING_POLICIES),
+        default="confirmed",
+        help="which interior crossings to node. 'confirmed' (the default) "
+             "nodes AT_GRADE only and is the canonical graph. 'possible' also "
+             "nodes UNRESOLVED and is a SENSITIVITY INSTRUMENT - never publish "
+             "a route from it. 'none' reproduces the pre-2.1.0 rule, for "
+             "measuring the difference.")
     args = ap.parse_args(argv)
 
     db.migrate()
     run(national=args.national, pilot=args.pilot, bbox=args.bbox,
         analysis_bbox=args.analysis_bbox, name=args.name,
-        concurrency=args.concurrency)
+        concurrency=args.concurrency, crossing_policy=args.crossing_policy)
     return 0
 
 

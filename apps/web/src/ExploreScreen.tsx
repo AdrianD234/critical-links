@@ -397,6 +397,14 @@ export default function ExploreScreen() {
         boundary.geometry?.closure ?? boundary.geometry?.selectedSegment,
       ),
       focus: pieces(boundary.geometry?.replacement),
+      /*
+       * Carried, never interpreted here. It is set only when the snapshot is a
+       * POSSIBLE graph, and its presence is the whole mechanism that keeps
+       * this route off the canonical teal layer — see map/routeTarget.ts. The
+       * geometry drawn is the PRINCIPAL replacement path's, so the principal
+       * path's provenance is the one that describes it.
+       */
+      focusProvenance: boundary.principal?.possibleProvenance ?? null,
       compare: null,
       corridor: null,
       stranded: null,
@@ -423,6 +431,9 @@ export default function ExploreScreen() {
     return {
       closure: detour.closure.geoJson ?? null,
       focus: focused?.routeGeoJson ?? null,
+      /* V1 routes on the canonical graph only, so there is nothing to report
+       * and the route draws teal. Stated rather than left to the default. */
+      focusProvenance: null,
       /* The comparison route is only drawn in Compare. In single-direction
        * view a second route would compete with the answer. */
       compare: effectiveView === 'compare' ? (other?.routeGeoJson ?? null) : null,
