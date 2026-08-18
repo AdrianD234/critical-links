@@ -46,7 +46,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal, Sequence
 
-from . import db, snap, span_corridor, vsplit
+from . import config, db, snap, span_corridor, vsplit
 from .routing import Metric, Profile, RouteResult, VirtualOverlay, route
 from .span_corridor import CorridorChoice, HandleOption, SpanCandidate
 from .vsplit import DEFAULT_DIRECTION_MODE, DirectionMode, VirtualSplit
@@ -54,6 +54,47 @@ from .vsplit import DEFAULT_DIRECTION_MODE, DirectionMode, VirtualSplit
 #: Bump when the ANALYSIS changes shape. Result fingerprints embed it.
 ANALYSIS_VERSION = "1.0.0-dev"
 ALGORITHM = "outage-span-v1"
+ENGINE = "v2-outage-span"
+
+#: How settled THIS engine is, in the same form `config.ENGINE_STABILITY` uses
+#: - a sentence rendered verbatim, never a grade.
+#:
+#: It deliberately does NOT reuse `config.ENGINE_STABILITY`. That string now
+#: reads "production", which is true of the closure engine and false of this
+#: one: the span engine is disabled by default and is a foundation. Borrowing
+#: it would tell a reader the figures in front of them are the product's
+#: answer, which is exactly the misstatement the closure engine's own string
+#: was rewritten to remove.
+#:
+#: It carries the closure engine's outstanding caveat as well as its own,
+#: because both apply to a span.
+STABILITY = (
+    "foundation - disabled by default. Turn restrictions are post-validated "
+    "rather than enforced during routing, and across a link split by a handle "
+    "they cannot be validated at all, so a route that crosses one is withheld "
+    "rather than offered."
+)
+
+#: Why a partial span carries no topology-sensitivity answer.
+#:
+#: The staged sensitivity engine asks what an unresolved crossing would change,
+#: by re-running a CANONICAL analysis under counterfactual topologies. Its
+#: runner is built around whole-link closures: it pins a closure by link id and
+#: replays the analysis for each candidate crossing.
+#:
+#: A partial span is not addressable that way - it is a request-local graph
+#: that exists only for the life of one call - so wiring it in means giving the
+#: runner a closure it can carry, not calling the existing entry point with
+#: different arguments. That is real work and it is not this branch's.
+#:
+#: Reported as unavailable WITH the reason, never omitted and never softened
+#: into robustness. "No sensitivity reported" and "not sensitive" are opposite
+#: claims and a reader cannot tell them apart from an absent field.
+SENSITIVITY_UNAVAILABLE_REASON = (
+    "Topology sensitivity for request-local partial-link closures is not "
+    "implemented in this foundation. This is NOT a finding that the span is "
+    "topology-robust: the question has not been asked."
+)
 
 #: The complete set of headlines this analysis may produce. Nothing else is
 #: ever assembled at a call site - the same discipline `detourv2.HEADLINES`
@@ -134,6 +175,17 @@ class OutageAnalysis:
     headline: str
     fingerprint: str
     runtime_ms: int
+
+    #: What the SNAPSHOT was built with, not what this checkout would build.
+    #: The two differ whenever a graph-shaping change has landed but the
+    #: snapshot predates it, which is a fact about the answer and belongs in
+    #: the answer.
+    processing_version: str = ""
+
+    #: Always None in this foundation, with the reason carried beside it.
+    #: Never softened into a claim of robustness - see the constant.
+    sensitivity: None = None
+    sensitivity_unavailable_reason: str = SENSITIVITY_UNAVAILABLE_REASON
 
     #: Always None. See the module docstring - Gu cannot represent half a link.
     isolation: None = None
@@ -223,8 +275,17 @@ def analyse(
         fingerprint=fingerprint(snapshot_id, profile, metric, direction_mode,
                                 corridor.candidate_id, split.fingerprint),
         runtime_ms=int((time.perf_counter() - started) * 1000),
+        processing_version=_processing_version(snapshot_id),
         quality_flags=flags,
     )
+
+
+def _processing_version(snapshot_id: str) -> str:
+    """The processing version the snapshot was actually built with."""
+    row = db.query_one(
+        "SELECT processing_version FROM network_snapshots WHERE snapshot_id=%s",
+        (snapshot_id,))
+    return str(row["processing_version"]) if row else ""
 
 
 class NoCorridor(LookupError):
@@ -416,6 +477,24 @@ def measure_as_dict(m: DirectedMeasure) -> dict:
 def as_dict(a: OutageAnalysis, *, with_geometry: bool = False) -> dict:
     payload = {
         "snapshotId": a.snapshot_id,
+        # Same keys, same meanings, as the production boundary-analysis
+        # payload. A client that already reads one should not have to learn a
+        # second vocabulary to read the other.
+        "engine": ENGINE,
+        "algorithm": ALGORITHM,
+        "algorithmVersion": ANALYSIS_VERSION,
+        "stability": STABILITY,
+        "processingVersion": a.processing_version,
+        "codeProcessingVersion": config.PROCESSING_VERSION,
+        # V1 is retired from the product and is never called here. Stated
+        # rather than implied, on the same terms the V2 endpoints state it.
+        "comparableToV1": False,
+        "comparableToV1Detail": (
+            "V1 is retired from the product and is not consulted by this "
+            "engine under any condition. There is no fallback path."
+        ),
+        "request": {"metric": a.metric, "vehicle": a.profile,
+                    "direction": a.direction_mode},
         "profile": a.profile,
         "metric": a.metric,
         "directionMode": a.direction_mode,
@@ -432,6 +511,17 @@ def as_dict(a: OutageAnalysis, *, with_geometry: bool = False) -> dict:
         "headline": a.headline,
         "isolation": a.isolation,
         "isolationUnavailableReason": a.isolation_unavailable_reason,
+        # Structurally separate from the canonical answer, exactly as the
+        # production topology-sensitivity endpoint is: null here, never a
+        # counterfactual folded into the result the client draws.
+        "sensitivity": a.sensitivity,
+        "sensitivityUnavailableReason": a.sensitivity_unavailable_reason,
+        "isSeparateFromCanonical": True,
+        "canonicalRouteSlot": (
+            "The replacement path in `measures` is the canonical answer. No "
+            "counterfactual route is returned anywhere in this response, and "
+            "no route is drawn for a measure that did not resolve."
+        ),
         "qualityFlags": a.quality_flags,
         "fingerprint": a.fingerprint,
         "algorithm": ALGORITHM,

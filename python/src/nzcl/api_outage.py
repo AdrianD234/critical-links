@@ -40,7 +40,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from . import geo, outage, snap, span_corridor
+from . import db, geo, outage, snap, span_corridor
 from .outage import HandleRef
 from .routing import Metric, Profile
 from .span_corridor import HandleOption
@@ -63,6 +63,27 @@ def active_snapshot() -> str:
     """
     from .api import snapshot_id
     return snapshot_id()
+
+
+def _provenance(snapshot: str) -> dict[str, Any]:
+    """Attribution and limitations, on the same terms as the V2 endpoints.
+
+    Read from the snapshot row rather than from `api._ACTIVE`, so this router
+    stays independent of the application's module state - which is what lets
+    it be mounted on a bare app and tested without running the lifespan.
+
+    `limitations` travels with every figure on purpose: a number should not be
+    liftable out of this API without the caveats that belong to it.
+    """
+    from .config import LIMITATIONS
+
+    row = db.query_one(
+        "SELECT attribution FROM network_snapshots WHERE snapshot_id=%s",
+        (snapshot,))
+    return {
+        "attribution": (row or {}).get("attribution"),
+        "limitations": LIMITATIONS,
+    }
 
 
 def _nztm(x: float | None, y: float | None, lon: float | None,
@@ -161,6 +182,7 @@ def corridor(
 
     body = span_corridor.as_dict(choice)
     body["snapshotId"] = snapshot
+    body.update(_provenance(snapshot))
     return body
 
 
@@ -208,7 +230,11 @@ def analysis(
     except ValueError as exc:
         raise HTTPException(422, str(exc))
 
-    drawn = sum(len(m.arc_ids) for m in result.measures)
+    # Only a measure that RESOLVED contributes geometry. A withheld route -
+    # one that crosses a banned manoeuvre across a split link - has arcs, and
+    # drawing them would put a line on the map for a route the engine has just
+    # refused to offer.
+    drawn = sum(len(m.arc_ids) for m in result.measures if m.routed)
     if geometry and drawn > MAX_DRAWN_ARCS:
         body = outage.as_dict(result, with_geometry=False)
         body["geometryOmitted"] = {
@@ -217,6 +243,9 @@ def analysis(
                 f"{MAX_DRAWN_ARCS} this endpoint will draw"),
             "arcCount": drawn,
         }
+        body.update(_provenance(snapshot))
         return body
 
-    return outage.as_dict(result, with_geometry=geometry)
+    body = outage.as_dict(result, with_geometry=geometry)
+    body.update(_provenance(snapshot))
+    return body
