@@ -1,0 +1,33 @@
+{
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "pairsAll": 13084,
+  "pairsPointLike": 13056,
+  "pairsCollinearOverlap": 28,
+  "intersectionPoints": 18675,
+  "placesAt25m": 9629,
+  "byDispositionPairs": {
+    "GRADE_SEPARATED": 1550,
+    "UNRESOLVED": 5787,
+    "AT_GRADE": 5719
+  },
+  "byReasonPairs": {
+    "GRADE_SEPARATED/CONNECTOR": 39,
+    "GRADE_SEPARATED/NAMED_STRUCTURE": 31,
+    "GRADE_SEPARATED/MOTORWAY_CARRIAGEWAY": 996,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY": 4296,
+    "UNRESOLVED/MOTORWAY_CONTEXT": 484,
+    "GRADE_SEPARATED/RAMP": 228,
+    "UNRESOLVED/TANGENTIAL": 980,
+    "AT_GRADE/ORDINARY_CROSSROADS": 5643,
+    "GRADE_SEPARATED/HEIGHT_LIMIT": 115,
+    "GRADE_SEPARATED/RAMP_CONTEXT": 141,
+    "UNRESOLVED/SAME_SOURCE_FEATURE": 27,
+    "AT_GRADE/JUNCTION_WITNESS": 76
+  },
+  "byDispositionPlaces": {
+    "GRADE_SEPARATED": 870,
+    "UNRESOLVED": 3174,
+    "MIXED": 213,
+    "AT_GRADE": 5372
+  }
+}
