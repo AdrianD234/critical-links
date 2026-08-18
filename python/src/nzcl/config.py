@@ -71,7 +71,15 @@ LINK_WHERE = "status=1 AND modeVehicle=1"
 #: Bump when routing semantics change. This invalidates cached detours.
 ALGORITHM = "pgr-dijkstra-arc"
 ALGORITHM_VERSION = "2.0.0"
-PROCESSING_VERSION = "2.0.0"
+
+#: Bump when the GRAPH changes shape, not just when a number about it does.
+#:
+#: 2.1.0 - interior-to-interior crossings are classified and the AT_GRADE ones
+#:         are noded. Until 2.0.0 they were refused unconditionally, which
+#:         treated every flat rural crossroads in the country as a flyover.
+#:         The graph is genuinely different, so every snapshot id changes and
+#:         every cached detour is invalid, which is what this constant is for.
+PROCESSING_VERSION = "2.1.0"
 
 DEFAULT_ATTRIBUTION = (
     "Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, "
@@ -91,9 +99,14 @@ LIMITATIONS = [
     "AMDS publishes only 60 restricted turns nationally. Banned-turn coverage is "
     "effectively negligible, so routes through complex intersections must not be "
     "presented as road-legal.",
-    "Junctions are inferred where one link ends on the interior of another, because "
-    "AMDS does not split through roads at side roads. Interior-to-interior crossings "
-    "are never noded, which preserves grade separation.",
+    "Junctions are inferred, because AMDS does not split through roads at side roads. "
+    "Where one road ends on another they are joined. Where two roads CROSS with "
+    "neither ending, the crossing is classified on evidence: joined only where "
+    "nothing in the source describes a structure, left separated where a mapped "
+    "bridge, ramp or motorway carriageway says otherwise, and left separated but "
+    "FLAGGED where the evidence settles nothing. A result that would change if a "
+    "flagged crossing went the other way is reported as topology-sensitive rather "
+    "than as fact.",
     "Height, weight and other physical restrictions are recorded as link quality "
     "flags but do not yet constrain routing.",
 ]
