@@ -443,6 +443,69 @@ on pass 1:
 
 ---
 
+## 6c. Provenance for possible-graph routes (gate 8)
+
+The POSSIBLE graph has been able to answer "would this change if the crossings
+we cannot resolve were junctions?" since the policy landed. The answer was a
+single bit, and that flattens the distinction which decides whether a finding
+can be checked at all: **a result hinging on ONE unresolved junction is a claim
+one aerial photograph settles; a result needing four stacked assumptions is a
+chain nobody has measured.** They must not read identically.
+
+`nzcl/provenance.py` is the first reader of the `crossings` table, which until
+now was written and never queried. Per route it reports:
+
+    robustness   ROBUST | ONE_UNRESOLVED_CROSSING | MULTIPLE_UNRESOLVED_CROSSINGS
+    crossings    each one's id, source pair, coordinates in 2193 AND 4326,
+                 reason, confidence, angle, place, and the two links the route
+                 used to enter and leave it
+    changedByOneCrossing         is any single one of them decisive?
+    requiresMultipleAssumptions  no single one is, yet the route still depends
+                                 on unresolved topology
+
+Two decisions worth stating, because the obvious implementations are wrong:
+
+- **"Relied on" is a join on the route's ORDER, not a proximity buffer.** A
+  crossing counts only where the route actually turns from one source feature
+  onto the other at that point. A route running *straight through* a noded
+  crossroads sits at zero distance from it and assumed nothing - without the
+  node those two links would still be one link and the route would be
+  identical. A buffer test calls that a dependency, and is wrong every time.
+- **Decisiveness compares the DISTANCE, not the link sequence.** Removing a
+  node always changes the link sequence, so a sequence comparison would call
+  every crossing decisive and mean nothing. Where no re-routing hook is
+  supplied the method is reported as `UNTESTED_COUNT_ONLY` and decisiveness is
+  `null` - **not `false`**, because "not measured" and "measured, no" are
+  different answers.
+
+### A speculative route can never be drawn as the teal replacement path
+
+Teal is the colour of the answer this system publishes. A route that exists
+only because of an unresolved assumption is not that, and drawing it in that
+colour would present an unverified claim as a measured result.
+
+The rule is enforced **structurally, not by convention**. `routeTarget()` is
+the single place the choice is made, and it selects a *source and a layer*
+rather than a colour: the speculative route is fed from its own source, which
+the teal layer never reads. `NetworkMap.tsx` no longer names either route
+layer, either source, or `palette.route` at all.
+
+Proved rather than asserted: `tests/unit/speculative-route.test.ts` includes a
+test that reads `NetworkMap.tsx` and fails if those names reappear. Breaking
+`routeTarget()` so it always returns the canonical target **fails 4 tests** -
+checked by doing it, because a guard that cannot fail is not a guard.
+
+### Not done, deliberately
+
+`impactv2.py` does not yet pass the lookup on the shipping V2 path. The seam
+exists and is one line. It was left off because enabling it adds a query to
+every canonical request that nobody asked for, on a branch whose classifier is
+frozen under a scored holdout. No inspector panel renders the provenance block
+yet either - only the `RELIES_ON_UNRESOLVED_CROSSING` quality flag and the
+sentence explaining what it means.
+
+---
+
 ## 7. Status against the gates
 
 | gate | status |
@@ -454,7 +517,7 @@ on pass 1:
 | 5. classification language | **met**: `ORDINARY_CROSSROADS` is MEDIUM and says "PROBABLY" |
 | 6. promotion / rebuild | **not done, and deliberately so.** Gate 3 now passes, but no `processingVersion` 2.1.0 snapshot has been built. See section 9 |
 | 7. clustering radius | **met**: 5/10/25/50 m reported, monotonicity proved and tested, noding shown independent of it |
-| 8. G_possible provenance | **partial**: `crossing_policy='possible'` exists and is tested; per-route provenance of which unresolved crossings a route uses is **not yet implemented** |
+| 8. G_possible provenance | **met**: `nzcl/provenance.py` names which unresolved crossings a route relied on, where, and whether any single one is decisive; a possible-graph route is drawn on its own dashed layer and cannot reach the teal one. See section 6c |
 | 9. double-review | **met, with its limits stated**: 40 cases recoded, 38/40 agreement, kappa 0.847, both disagreements adjudicated. Intra-rater, and taken after scoring, so it is an upper bound. See section 6b |
 | 10. repo hygiene | **met**: the derived record is a sha256 manifest plus a deterministic 250-row sample; the tracked screenshots went from 21.6 MB to 456 kB. See section 8 |
 
