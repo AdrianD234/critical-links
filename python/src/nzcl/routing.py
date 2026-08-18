@@ -43,6 +43,7 @@ Profile = Literal["car", "heavy", "emergency"]
 Status = Literal[
     "OK", "DISCONNECTED", "UNRESOLVED_TIMEOUT", "INVALID_GRAPH",
     "SOURCE_DATA_ERROR", "UNSUPPORTED_PROFILE", "API_ERROR",
+    "TURN_RESTRICTION_UNSUPPORTED",
 ]
 
 _MODE_COLUMN = {
@@ -71,6 +72,105 @@ class RouteResult:
     used_expanded_graph: bool = False
 
 
+class UnknownArc(LookupError):
+    """An arc in a returned path is in neither `arcs` nor the overlay.
+
+    This is a programming error, never a fact about the network, and it is
+    raised rather than skipped because skipping it is silent and wrong: the
+    arc's length simply vanishes from the total, and the caller reports a
+    detour shorter than the one it computed.
+    """
+
+
+@dataclass(frozen=True)
+class VirtualArc:
+    """One directed piece of a real arc, existing only for this request.
+
+    A partial closure needs to cut a link somewhere other than its ends, and
+    the national snapshot must not be edited to express that. So the pieces
+    live here: negative ids, assembled per request, unioned into the edge query
+    and discarded when it returns.
+    """
+
+    arc_id: int
+    source: int
+    target: int
+    cost_distance_m: float
+    #: None where the parent arc has no valid time cost. Such an arc is dropped
+    #: from a time-metric search, exactly as `cost_time_s IS NOT NULL` drops
+    #: its parent.
+    cost_time_s: float | None
+    #: The REAL link this piece belongs to. Turn restrictions are sequences of
+    #: link ids, so a piece must answer to its parent or splitting a link would
+    #: quietly unban a manoeuvre across it.
+    link_id: int
+    parent_arc_id: int
+    #: The extent of this piece in the PARENT LINK's own 0..1 parameter, stated
+    #: in the link's coordinate order regardless of which way the piece runs.
+    #:
+    #: Carried so a replacement path that traverses a piece can be DRAWN. A
+    #: route is not fully reported by its length: a map that omits the two
+    #: partial links at the ends of an outage shows a detour starting in mid
+    #: air, and a reader cannot check a line that is not there.
+    from_fraction: float = 0.0
+    to_fraction: float = 1.0
+
+
+@dataclass(frozen=True)
+class VirtualOverlay:
+    """Request-local edges, plus what the rest of the engine needs to read them.
+
+    `component_anchor` exists because a virtual node is not in `nodes`, and the
+    cheap "different weak components can never connect" pre-check reads
+    `nodes`. Without an anchor that check finds no row, concludes the endpoints
+    are unconnected, and returns DISCONNECTED - which this engine states as a
+    finding about the road network. A handle placed mid-link would therefore
+    report the road as severed whenever it was perfectly routable.
+
+    The anchor is any real node on the virtual node's host link: a split point
+    is joined to both of its host's endpoints by construction, so it is in
+    their weak component whatever else is closed.
+    """
+
+    arcs: tuple[VirtualArc, ...] = ()
+    #: virtual node id -> a real node id sharing its weak component.
+    component_anchor: dict[int, int] = field(default_factory=dict)
+
+    def by_id(self) -> dict[int, VirtualArc]:
+        return {a.arc_id: a for a in self.arcs}
+
+    def usable(self, metric: Metric) -> tuple[VirtualArc, ...]:
+        """The pieces a search on `metric` may traverse."""
+        if metric == "time":
+            return tuple(a for a in self.arcs if a.cost_time_s is not None)
+        return self.arcs
+
+    def anchor(self, node: int) -> int:
+        """The real node whose component `node` shares. Identity for real nodes."""
+        return self.component_anchor.get(node, node)
+
+    @property
+    def empty(self) -> bool:
+        return not self.arcs
+
+
+#: Stands in for "no overlay", so callers and defaults never carry None.
+NO_OVERLAY = VirtualOverlay()
+
+#: pgRouting marks the final row of every path with `edge = -1`, and this
+#: module filters that marker out before summing a route.
+#:
+#: A virtual arc issued the id -1 is therefore deleted from its own path, as
+#: though it were the sentinel. It is not an error anywhere: the search
+#: succeeds, the arc list comes back one leg short, and the total is quietly
+#: too small. That is exactly how a 1100 m replacement path first measured
+#: 1000 m here - the last 100 m of it was the arc numbered -1.
+#:
+#: So -1 is reserved and never issued to anything. `vsplit` starts its
+#: numbering below it.
+RESERVED_EDGE_SENTINEL = -1
+
+
 def _mode_column(profile: Profile) -> str:
     col = _MODE_COLUMN.get(profile)
     if col is None:
@@ -83,13 +183,19 @@ def _cost_column(metric: Metric) -> str:
 
 
 def _edge_sql(snapshot_id: str, profile: Profile, metric: Metric,
-              excluded: Sequence[int]) -> str:
+              excluded: Sequence[int],
+              overlay: VirtualOverlay = NO_OVERLAY) -> str:
     """The edge query pgRouting consumes.
 
     Literals are inlined because pgRouting takes the inner query as text, so it
     cannot carry bind parameters. Every value interpolated here is either
     server-derived (snapshot id from the database) or an integer arc id; the
     snapshot id is escaped and arc ids are cast through int().
+
+    An overlay is appended as a literal VALUES list rather than written to a
+    table. That is what makes a partial closure request-local: two concurrent
+    requests splitting the same link cannot see each other's pieces, because
+    neither piece was ever stored.
     """
     mode = _mode_column(profile)
     cost = _cost_column(metric)
@@ -102,11 +208,34 @@ def _edge_sql(snapshot_id: str, profile: Profile, metric: Metric,
     if excluded:
         ids = ",".join(str(int(a)) for a in excluded)
         clauses.append(f"arc_id <> ALL (ARRAY[{ids}]::bigint[])")
-    return (
+    base = (
         f"SELECT arc_id AS id, source, target, {cost} AS cost, "
         f"-1::double precision AS reverse_cost FROM arcs "
         f"WHERE {' AND '.join(clauses)}"
     )
+
+    extra = overlay.usable(metric)
+    if not extra:
+        return base
+    return f"{base} UNION ALL {_values_sql(extra, metric)}"
+
+
+def _values_sql(arcs: Sequence[VirtualArc], metric: Metric) -> str:
+    """Overlay pieces as a VALUES list shaped like the edge query's columns."""
+    rows = []
+    for a in arcs:
+        c = a.cost_time_s if metric == "time" else a.cost_distance_m
+        c = float(c)
+        if c != c or c in (float("inf"), float("-inf")) or c < 0:
+            raise ValueError(
+                f"virtual arc {a.arc_id} has a non-finite or negative cost {c!r}")
+        rows.append(
+            f"({int(a.arc_id)}::bigint,{int(a.source)}::bigint,"
+            f"{int(a.target)}::bigint,{c!r}::double precision,"
+            f"-1::double precision)"
+        )
+    return (f"SELECT * FROM (VALUES {','.join(rows)}) "
+            f"AS v(id, source, target, cost, reverse_cost)")
 
 
 def _transition_sql(snapshot_id: str, profile: Profile, metric: Metric,
@@ -134,7 +263,17 @@ def _transition_sql(snapshot_id: str, profile: Profile, metric: Metric,
     )
 
 
-def _same_component(snapshot_id: str, u: int, v: int) -> bool:
+def _same_component(snapshot_id: str, u: int, v: int,
+                    overlay: VirtualOverlay = NO_OVERLAY) -> bool:
+    """Cheap definitive negative, resolved through the overlay first.
+
+    A virtual node has no row in `nodes`, so asking this question about one
+    directly returns NULL - which reads as "not the same component" and turns
+    into DISCONNECTED, a stated finding about the road network. Anchoring maps
+    each virtual node onto a real node of its host link, whose component it
+    provably shares.
+    """
+    u, v = overlay.anchor(u), overlay.anchor(v)
     row = db.query_one(
         """
         SELECT (SELECT component_id FROM nodes WHERE snapshot_id=%s AND node_id=%s)
@@ -170,32 +309,54 @@ def _violates(link_path: list[int], restrictions: list[list[int]]) -> bool:
     return False
 
 
-def _summarise(snapshot_id: str, arc_ids: list[int]) -> tuple[float, float | None,
+def _summarise(snapshot_id: str, arc_ids: list[int],
+               overlay: VirtualOverlay = NO_OVERLAY) -> tuple[float, float | None,
                                                               list[int]]:
-    """Total distance, total time (None if any arc lacks one), and link path."""
+    """Total distance, total time (None if any arc lacks one), and link path.
+
+    An arc that is in neither `arcs` nor the overlay RAISES. It used to be
+    skipped, which is silent and produces a total shorter than the path the
+    planner actually returned - a detour under-reported by however much road
+    the unrecognised arcs carried, with nothing anywhere saying so. Real arc
+    ids all come back from a query over `arcs`, so the only way to reach this
+    is an overlay whose pieces were not passed through, and that must fail
+    loudly the first time rather than quietly forever.
+
+    Overlay pieces contribute their PARENT link id to the link path, because
+    that path is what turn restrictions are matched against and a restriction
+    names real links.
+    """
     if not arc_ids:
         return 0.0, 0.0, []
+    virtual = overlay.by_id()
+    real_ids = [a for a in arc_ids if a not in virtual]
     rows = db.query(
         "SELECT arc_id, link_id, cost_distance_m, cost_time_s FROM arcs "
         "WHERE snapshot_id=%s AND arc_id = ANY(%s)",
-        (snapshot_id, arc_ids),
-    )
+        (snapshot_id, real_ids),
+    ) if real_ids else []
     by_id = {r["arc_id"]: r for r in rows}
+
     distance = 0.0
     time_s: float | None = 0.0
     links: list[int] = []
     for a in arc_ids:
-        r = by_id.get(a)
-        if r is None:
-            continue
-        distance += r["cost_distance_m"]
+        piece = virtual.get(a)
+        if piece is not None:
+            d, t, link_id = piece.cost_distance_m, piece.cost_time_s, piece.link_id
+        else:
+            r = by_id.get(a)
+            if r is None:
+                raise UnknownArc(
+                    f"arc {a} is in neither snapshot {snapshot_id!r} nor the "
+                    f"virtual overlay; its length cannot be counted")
+            d, t, link_id = r["cost_distance_m"], r["cost_time_s"], r["link_id"]
+
+        distance += d
         if time_s is not None:
-            if r["cost_time_s"] is None:
-                time_s = None
-            else:
-                time_s += r["cost_time_s"]
-        if not links or links[-1] != r["link_id"]:
-            links.append(r["link_id"])
+            time_s = None if t is None else time_s + t
+        if not links or links[-1] != link_id:
+            links.append(link_id)
     return distance, time_s, links
 
 
@@ -208,8 +369,13 @@ def route(
     profile: Profile = "car",
     excluded_arcs: Sequence[int] = (),
     statement_timeout_ms: int = 20_000,
+    overlay: VirtualOverlay = NO_OVERLAY,
 ) -> RouteResult:
-    """Shortest path from `source_node` to `target_node` with `excluded_arcs` closed."""
+    """Shortest path from `source_node` to `target_node` with `excluded_arcs` closed.
+
+    `overlay` adds request-local edges - the pieces a partial closure splits a
+    link into. Either endpoint may be a virtual node from that overlay.
+    """
     started = time.perf_counter()
 
     def elapsed() -> int:
@@ -226,22 +392,37 @@ def route(
                            detail="source and target are the same node")
 
     # Cheap definitive negative: different weak components can never connect.
-    if not _same_component(snapshot_id, source_node, target_node):
+    if not _same_component(snapshot_id, source_node, target_node, overlay):
         return RouteResult(
             "DISCONNECTED", None, None, None, runtime_ms=elapsed(),
             detail="endpoints lie in different weakly connected components",
         )
 
     plain = _run_dijkstra(snapshot_id, source_node, target_node, metric, profile,
-                          excluded_arcs, statement_timeout_ms)
+                          excluded_arcs, statement_timeout_ms, overlay)
     if plain.status != "OK":
         plain.runtime_ms = elapsed()
         return plain
 
     restrictions = _restrictions(snapshot_id, profile)
     if restrictions:
-        _, _, link_path = _summarise(snapshot_id, plain.arc_ids)
+        _, _, link_path = _summarise(snapshot_id, plain.arc_ids, overlay)
         if _violates(link_path, restrictions):
+            if not overlay.empty:
+                # The expanded graph is built from `arc_transitions`, which has
+                # no rows for pieces invented this request, so the exact
+                # re-route cannot see them. Returning the plain path would
+                # report a route through a banned manoeuvre as though it were
+                # permitted. This is a search that did not conclude, and it is
+                # named as one - never as a finding about the road.
+                return RouteResult(
+                    "TURN_RESTRICTION_UNSUPPORTED", None, None, None,
+                    runtime_ms=elapsed(),
+                    detail=(
+                        "the shortest path crosses a banned manoeuvre, and the "
+                        "exact re-route is not available while a partial "
+                        "closure is in force"),
+                )
             # Rare. Re-run on the expanded graph, where the banned movement
             # simply has no edge.
             exact = _run_expanded(snapshot_id, source_node, target_node, metric,
@@ -256,8 +437,9 @@ def route(
 
 def _run_dijkstra(snapshot_id: str, u: int, v: int, metric: Metric,
                   profile: Profile, excluded: Sequence[int],
-                  timeout_ms: int) -> RouteResult:
-    sql = _edge_sql(snapshot_id, profile, metric, excluded)
+                  timeout_ms: int,
+                  overlay: VirtualOverlay = NO_OVERLAY) -> RouteResult:
+    sql = _edge_sql(snapshot_id, profile, metric, excluded, overlay)
     try:
         with db.connection() as conn:
             # statement_timeout cannot take a bind parameter, and SET LOCAL only
@@ -288,7 +470,7 @@ def _run_dijkstra(snapshot_id: str, u: int, v: int, metric: Metric,
             "DISCONNECTED", None, None, None,
             detail="search space exhausted with no route to target",
         )
-    distance, time_s, _ = _summarise(snapshot_id, arc_ids)
+    distance, time_s, _ = _summarise(snapshot_id, arc_ids, overlay)
     cost = time_s if metric == "time" else distance
     return RouteResult("OK", cost, distance, time_s, arc_ids=arc_ids)
 

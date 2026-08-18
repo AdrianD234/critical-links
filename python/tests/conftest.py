@@ -15,12 +15,40 @@ known-answer tests assemble theirs — a second copy would have drifted.
 
 from __future__ import annotations
 
+import pathlib
 from typing import Callable
 
 import pytest
 
+import nzcl
 from nzcl import db
 from nzcl.fixtures import SyntheticNetwork, load_synthetic
+
+
+def _assert_nzcl_is_this_checkout() -> None:
+    """Refuse to run if `nzcl` was imported from somewhere else.
+
+    The shared development venv installs `nzcl` editable against whichever
+    worktree was provisioned first, so `pytest` run from a second worktree
+    imports and tests the FIRST one's code. Nothing about that looks wrong:
+    the suite collects, passes, and reports on a branch nobody is editing.
+
+    This costs one `resolve()` and removes a whole class of "it passed on my
+    machine" from parallel work. CI installs the checked-out branch editable,
+    so the assertion holds there for the same reason it holds here.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    module = pathlib.Path(nzcl.__file__).resolve()
+    if root not in module.parents:
+        raise RuntimeError(
+            f"`nzcl` was imported from {module}, which is outside this "
+            f"checkout ({root}). These tests would be exercising another "
+            f"worktree's code. Run through scripts/outage-span-env.sh, or set "
+            f"PYTHONPATH to {root / 'python' / 'src'}."
+        )
+
+
+_assert_nzcl_is_this_checkout()
 
 
 def _database_available() -> bool:

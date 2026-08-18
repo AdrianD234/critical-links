@@ -97,6 +97,10 @@ HEADLINES = (
 UNRESOLVED_STATUSES = frozenset({
     "UNRESOLVED_TIMEOUT", "API_ERROR", "INVALID_GRAPH", "SOURCE_DATA_ERROR",
     "UNSUPPORTED_PROFILE",
+    # Same reading `replacement.py` already gives it: a path that makes a
+    # banned manoeuvre is not one this engine may offer, and a legal way round
+    # may well exist that this search did not find.
+    "TURN_RESTRICTION_UNSUPPORTED",
 })
 
 

@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     application_base_url: str = "http://localhost:5173"
     data_dir: Path = REPO_ROOT / "data"
 
+    # Draft feature, off unless asked for. Mounts the two-point outage span
+    # router; the client's matching switch is VITE_ENABLE_OUTAGE_SPAN_EDITOR.
+    # A deployment that has not opted in serves exactly what it served before.
+    enable_outage_span_api: bool = False
+
     # EPSG:2193. All analysis happens here.
     analysis_srid: int = 2193
     web_srid: int = 4326
