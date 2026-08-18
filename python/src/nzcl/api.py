@@ -192,6 +192,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Draft two-point outage span, in its own router and off by default. One line
+# here rather than a thousand in this file, so a reviewer of the branches
+# moving alongside this one has a single point to reconcile.
+if get_settings().enable_outage_span_api:
+    from .api_outage import router as _outage_router
+
+    app.include_router(_outage_router)
+
 
 def snapshot_id() -> str:
     return _ACTIVE["snapshot_id"]
