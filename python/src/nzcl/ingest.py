@@ -45,7 +45,8 @@ from .config import (
 from .geo import nztm_to_lonlat, nztm_to_lonlat_many, polyline_length
 from .speed import assign_speed
 from . import crossings as crossings_mod
-from .topology import CROSSING_POLICIES, SourceLink, assign_nodes, split_at_junctions
+from .topology import (CROSSING_POLICIES, SourceLink, assign_nodes,
+                       audit_no_invented_movements, split_at_junctions)
 
 LINK_FIELDS = [
     "OBJECTID", "amdsIDNetworkModel", "status", "modelAssetType", "oneway",
@@ -613,7 +614,15 @@ def run(
 
     # --- 5. split at junctions -------------------------------------------
     print("  splitting links at junctions")
-    split = split_at_junctions(sources, crossing_policy=crossing_policy)
+    structures = _load_structures(extract)
+    print(f"    {len(structures)} LINZ Topo50 bridge/tunnel centrelines "
+          f"available as structure evidence"
+          if structures else
+          "    NO structure evidence loaded: ext_structures is empty. Run "
+          "scratch/load_topo50_structures.py first, or crossings that ARE on "
+          "a mapped bridge will fall through to weaker rules.")
+    split = split_at_junctions(sources, crossing_policy=crossing_policy,
+                               structures=structures)
     print(f"    {split.parents_split} source links cut at {split.cuts_made} "
           f"junctions, {len(sources)} -> {len(split.links)} links")
     print(f"    {len(split.near_misses)} endpoints within review distance "
@@ -622,13 +631,29 @@ def run(
     by_disposition: dict[str, int] = {}
     for x in split.crossings:
         by_disposition[x.disposition] = by_disposition.get(x.disposition, 0) + 1
-    places = crossings_mod.cluster([(x.x, x.y) for x in split.crossings]) \
-        if split.crossings else []
+    places = split.crossing_places
     print(f"    {len(split.crossings)} interior crossings at "
           f"{len(set(places))} distinct places; "
           + ", ".join(f"{k} {v}" for k, v in sorted(by_disposition.items())))
+    print(f"    {split.mixed_place_demotions} crossings withdrawn because "
+          f"other crossings at the same place disagreed")
     print(f"    crossing policy '{crossing_policy}': "
           f"{split.crossing_cuts} crossings noded")
+
+    # The safety property, asserted rather than reasoned about: nothing that
+    # was left disconnected may have become connected by a coincidence of
+    # coordinates. A violation here is a graph that contains a movement the
+    # road network does not, which is worse than the defect being fixed.
+    violations = audit_no_invented_movements(split)
+    if violations:
+        for v in violations[:20]:
+            print(f"    INVENTED MOVEMENT: {v}", file=sys.stderr)
+        raise SystemExit(
+            f"refusing to load: {len(violations)} crossing(s) left "
+            f"disconnected by the classifier are connected in the graph "
+            f"anyway. See docs/audits/at-grade-crossings/.")
+    print("    no invented movements: every crossing left disconnected by the "
+          "classifier shares no node")
 
     # --- 6. nodes, arcs, components --------------------------------------
     pairs, node_coords = assign_nodes(split.links)
@@ -873,19 +898,18 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
                 with cur.copy(
                     "COPY crossings (snapshot_id, crossing_id, source_a, "
                     "source_b, disposition, reason, detail, evidence, noded, "
-                    "plausible_junction, angle_deg, place_id, geom_2193) "
+                    "safe_to_node, confidence, angle_deg, place_id, geom_2193) "
                     "FROM STDIN"
                 ) as cp:
                     for cid, x in enumerate(crossings):
                         cls = x.classification
                         noded = (x.disposition in honoured
-                                 and (x.disposition != "UNRESOLVED"
-                                      or cls.plausible_junction))
+                                 and cls.safe_to_node)
                         cp.write_row((
                             snapshot_id, cid, x.amds_a, x.amds_b,
                             x.disposition, cls.reason, cls.detail,
-                            list(cls.evidence), noded, cls.plausible_junction,
-                            x.angle_deg,
+                            list(cls.evidence), noded, cls.safe_to_node,
+                            cls.confidence, x.angle_deg,
                             crossing_places[cid] if crossing_places else None,
                             _ewkb(Point(x.x, x.y), srid),
                         ))
@@ -924,6 +948,35 @@ def _load(*, snapshot_id: str, links, pairs, node_coords, components, near_misse
         with conn.cursor() as cur:
             cur.execute("ANALYZE links; ANALYZE arcs; ANALYZE nodes;")
     return arc_id
+
+
+def _load_structures(extract: Bbox | None) -> list[tuple[LineString, str]]:
+    """LINZ Topo50 bridge and tunnel centrelines, for the crossing classifier.
+
+    Read from `ext_structures`, which is deliberately not snapshot-scoped: it
+    is an external reference dataset and re-ingesting AMDS must not discard it.
+    An empty table is not an error - it means this snapshot's crossings were
+    classified without the one authoritative structure source that exists, and
+    the ingest says so rather than quietly producing a weaker answer.
+    """
+    where = ""
+    params: tuple = ()
+    if extract is not None:
+        where = ("WHERE ST_Intersects(geom_2193, "
+                 "ST_MakeEnvelope(%s,%s,%s,%s,2193))")
+        params = (extract.xmin, extract.ymin, extract.xmax, extract.ymax)
+    try:
+        rows = db.query(
+            f"SELECT kind, ST_AsText(geom_2193) AS wkt FROM ext_structures {where}",
+            params or None)
+    except Exception:  # noqa: BLE001 - table may not exist on an old database
+        return []
+    out: list[tuple[LineString, str]] = []
+    for r in rows:
+        g = shapely.from_wkt(r["wkt"])
+        if g.geom_type == "LineString" and not g.is_empty:
+            out.append((g, r["kind"]))
+    return out
 
 
 def _load_turns(cur, snapshot_id: str, turns, links, pairs) -> None:

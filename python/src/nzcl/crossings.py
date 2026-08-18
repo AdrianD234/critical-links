@@ -219,16 +219,47 @@ class CrossingContext:
     structure_kind: str | None = None
 
 
-#: UNRESOLVED reasons that mean "these are not two roads meeting" rather than
-#: "we cannot tell whether they meet".
+#: Reasons that forbid creating a shared node, under EVERY policy including
+#: the POSSIBLE sensitivity graph. Two different arguments end up here:
 #:
-#: The distinction matters only to the POSSIBLE graph. POSSIBLE exists to ask
-#: "would this answer change if the crossings we could not resolve turned out
-#: to be junctions?" - and for a 4-degree graze between two carriageways of one
-#: road, "it is a junction" is not a live hypothesis. Connecting those would not
-#: measure sensitivity, it would fabricate turns across a median, which is
-#: precisely the failure the two-lens design exists to avoid.
-NOT_A_JUNCTION_REASONS = frozenset({"TANGENTIAL", "SAME_SOURCE_FEATURE"})
+#:   TANGENTIAL, SAME_SOURCE_FEATURE
+#:     These are not two roads meeting. A 4-degree graze between two
+#:     carriageways of one road is not doubt about a junction, it is the
+#:     absence of one, and connecting it fabricates a turn across a median
+#:     rather than measuring sensitivity.
+#:
+#:   MIXED_PLACE
+#:     These MIGHT be two roads meeting - but not in a way a plain graph node
+#:     can express. See `demote_mixed_places`.
+NEVER_NODE_REASONS = frozenset({"TANGENTIAL", "SAME_SOURCE_FEATURE",
+                                "MIXED_PLACE"})
+
+#: How much the classifier is claiming. Reported alongside the disposition,
+#: because two AT_GRADE verdicts are not equally well founded.
+#:
+#:   HIGH    positive evidence that this specific point is what it is called.
+#:   MEDIUM  a defensible reading with no contrary evidence - which is not the
+#:           same thing as evidence FOR the conclusion.
+CONFIDENCE_HIGH = "HIGH"
+CONFIDENCE_MEDIUM = "MEDIUM"
+
+#: Every AT_GRADE rule and what it is actually entitled to claim.
+#:
+#: JUNCTION_WITNESS is HIGH: a third link ENDS at the crossing, so the source
+#: data itself already calls that point a junction. That is positive evidence.
+#:
+#: ORDINARY_CROSSROADS is MEDIUM and must be described as probable, not
+#: established. Its rule is "two two-way Roadway features crossing at 20
+#: degrees or more with no contrary structure, ramp or motorway evidence" -
+#: absence-of-evidence reasoning. It is the right default for a flat rural grid
+#: and it is what the Darfield case needed, but it is not proof, and the
+#: language around it must not imply otherwise. It earns HIGH only when backed
+#: by a junction witness, by authoritative road-section segmentation, or by an
+#: evidence-backed override.
+_AT_GRADE_CONFIDENCE = {
+    "JUNCTION_WITNESS": CONFIDENCE_HIGH,
+    "ORDINARY_CROSSROADS": CONFIDENCE_MEDIUM,
+}
 
 
 @dataclass
@@ -240,11 +271,19 @@ class Classification:
     detail: str
     #: Every rule that fired, decisive or not.
     evidence: list[str] = field(default_factory=list)
+    #: HIGH or MEDIUM. How much this verdict is entitled to claim.
+    confidence: str = CONFIDENCE_MEDIUM
 
     @property
-    def plausible_junction(self) -> bool:
-        """Could this be a junction, if the doubt broke the other way?"""
-        return self.reason not in NOT_A_JUNCTION_REASONS
+    def safe_to_node(self) -> bool:
+        """May a shared graph node be created here, under ANY policy?
+
+        Distinct from the disposition. The disposition says what the evidence
+        supports; this says whether acting on it is representable. A mixed
+        place is UNRESOLVED not because the evidence is weak but because a
+        plain node would express a movement that does not exist.
+        """
+        return self.reason not in NEVER_NODE_REASONS
 
 
 def _has_height_limit(flags: Iterable[str]) -> bool:
@@ -385,16 +424,21 @@ def classify(ctx: CrossingContext) -> Classification:
             AT_GRADE, "JUNCTION_WITNESS",
             f"A third link ends within {JUNCTION_WITNESS_M:.0f} m of this "
             f"point, so the source data already treats it as a junction. "
-            f"These two roads simply were not split there.", ev)
+            f"These two roads simply were not split there.", ev,
+            confidence=_AT_GRADE_CONFIDENCE["JUNCTION_WITNESS"])
 
     if ordinary:
         ev.append("ORDINARY_CROSSROADS")
         return Classification(
             AT_GRADE, "ORDINARY_CROSSROADS",
-            f"Two two-way roadways cross at {ctx.angle_deg:.0f} degrees with "
-            f"no ramp, connector, motorway carriageway, height restriction or "
-            f"structure name anywhere near. Nothing in the source describes a "
-            f"structure here.", ev)
+            f"PROBABLY a junction. Two two-way roadways cross at "
+            f"{ctx.angle_deg:.0f} degrees with no ramp, connector, motorway "
+            f"carriageway or structure name anywhere near, so nothing in the "
+            f"source describes a structure here - but nothing describes a "
+            f"junction either. This is the absence of contrary evidence, not "
+            f"evidence for the conclusion, and it is recorded at MEDIUM "
+            f"confidence for that reason.", ev,
+            confidence=_AT_GRADE_CONFIDENCE["ORDINARY_CROSSROADS"])
 
     if not ordinary:
         ev.append("NOT_ORDINARY_ROADWAY")
@@ -423,6 +467,10 @@ class DetectedCrossing:
     along_b: float
     angle_deg: float
     classification: Classification | None = None
+    #: What the evidence said BEFORE the mixed-place rule withdrew it, if it
+    #: did. Kept because "this looked at grade and we declined to act on it"
+    #: is a different fact from "we had no idea", and the audit needs both.
+    classification_before_place_rule: Classification | None = None
 
     @property
     def disposition(self) -> str:
@@ -557,6 +605,125 @@ def cluster(points: Sequence[tuple[float, float]], eps_m: float = 25.0
     return out
 
 
+#: A place is the set of crossing points within this distance of one another.
+#: Wide enough to hold one physical intersection of two divided carriageways
+#: (four points, about 20-30 m across) and narrower than an urban block.
+PLACE_EPS_M = 25.0
+
+
+def demote_mixed_places(found: Sequence[DetectedCrossing],
+                        eps_m: float = PLACE_EPS_M) -> tuple[list[int], int]:
+    """Refuse to node anything at a place whose crossings disagree.
+
+    WHY THIS EXISTS, AND WHY IT IS NOT OPTIONAL
+
+    A graph node is a promise that every arc arriving may leave by every other
+    arc. It has no way to say "A may turn into B here, but C passes overhead".
+
+    At a complex interchange that distinction is the whole point. One pair of
+    roads meets at grade while another pair, at essentially the same place,
+    passes above or below. If the at-grade pair is cut and the pieces collapse
+    onto one coordinate that a third road also touches, the node hands that
+    third road every movement too - and the graph now contains a turn onto a
+    motorway that exists nowhere on the ground.
+
+    That is precisely the failure the original never-node rule was protecting
+    against. Fixing the rural-crossroads defect by introducing it would be no
+    improvement at all: it would move the error from "a detour is 3 km too
+    long" to "the engine routed through an impossible turn", and the second is
+    worse because it looks fine.
+
+    So where the pairs at one place do not agree, NOTHING at that place is
+    noded, under any policy including POSSIBLE. The crossings stay recorded,
+    marked UNRESOLVED with reason MIXED_PLACE, and the doubt reaches the answer
+    instead of being resolved by a coincidence of coordinates.
+
+    This is the conservative option of the three available. The other two -
+    level-specific nodes, or expressing permitted movements through the
+    edge-expanded transition graph - are better answers and are not attempted
+    here; a mixed place is 2.3% of places nationally, and the right way to
+    spend that is on not being wrong.
+
+    Returns (place labels, number of crossings demoted).
+    """
+    if not found:
+        return [], 0
+    labels = cluster([(x.x, x.y) for x in found], eps_m=eps_m)
+
+    by_place: dict[int, list[int]] = {}
+    for idx, lab in enumerate(labels):
+        by_place.setdefault(lab, []).append(idx)
+
+    demoted = 0
+    for members in by_place.values():
+        dispositions = {found[i].disposition for i in members}
+        if len(dispositions) <= 1:
+            continue
+        for i in members:
+            c = found[i].classification
+            if c is None or c.reason == "MIXED_PLACE":
+                continue
+            found[i].classification_before_place_rule = c
+            found[i].classification = Classification(
+                UNRESOLVED, "MIXED_PLACE",
+                f"Crossings within {eps_m:.0f} m of this point disagree "
+                f"({', '.join(sorted(dispositions))}), so this is an "
+                f"interchange where some pairs meet and others pass over. A "
+                f"single graph node cannot express that: it would grant every "
+                f"road here every movement, inventing the impossible turn the "
+                f"never-node rule existed to prevent. Nothing at this place is "
+                f"noded. Originally {c.disposition} ({c.reason}).",
+                list(c.evidence) + [f"WAS_{c.disposition}_{c.reason}"],
+                confidence=CONFIDENCE_MEDIUM)
+            demoted += 1
+    return labels, demoted
+
+
+def structure_evidence(p: Point, line_a: LineString, along_a: float,
+                       line_b: LineString, along_b: float,
+                       structures: STRtree | None,
+                       kinds: Sequence[str] | None = None,
+                       ) -> tuple[float | None, float | None, str | None]:
+    """Nearest mapped structure, and how well it lines up with either road.
+
+    Alignment is required, not optional. Of the 1,056 Topo50 structures within
+    15 m of a national crossing, 420 cross BOTH roads - those are river bridges
+    beside a junction, and reading them as grade separation would sever real
+    intersections. A structure that runs ALONG one of the two roads is the one
+    saying "this road is on a bridge here".
+    """
+    if structures is None:
+        return None, None, None
+    buf = p.buffer(STRUCTURE_MATCH_M)
+    best: tuple[float, float, str | None] | None = None
+    for k in structures.query(buf):
+        k = int(k)
+        g = structures.geometries[k]
+        d = g.distance(p)
+        if d > STRUCTURE_MATCH_M:
+            continue
+        along = g.project(p)
+        s_bearing = _angle_at(g, along)
+        align = min(
+            _fold90(math.degrees(s_bearing - _angle_at(line_a, along_a))),
+            _fold90(math.degrees(s_bearing - _angle_at(line_b, along_b))),
+        )
+        kind = kinds[k] if kinds is not None and k < len(kinds) else None
+        if best is None or d < best[0]:
+            best = (d, align, kind)
+    if best is None:
+        return None, None, None
+    return best
+
+
+def _fold90(deg: float) -> float:
+    """Fold a signed angle difference into 0..90 degrees."""
+    d = deg % 180.0
+    if d < 0:
+        d += 180.0
+    return 180.0 - d if d > 90.0 else d
+
+
 def build_context(crossing: DetectedCrossing,
                   geoms: Sequence[LineString],
                   attrs: Sequence[dict],
@@ -564,11 +731,17 @@ def build_context(crossing: DetectedCrossing,
                   endpoint_tree: STRtree,
                   endpoint_owner: Sequence[int],
                   motorway_tree: STRtree | None = None,
-                  ramp_tree: STRtree | None = None) -> CrossingContext:
+                  ramp_tree: STRtree | None = None,
+                  structure_tree: STRtree | None = None,
+                  structure_kinds: Sequence[str] | None = None,
+                  ) -> CrossingContext:
     """Assemble the classifier's inputs for one detected crossing."""
     i, j = crossing.index_a, crossing.index_b
     a_at, b_at = attrs[i], attrs[j]
     p = Point(crossing.x, crossing.y)
+    s_dist, s_align, s_kind = structure_evidence(
+        p, geoms[i], crossing.along_a, geoms[j], crossing.along_b,
+        structure_tree, structure_kinds)
 
     witness = False
     for k in endpoint_tree.query(p.buffer(JUNCTION_WITNESS_M)):
@@ -599,4 +772,7 @@ def build_context(crossing: DetectedCrossing,
         motorway_links_near=near(motorway_tree),
         ramp_links_near=near(ramp_tree),
         same_source_feature=crossing.amds_a == crossing.amds_b,
+        structure_dist_m=s_dist,
+        structure_align_deg=s_align,
+        structure_kind=s_kind,
     )

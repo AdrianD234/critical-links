@@ -17,7 +17,8 @@ from __future__ import annotations
 import pytest
 
 from nzcl import crossings
-from nzcl.topology import assign_nodes, split_at_junctions
+from nzcl.topology import (assign_nodes, audit_no_invented_movements,
+                           split_at_junctions)
 
 from test_topology import components, src
 
@@ -280,7 +281,7 @@ class TestTangentialCrossingsAreRefused:
         ], crossing_policy="possible")
         assert len(res.crossings) == 1
         assert res.crossings[0].classification.reason == "TANGENTIAL"
-        assert res.crossings[0].classification.plausible_junction is False
+        assert res.crossings[0].classification.safe_to_node is False
         # Not even under POSSIBLE. UNRESOLVED gets connected there only where
         # "it is really a junction" is a live hypothesis, and two carriageways
         # grazing at 4 degrees is not doubt about a junction, it is the absence
@@ -366,6 +367,184 @@ class TestClassifierIsPure:
     def test_but_a_one_way_state_highway_carriageway_does(self):
         c = self.base(rca_code=(1, 74), oneway=(1, 2))
         assert crossings.classify(c).reason == "MOTORWAY_CARRIAGEWAY"
+
+
+class TestAMixedInterchangeInventsNoMovement:
+    """The hazard that makes this whole change dangerous if done naively.
+
+    A graph node is a promise that every arc arriving may leave by every other
+    arc. It cannot say "A may turn into B here, but C passes overhead". So at a
+    place where one pair of roads meets at grade and another pair passes over,
+    noding the at-grade pair can hand the flyover the same turns - which is the
+    exact defect the original never-node rule existed to prevent.
+
+    Everything below sits inside one 25 m place:
+
+        STREET_A x STREET_B   an ordinary at-grade crossroads at (0, 0)
+        OVERBRIDGE            a named structure, crossing STREET_A at (8, 0)
+                              and STREET_B at (0, -8)
+
+    and, 400 m away and deliberately outside the structure-context radius:
+
+        RAMP        a ramp whose ENDPOINT lands on STREET_A's interior. It is
+                    a genuine at-grade connection, found by the endpoint rule,
+                    and it must keep working - the mixed-place withdrawal is
+                    per place and must not disable ordinary noding nearby.
+        BYSTANDER   an unrelated road crossing nothing, which must stay its
+                    own component.
+    """
+
+    CLUSTER = [
+        src("STREET_A", [(-500, 0), (500, 0)],
+            model_asset_type=1, oneway=2, rca_code=74, road_name="A Street"),
+        src("STREET_B", [(0, -500), (0, 500)],
+            model_asset_type=1, oneway=2, rca_code=74, road_name="B Street"),
+        src("OVERBRIDGE", [(-400, -408), (400, 392)],
+            model_asset_type=1, oneway=2, rca_code=74,
+            road_name="Newton Overbridge"),
+        src("RAMP", [(-400, 0), (-400, -300)],
+            model_asset_type=1, oneway=2, rca_code=74,
+            road_name="Newton Off Ramp", is_ramp=True),
+        src("BYSTANDER", [(-900, 700), (-700, 900)],
+            model_asset_type=1, oneway=2, rca_code=74),
+    ]
+
+    def test_the_three_crossings_are_what_the_fixture_claims(self):
+        """Read from what the evidence said BEFORE the place rule withdrew it.
+        'This looked at grade and we declined to act on it' is a different
+        fact from 'we had no idea', and both are kept."""
+        res = split_at_junctions(self.CLUSTER, crossing_policy="none")
+        got = {tuple(sorted((c.amds_a, c.amds_b))):
+               (c.classification_before_place_rule or c.classification)
+               for c in res.crossings}
+        assert got[("STREET_A", "STREET_B")].reason == "ORDINARY_CROSSROADS"
+        assert got[("STREET_A", "STREET_B")].disposition == crossings.AT_GRADE
+        assert got[("OVERBRIDGE", "STREET_A")].reason == "NAMED_STRUCTURE"
+        assert got[("OVERBRIDGE", "STREET_B")].reason == "NAMED_STRUCTURE"
+
+    def test_the_place_really_is_mixed(self):
+        res = split_at_junctions(self.CLUSTER, crossing_policy="none")
+        assert len(res.crossings) == 3
+        # all three crossings sit inside one 25 m place
+        assert len(set(res.crossing_places)) == 1
+        before = {(c.classification_before_place_rule or c.classification
+                   ).disposition for c in res.crossings}
+        assert before == {crossings.AT_GRADE, crossings.GRADE_SEPARATED}, (
+            "the fixture is only meaningful if the place really does hold "
+            "disagreeing verdicts")
+
+    def test_nothing_at_a_mixed_place_is_noded(self):
+        res = split_at_junctions(self.CLUSTER)
+        assert res.mixed_place_demotions >= 1
+        assert res.crossing_cuts == 0
+        assert all(c.disposition == crossings.UNRESOLVED
+                   for c in res.crossings)
+        assert {c.classification.reason for c in res.crossings} == {"MIXED_PLACE"}
+
+    def test_not_under_the_possible_policy_either(self):
+        res = split_at_junctions(self.CLUSTER, crossing_policy="possible")
+        assert res.crossing_cuts == 0
+
+    def test_no_impossible_movement_is_created(self):
+        for policy in ("none", "confirmed", "possible"):
+            res = split_at_junctions(self.CLUSTER, crossing_policy=policy)
+            assert audit_no_invented_movements(res) == [], policy
+
+    def test_the_overbridge_is_never_joined_to_anything(self):
+        for policy in ("none", "confirmed", "possible"):
+            res = split_at_junctions(self.CLUSTER, crossing_policy=policy)
+            pairs, _ = assign_nodes(res.links)
+            over = {n for link, pr in zip(res.links, pairs)
+                    if link.closure_group_id == "OVERBRIDGE" for n in pr}
+            other = {n for link, pr in zip(res.links, pairs)
+                     if link.closure_group_id != "OVERBRIDGE" for n in pr}
+            assert over & other == set(), policy
+
+    def test_the_two_streets_stay_severed_too(self):
+        """The at-grade pair is real, and it is still not noded - because a
+        node here would have been shared with the overbridge. This is the
+        cost of the conservative option, paid deliberately."""
+        res = split_at_junctions(self.CLUSTER)
+        pairs, _ = assign_nodes(res.links)
+        a = {n for link, pr in zip(res.links, pairs)
+             if link.closure_group_id == "STREET_A" for n in pr}
+        b = {n for link, pr in zip(res.links, pairs)
+             if link.closure_group_id == "STREET_B" for n in pr}
+        assert a & b == set()
+
+    def test_the_ordinary_endpoint_junction_nearby_still_works(self):
+        """The withdrawal is per place. A ramp ending on a street 400 m away
+        is an endpoint junction, found by a different rule, and must be
+        unaffected."""
+        res = split_at_junctions(self.CLUSTER)
+        pairs, _ = assign_nodes(res.links)
+        street = {n for link, pr in zip(res.links, pairs)
+                  if link.closure_group_id == "STREET_A" for n in pr}
+        ramp = {n for link, pr in zip(res.links, pairs)
+                if link.closure_group_id == "RAMP" for n in pr}
+        assert street & ramp, "the ramp must still connect to A Street"
+        assert len([l for l in res.links
+                    if l.closure_group_id == "STREET_A"]) == 2
+
+    def test_the_bystander_stays_its_own_component(self):
+        res = split_at_junctions(self.CLUSTER)
+        pairs, _ = assign_nodes(res.links)
+        by = {n for link, pr in zip(res.links, pairs)
+              if link.closure_group_id == "BYSTANDER" for n in pr}
+        other = {n for link, pr in zip(res.links, pairs)
+                 if link.closure_group_id != "BYSTANDER" for n in pr}
+        assert by & other == set()
+
+    def test_the_demotion_records_what_it_overrode(self):
+        res = split_at_junctions(self.CLUSTER)
+        ev = [e for c in res.crossings for e in c.classification.evidence]
+        assert any(e.startswith("WAS_AT_GRADE") for e in ev), (
+            "the at-grade pair must be recorded as having been demoted, not "
+            "silently reclassified")
+        assert any(e.startswith("WAS_GRADE_SEPARATED") for e in ev)
+
+    def test_an_unmixed_place_nearby_is_unaffected(self):
+        """The demotion is per place, not global. A clean crossroads 2 km away
+        must still be noded."""
+        res = split_at_junctions(self.CLUSTER + [
+            src("FARM_A", [(3000, -500), (3000, 500)], model_asset_type=1,
+                oneway=2, rca_code=74),
+            src("FARM_B", [(2500, 0), (3500, 0)], model_asset_type=1,
+                oneway=2, rca_code=74),
+        ])
+        assert res.crossing_cuts == 1
+        assert audit_no_invented_movements(res) == []
+
+
+class TestTheAuditCatchesAnInventedMovement:
+    """The invariant is only worth having if it can fail."""
+
+    def test_the_rural_grid_passes(self):
+        assert audit_no_invented_movements(
+            split_at_junctions(RURAL_GRID)) == []
+
+    def test_a_deliberately_wrong_split_is_caught(self):
+        """Force the overbridge to be noded by classifying it AT_GRADE by
+        hand, then check the audit notices that a GRADE_SEPARATED crossing
+        ended up connected."""
+        res = split_at_junctions(TestGradeSeparationSurvives.OVERBRIDGE,
+                                 crossing_policy="possible")
+        assert res.crossing_cuts == 0
+        # Now build the same thing as though the motorway rule had not fired.
+        forced = split_at_junctions([
+            src("MOTORWAY", [(-1000, 0), (1000, 0)], model_asset_type=1,
+                oneway=2, rca_code=74),
+            src("LOCAL", [(0, -1000), (0, 1000)], model_asset_type=1,
+                oneway=2, rca_code=74),
+        ])
+        assert forced.crossing_cuts == 1
+        # Relabel that crossing GRADE_SEPARATED after the fact: the audit must
+        # now report the graph as unsound, because it IS connected there.
+        forced.crossings[0].classification.disposition = \
+            crossings.GRADE_SEPARATED
+        violations = audit_no_invented_movements(forced)
+        assert len(violations) == 1
+        assert "MOTORWAY" in violations[0] and "LOCAL" in violations[0]
 
 
 class TestPairsAreNotPlaces:

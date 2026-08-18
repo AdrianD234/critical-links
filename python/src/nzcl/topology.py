@@ -123,6 +123,12 @@ class SplitResult:
     crossings: list = field(default_factory=list)
     crossing_cuts: int = 0
     crossing_policy: str = "none"
+    #: Cluster label per crossing, parallel to `crossings`. Several pairs share
+    #: one label where divided carriageways meet, which is why a pair count is
+    #: not a count of intersections.
+    crossing_places: list[int] = field(default_factory=list)
+    #: Crossings withdrawn because other crossings at the same place disagreed.
+    mixed_place_demotions: int = 0
 
 
 def split_at_junctions(
@@ -131,6 +137,7 @@ def split_at_junctions(
     split_tolerance_m: float = 0.05,
     review_tolerance_m: float = 5.0,
     crossing_policy: str = "confirmed",
+    structures: Sequence[tuple[LineString, str]] | None = None,
 ) -> SplitResult:
     """Cut every source link at a junction, and say what a junction is.
 
@@ -218,24 +225,39 @@ def split_at_junctions(
                                  end_guard_m=split_tolerance_m)
     honoured = _POLICY_DISPOSITIONS[crossing_policy]
     crossing_cuts = 0
+    crossing_places: list[int] = []
+    mixed_demoted = 0
     if found:
         attrs = [s.attrs for s in sources]
         motorway_tree, ramp_tree = _context_trees(sources, geoms)
+        structure_tree = structure_kinds = None
+        if structures:
+            structure_tree = STRtree([g for g, _ in structures])
+            structure_kinds = [k for _, k in structures]
         for x in found:
             x.classification = crossings_mod.classify(
                 crossings_mod.build_context(
                     x, geoms, attrs,
                     endpoint_tree=tree, endpoint_owner=endpoint_owner,
-                    motorway_tree=motorway_tree, ramp_tree=ramp_tree))
+                    motorway_tree=motorway_tree, ramp_tree=ramp_tree,
+                    structure_tree=structure_tree,
+                    structure_kinds=structure_kinds))
+
+        # Places whose crossings disagree are withdrawn ENTIRELY, before any
+        # cut is planned. A graph node grants every incident arc every
+        # movement, so noding the at-grade pair of a mixed interchange would
+        # hand a grade-separated third road the same turns - the exact defect
+        # the never-node rule existed to prevent.
+        crossing_places, mixed_demoted = crossings_mod.demote_mixed_places(found)
+
+        for x in found:
             if x.disposition not in honoured:
                 continue
-            # POSSIBLE takes UNRESOLVED crossings, but only the ones where
-            # "it is really a junction" is a live hypothesis. A 4-degree graze
-            # between two carriageways of one road is not doubt about a
-            # junction, it is the absence of one, and connecting it would
-            # fabricate a turn across a median rather than measure sensitivity.
-            if (x.disposition == crossings_mod.UNRESOLVED
-                    and not x.classification.plausible_junction):
+            # `safe_to_node` is a separate question from the disposition: it
+            # asks whether acting on the verdict is REPRESENTABLE. Tangential
+            # grazes, a road crossing itself, and mixed places all fail it, and
+            # none of them may be cut under any policy.
+            if not x.classification.safe_to_node:
                 continue
             # BOTH sides are cut at the SAME coordinate. That is the whole
             # mechanism: `assign_nodes` gives one node to coincident endpoints,
@@ -278,7 +300,64 @@ def split_at_junctions(
         crossings=found,
         crossing_cuts=crossing_cuts,
         crossing_policy=crossing_policy,
+        crossing_places=crossing_places,
+        mixed_place_demotions=mixed_demoted,
     )
+
+
+def audit_no_invented_movements(result: SplitResult,
+                                node_tolerance_m: float = 0.01) -> list[str]:
+    """Prove that no crossing left disconnected became connected anyway.
+
+    The safety property this change has to hold is narrow and checkable:
+
+        for every crossing NOT noded, the two source features must share no
+        graph node at that crossing point.
+
+    It is not implied by the splitting code. Nodes are assigned by coordinate
+    proximity, so a crossing that was deliberately refused can still end up
+    connected if some OTHER cut happens to land on the same coordinate and both
+    roads touch it. That is the mixed-place hazard, and asserting the absence
+    of the hazard is worth more than reasoning about when it can arise.
+
+    Returns a list of violations, empty when the graph is sound.
+    """
+    if not result.crossings:
+        return []
+
+    pairs, coords = assign_nodes(result.links, tolerance_m=node_tolerance_m)
+    # node id -> the source features that touch it
+    touching: dict[int, set[str]] = {}
+    for link, (a, b) in zip(result.links, pairs):
+        touching.setdefault(a, set()).add(link.closure_group_id)
+        touching.setdefault(b, set()).add(link.closure_group_id)
+
+    grid: dict[tuple[int, int], list[int]] = {}
+    for nid, (x, y) in enumerate(coords):
+        grid.setdefault((int(x // 1.0), int(y // 1.0)), []).append(nid)
+
+    violations: list[str] = []
+    for x in result.crossings:
+        if x.classification is not None and x.disposition in \
+                _POLICY_DISPOSITIONS[result.crossing_policy] and \
+                x.classification.safe_to_node:
+            continue  # this one was meant to be noded
+        cx, cy = int(x.x // 1.0), int(x.y // 1.0)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for nid in grid.get((cx + dx, cy + dy), ()):
+                    px, py = coords[nid]
+                    if (px - x.x) ** 2 + (py - x.y) ** 2 > 1.0:
+                        continue
+                    both = {x.amds_a, x.amds_b} <= touching.get(nid, set())
+                    if both:
+                        reason = (x.classification.reason
+                                  if x.classification else "?")
+                        violations.append(
+                            f"{x.amds_a} x {x.amds_b} at "
+                            f"({x.x:.3f}, {x.y:.3f}) was {x.disposition} "
+                            f"({reason}) but shares node {nid}")
+    return violations
 
 
 def _dedupe_cuts(cuts: Sequence[tuple[float, Coord]], tolerance_m: float

@@ -32,10 +32,22 @@ CREATE TABLE IF NOT EXISTS crossings (
     -- crossing_policy='none' records the classification and honours none of it.
     noded           boolean NOT NULL DEFAULT false,
 
-    -- Could this be a junction if the doubt broke the other way? False for
-    -- tangential grazes and for a road crossing itself. Only crossings where
-    -- this is true belong in the POSSIBLE graph.
-    plausible_junction boolean NOT NULL DEFAULT true,
+    -- May a shared graph node be created here, under ANY policy? A separate
+    -- question from the disposition: the disposition says what the evidence
+    -- supports, this says whether acting on it is REPRESENTABLE.
+    --
+    -- False for tangential grazes, for a road crossing itself, and - the
+    -- important one - for MIXED_PLACE. A graph node grants every incident arc
+    -- every movement, so at a place where one pair meets at grade and another
+    -- passes over, noding the at-grade pair would hand the flyover the same
+    -- turns. Nothing at such a place is noded, under any policy.
+    safe_to_node    boolean NOT NULL DEFAULT true,
+
+    -- HIGH or MEDIUM. ORDINARY_CROSSROADS is MEDIUM on purpose: its rule is
+    -- the absence of contrary evidence, which is not evidence for the
+    -- conclusion. JUNCTION_WITNESS is HIGH - a third road ends there.
+    confidence      text    NOT NULL DEFAULT 'MEDIUM'
+        CHECK (confidence IN ('HIGH', 'MEDIUM')),
 
     angle_deg       double precision,
     -- Distinct PLACE this crossing belongs to. Several pairs share one place
