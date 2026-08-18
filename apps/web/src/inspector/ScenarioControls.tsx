@@ -20,6 +20,7 @@ import {
   metrics,
   vehicles,
   type ClosureScope,
+  type DirectionKey,
   type Metric,
   type OptionDescriptor,
   type Scenario,
@@ -68,19 +69,52 @@ function Row<T extends string>({
   );
 }
 
+/**
+ * Which traversal `direction` scope withdraws.
+ *
+ * Only under that scope. A directed closure removes ONE direction of travel and
+ * has to name which; under the other scopes the engine ignores it, and offering
+ * the control anyway would imply a choice that changes nothing.
+ *
+ * This exists because the direction tabs went away with the measure that needed
+ * them. Those tabs switched between two already-computed halves of an endpoint
+ * result; this picks which closure to compute, which is a different control
+ * with the same words on it. Without it, selecting `direction` scope leaves the
+ * reader stuck on whichever traversal the URL happened to carry.
+ */
+const DIRECTIONS: OptionDescriptor<DirectionKey>[] = [
+  {
+    value: 'forward',
+    label: 'Forward',
+    hint: 'Withdraw travel in the link’s digitised direction',
+    supported: true,
+  },
+  {
+    value: 'reverse',
+    label: 'Reverse',
+    hint: 'Withdraw travel against the link’s digitised direction',
+    supported: true,
+  },
+];
+
 export default function ScenarioControls({
   id,
   scenario,
   onChange,
   meta,
   v2Capabilities = null,
+  direction,
+  onDirectionChange,
 }: {
   id: string;
   scenario: Scenario;
   onChange: (next: Scenario) => void;
   meta: NetworkMetadata | null;
-  /** Set only when the V2 engine is selected; V2 speaks for its own scopes. */
+  /** What the closure engine reports it can do for this snapshot. */
   v2Capabilities?: V2Capabilities | null;
+  /** Which traversal is withdrawn. Only meaningful under `direction` scope. */
+  direction?: DirectionKey;
+  onDirectionChange?: (d: DirectionKey) => void;
 }) {
   const scopes = closureScopes(meta, v2Capabilities);
   const activeScope = scopes.find((s) => s.value === scenario.closureScope);
@@ -93,6 +127,17 @@ export default function ScenarioControls({
         value={scenario.closureScope}
         onChange={(closureScope) => onChange({ ...scenario, closureScope })}
       />
+
+      {scenario.closureScope === 'direction' &&
+        direction !== undefined &&
+        onDirectionChange !== undefined && (
+          <Row<DirectionKey>
+            label="Direction"
+            options={DIRECTIONS}
+            value={direction}
+            onChange={onDirectionChange}
+          />
+        )}
       <Row<Metric>
         label="Measure"
         options={metrics()}

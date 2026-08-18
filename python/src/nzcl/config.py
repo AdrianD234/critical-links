@@ -81,6 +81,27 @@ ALGORITHM_VERSION = "2.0.0"
 #:         every cached detour is invalid, which is what this constant is for.
 PROCESSING_VERSION = "2.1.0"
 
+#: How settled the closure engine is. Rendered verbatim by the interface and
+#: never paraphrased there, which is why it is written as a sentence rather
+#: than a grade.
+#:
+#: This read "development preview - not a stable 3.0.0" while a second engine
+#: was the default and V2 sat behind a development flag. It is now the only
+#: engine the product uses, so that sentence was false in the direction that
+#: matters: it told a reader that the figures in front of them were not the
+#: product's answer, when they are.
+#:
+#: What replaces it names the one method caveat that is still outstanding
+#: rather than claiming none is. Turn restrictions are checked AFTER a route is
+#: found, not enforced while it is being found - see turns.py. The check fails
+#: closed, so a violating route is never offered, but "no route we offer breaks
+#: a published restriction" is a weaker statement than "the search only ever
+#: considered legal routes", and the difference belongs on the screen.
+ENGINE_STABILITY = (
+    "production - turn restrictions are post-validated, not enforced during "
+    "routing"
+)
+
 DEFAULT_ATTRIBUTION = (
     "Contains data sourced from the NZTA Waka Kotahi AMDS Network Model, "
     "maintained by New Zealand Road Controlling Authorities, the Department of "
@@ -96,17 +117,22 @@ LIMITATIONS = [
     "AMDS publishes no speed attribute. Time results are derived from estimated "
     "speeds (urban/rural classification where available, otherwise asset type and "
     "ownership) and are flagged TIME_ESTIMATED. Distance is the defensible metric.",
-    "AMDS publishes only 60 restricted turns nationally. Banned-turn coverage is "
-    "effectively negligible, so routes through complex intersections must not be "
-    "presented as road-legal.",
-    "Junctions are inferred, because AMDS does not split through roads at side roads. "
-    "Where one road ends on another they are joined. Where two roads CROSS with "
-    "neither ending, the crossing is classified on evidence: joined only where "
-    "nothing in the source describes a structure, left separated where a mapped "
-    "bridge, ramp or motorway carriageway says otherwise, and left separated but "
-    "FLAGGED where the evidence settles nothing. A result that would change if a "
-    "flagged crossing went the other way is reported as topology-sensitive rather "
-    "than as fact.",
+    "AMDS publishes only 60 restricted turns nationally, of which 43 resolve to a "
+    "connected chain of graph links and exactly 1 restricts any modelled vehicle "
+    "class. Banned-turn coverage is effectively negligible, so routes through "
+    "complex intersections must not be presented as road-legal. Restrictions are "
+    "checked after a route is found rather than enforced while it is being found: "
+    "a route that uses a published applicable restriction is withheld rather than "
+    "offered, but the search itself was not constrained by them.",
+    "Junctions are inferred, because AMDS does not split through roads at side "
+    "roads. Where one road ENDS on another they are joined. Where two roads CROSS "
+    "with neither ending, they are NOT joined: the graph leaves the crossing "
+    "disconnected unless a reviewed, evidence-backed override records that a "
+    "junction is there. An automatic classifier was built for this and rejected "
+    "on measurement - it called 32 of 350 reviewed crossings junctions that are "
+    "not - so absence of contrary evidence is no longer treated as evidence. "
+    "Where an unresolved crossing would change a result, the result is reported "
+    "as topology-sensitive rather than as fact.",
     "Height, weight and other physical restrictions are recorded as link quality "
     "flags but do not yet constrain routing.",
 ]

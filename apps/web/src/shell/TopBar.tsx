@@ -7,7 +7,6 @@
  * actions on the right are never clipped.
  */
 
-import EngineSwitch, { type Engine } from './EngineSwitch.js';
 import GlobalRoadSearch, { type SearchState } from './GlobalRoadSearch.js';
 import ModeNavigation, { type Mode } from './ModeNavigation.js';
 import ShareExportActions from './ShareExportActions.js';
@@ -28,8 +27,6 @@ export default function TopBar({
   canExport,
   onExport,
   onCopyFailed,
-  engine,
-  onEngineChange,
 }: {
   mode: Mode;
   onModeChange: (m: Mode) => void;
@@ -43,9 +40,6 @@ export default function TopBar({
   canExport: boolean;
   onExport: () => void;
   onCopyFailed: (url: string) => void;
-  /** Development only; the control renders nothing in a production build. */
-  engine: Engine;
-  onEngineChange: (e: Engine) => void;
 }) {
   return (
     <header className="topbar">
@@ -65,9 +59,6 @@ export default function TopBar({
       />
 
       <div className="topbar-right">
-        {/* Beside the snapshot indicator, because both answer "which numbers
-          * am I looking at" and a reader checking one will check the other. */}
-        <EngineSwitch engine={engine} onChange={onEngineChange} />
         <SnapshotIndicator meta={meta} />
         <ShareExportActions
           permalink={permalink}

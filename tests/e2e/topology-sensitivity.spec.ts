@@ -26,28 +26,17 @@
 
 import { exploreUrl, expect, test, waitForResult, watchConsole } from './fixtures.js';
 
-/**
- * Select the V2 engine.
+/*
+ * There is no engine to select any more.
  *
- * V1 is the default and stays the default - `useState<Engine>('v1')` in
- * ExploreScreen - and the engine is component state, not a URL parameter.
- * So navigating alone leaves V1 mounted and the V2 panel simply does not
- * exist in the tree. An earlier version of this spec asserted on the panel
- * without clicking, and failed for that reason rather than for a defect.
+ * This spec used to click the dev engine switch, because V1 was the
+ * default and the V2 panel did not exist until V2 was chosen. The V2
+ * promotion makes V2 the sole ordinary product engine and removes the
+ * switch entirely, so the panel is present from the first render.
  *
- * The switch is dev-only by design, and Playwright's webServer runs `vite
- * dev`, so it is present. Its ABSENCE is asserted rather than skipped: a
- * spec that quietly skips when the control is missing would go green in
- * exactly the situation it is meant to catch.
+ * The absence of the switch is asserted below rather than assumed: if one
+ * came back, this spec would be silently testing a different surface.
  */
-async function selectV2Engine(page: import('@playwright/test').Page) {
-  const v2 = page.getByRole('button', { name: 'V2 closure analysis' });
-  await expect(
-    v2,
-    'the dev engine switch must be present - Playwright runs a vite dev server',
-  ).toHaveCount(1);
-  await v2.click();
-}
 
 const CAUSAL = 'Clintons Road x McLaughlins Road';
 
@@ -114,7 +103,11 @@ test.describe('Topology sensitivity', () => {
      * V1 render that has to happen first. */
     await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
-    await selectV2Engine(page);
+    /* V2 is the product engine now; no switch exists to click. */
+    await expect(
+      page.getByRole('button', { name: 'V2 closure analysis' }),
+      'the engine switch must be gone - V2 is the product engine',
+    ).toHaveCount(0);
 
     /* Sensitivity is gated on the canonical boundary result having arrived -
      * it is a qualification of that answer, so that answer is on screen
@@ -182,7 +175,11 @@ test.describe('Topology sensitivity', () => {
 
     await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
-    await selectV2Engine(page);
+    /* V2 is the product engine now; no switch exists to click. */
+    await expect(
+      page.getByRole('button', { name: 'V2 closure analysis' }),
+      'the engine switch must be gone - V2 is the product engine',
+    ).toHaveCount(0);
 
     const panel = page.getByTestId('topology-sensitivity');
     await expect(panel).toBeVisible({ timeout: 90_000 });

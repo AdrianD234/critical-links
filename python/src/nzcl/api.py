@@ -25,6 +25,7 @@ from . import db
 from .config import (
     ALGORITHM,
     ALGORITHM_VERSION,
+    ENGINE_STABILITY,
     LIMITATIONS,
     PROCESSING_VERSION,
     get_settings,
@@ -1057,12 +1058,18 @@ def detour(
 # ==========================================================================
 # V2 - closure analysis
 # ==========================================================================
-# New paths, never in place of the V1 ones. Every V1 response above is
-# byte-identical to what it was before this module learned about V2, and the
-# V1 route does not import anything from here.
+# These are the routes the product uses. Every V1 response above is still
+# byte-identical to what it was before this module learned about V2, and the V1
+# route still does not import anything from here - but nothing the web client
+# does reaches the V1 detour route any more.
 #
-# V2 is a development preview. It is not the default anywhere, it advertises
-# algorithmVersion 3.0.0-dev, and the client only reaches it behind a dev flag.
+# The V1 routes are retained in this file for one reason: they are the recorded
+# contract that the preservation tag v1-final-before-v2-promotion refers to, and
+# removing them is a separate change. They are not a fallback. Nothing in the V2
+# paths below calls into them, and nothing may be added that does: V1 answers
+# under different closure and movement semantics, so a V2 failure answered by V1
+# would return a plausible number for a different question and hide the failure
+# that needed investigating.
 
 V2_SCOPES = ("segment", "direction", "source_feature")
 
@@ -1095,7 +1102,7 @@ def v2_capabilities() -> dict[str, Any]:
         "engine": "v2",
         "algorithm": detourv2.ALGORITHM,
         "algorithmVersion": detourv2.ALGORITHM_VERSION,
-        "stability": "development preview - not a stable 3.0.0",
+        "stability": ENGINE_STABILITY,
         "derivationVersion": physical.DERIVATION_VERSION,
         "closureScopes": list(V2_SCOPES),
         "defaultClosureScope": "segment",
@@ -1253,6 +1260,26 @@ def boundary_analysis_v2(
     body["selectedLink"] = _link_summary(
         link, _locality_lookup(snap, [int(link["link_id"])]).get(
             int(link["link_id"])), labels=True)
+
+    # The links that lose access, as geometry, on the same terms as
+    # /closure-analysis emits them.
+    #
+    # This is the strongest claim the analysis makes, and until now this
+    # endpoint stated it only as a count. A reader told that 24 links are
+    # separated and shown nothing has to take it on trust; the map is where
+    # "cut off" is either obviously right or obviously wrong, and it is the
+    # only check most readers can actually perform.
+    #
+    # Capped at MAX_DRAWN_STRANDED_LINKS and null beyond it, matching
+    # /closure-analysis exactly. A truncated collection drawn as if whole would
+    # understate the extent, which is worse than drawing nothing; the counts in
+    # the isolation block stay exact either way and say so.
+    if geometry and isolation and result.isolation is not None:
+        sep = result.isolation.separated_link_ids
+        body["isolation"]["separatedGeoJson"] = (
+            _links_geojson_v2(snap, sep)
+            if 0 < len(sep) <= MAX_DRAWN_STRANDED_LINKS
+            else None)
     return body
 
 

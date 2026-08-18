@@ -83,6 +83,37 @@ jobs:
           # Fonts must be bundled, not fetched from a CDN at runtime.
           ls apps/web/dist/assets/*.woff2 > /dev/null
 
+      # What the PRODUCTION bundle contains, as opposed to what the source
+      # says. The engine switch was compiled out by `import.meta.env.DEV`
+      # before the promotion, so "it is not in the build" was a property of a
+      # Vite substitution rather than of the code - exactly the kind of thing
+      # that comes back when someone reintroduces a flag for a good reason.
+      #
+      # This does not attempt to prove no V1 code is present. Dead client code
+      # for the retired route survives bundling because it hangs off an object
+      # that is used, and removing it is a separate change. What is proven here
+      # is that the switch is gone and the closure engine is what shipped; that
+      # no user-facing REQUEST reaches the retired route is proven where it can
+      # be, in tests/e2e/no-v1-fallback.spec.ts, against the requests a real
+      # browser actually issued.
+      - name: The production bundle ships one engine and no switch
+        run: |
+          set -o pipefail
+          BUNDLE=$(ls apps/web/dist/assets/*.js)
+          echo "checking $BUNDLE"
+
+          grep -q "boundary-analysis" $BUNDLE \
+            || { echo "the closure engine's endpoint is not in the bundle"; exit 1; }
+
+          for marker in "engine-switch" "V1 legacy" "V2 closure analysis" \
+                        "Analysis engine" "ENGINE_SWITCH_VISIBLE"; do
+            if grep -qF "$marker" $BUNDLE; then
+              echo "the production bundle contains the engine switch: $marker"
+              exit 1
+            fi
+          done
+          echo "one engine, no switch"
+
   python:
     name: Python suite
     runs-on: ubuntu-latest
