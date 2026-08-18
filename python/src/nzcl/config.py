@@ -79,11 +79,24 @@ ALGORITHM_VERSION = "2.0.0"
 
 #: Bump when the GRAPH changes shape, not just when a number about it does.
 #:
-#: 2.1.0 - interior-to-interior crossings are classified and the AT_GRADE ones
-#:         are noded. Until 2.0.0 they were refused unconditionally, which
-#:         treated every flat rural crossroads in the country as a flyover.
+#: 2.1.0 - interior-to-interior crossings are classified, and one is noded
+#:         where a reviewed, EVIDENCE-BACKED OVERRIDE authorises it. Until
+#:         2.0.0 they were refused unconditionally, which treated every flat
+#:         rural crossroads in the country as a flyover.
+#:
+#:         This comment previously said the AT_GRADE ones are noded. That
+#:         described the classifier-decides strategy, which was measured
+#:         against the gate in `nzcl.promotion` and REJECTED - 32 of 350 of its
+#:         AT_GRADE crossings are not junctions - and survives only as the
+#:         research policies `confirmed` and `possible`, which
+#:         `split_at_junctions` refuses without research=True. Under the
+#:         canonical `evidence` policy the classifier decides nothing; it is
+#:         the input to a review queue. See docs/audits/at-grade-crossings/.
+#:
 #:         The graph is genuinely different, so every snapshot id changes and
 #:         every cached detour is invalid, which is what this constant is for.
+#:         How MUCH it differs depends on how many overrides are live: with an
+#:         empty override table, no interior crossing is noded at all.
 PROCESSING_VERSION = "2.1.0"
 
 #: How settled the closure engine is. Rendered verbatim by the interface and
