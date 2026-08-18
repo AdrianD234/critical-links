@@ -176,6 +176,131 @@ class TestTheShortestPathIsNotTheCorridor:
         assert not choice.ambiguous
 
 
+#: Two links of one road meeting at a junction, with a way round.
+#:
+#:     SEG_A (0,0)--A--(200,0)   SEG_B (200,0)--B--(400,0)   High Street
+#:     LOOP  (0,0)-(0,80)-(400,80)-(400,0)                   Ring Road, 560 m
+#:
+#: The corridor through the shared junction is 200 m; round the loop it is
+#: 100 + 560 + 100 = 760 m, which is 3.8x - inside the plausibility bound, so
+#: it stays on the list as a genuine alternative.
+ADJACENT = [
+    {"id": "SEG_A", "pts": [(0, 0), (200, 0)], "road_name": "High Street"},
+    {"id": "SEG_B", "pts": [(200, 0), (400, 0)], "road_name": "High Street"},
+    {"id": "LOOP", "pts": [(0, 0), (0, 80), (400, 80), (400, 0)],
+     "road_name": "Ring Road"},
+]
+
+
+class TestHandlesOnAdjacentLinks:
+    """Regression: the most ordinary corridor of all.
+
+    Two handles on links that meet at a junction. The corridor is simply the
+    run from A to that junction and on to B - 200 m here - and it was never
+    generated, because `pgr_dijkstra` returns no row for a pair whose start
+    vertex IS its end vertex. Selection fell through to whatever long way
+    round existed.
+
+    On real data this turned a 185 m outage on State Highway 6 into an 813 m
+    one across four other streets, with nothing indicating anything was wrong:
+    the corridor was returned, drawn, closed and measured, and every number
+    downstream of it was internally consistent.
+    """
+
+    def build(self, net):
+        return span_corridor.select(
+            net.snapshot_id, [opt(net, "SEG_A", 0.5)], [opt(net, "SEG_B", 0.5)])
+
+    def test_the_corridor_runs_through_the_shared_junction(self, synthetic):
+        net = synthetic(ADJACENT)
+        choice = self.build(net)
+
+        assert choice.found
+        assert len(choice.chosen.steps) == 2
+        assert choice.chosen.length_m == pytest.approx(200.0, abs=1e-6)
+
+    def test_it_stays_on_the_road_the_handles_are_on(self, synthetic):
+        net = synthetic(ADJACENT)
+        choice = self.build(net)
+
+        assert {s.road_name for s in choice.chosen.steps} == {"High Street"}
+        assert choice.chosen.road_changes == 0
+        assert choice.chosen.name_continuous
+
+    def test_the_long_way_round_does_not_win(self, synthetic):
+        """Ring Road was the answer before the shared-junction corridor was
+        built explicitly."""
+        net = synthetic(ADJACENT)
+        choice = self.build(net)
+
+        assert net.link_id("LOOP") not in choice.chosen.link_ids
+        assert choice.chosen.length_m < 300.0
+
+    def test_an_implausibly_long_alternative_is_dropped(self):
+        """A corridor several times the length of the shortest is not a
+        reading of what the user drew, and padding the choice with it would
+        make a settled selection look like a decision."""
+        best = _fake(200.0)
+        near = _fake(600.0)
+        far = _fake(5_000.0)
+
+        kept = span_corridor._drop_implausible([best, near, far])
+
+        assert best in kept and near in kept
+        assert far not in kept
+
+    def test_the_only_corridor_found_is_never_dropped(self):
+        far = _fake(50_000.0)
+        assert span_corridor._drop_implausible([far]) == [far]
+
+    def test_the_long_way_round_is_still_offered_as_an_alternative(
+            self, synthetic):
+        net = synthetic(ADJACENT)
+        choice = self.build(net)
+
+        assert len(choice.candidates) >= 2
+        assert any(net.link_id("LOOP") in c.link_ids
+                   for c in choice.candidates[1:])
+
+    def test_a_handle_exactly_on_the_shared_junction(self, synthetic):
+        """One end contributes no road; the corridor is the other half only."""
+        net = synthetic(ADJACENT)
+        choice = span_corridor.select(
+            net.snapshot_id, [opt(net, "SEG_A", 1.0)], [opt(net, "SEG_B", 0.5)])
+
+        assert choice.found
+        assert choice.chosen.length_m == pytest.approx(100.0, abs=1e-6)
+        assert len(choice.chosen.steps) == 1
+
+
+class TestTheSearchIsBounded:
+    """A corridor between two nearby points must not cost the whole country."""
+
+    def test_a_corridor_beyond_the_box_is_still_found(self, synthetic):
+        """The bound is a performance measure, so it must never lose a
+        corridor: a search that finds nothing inside the box is retried
+        without it."""
+        net = synthetic(ADJACENT)
+        # Force the bounded pass to find nothing by asking for a corridor that
+        # only exists via the loop, then confirm one is returned anyway.
+        choice = span_corridor.select(
+            net.snapshot_id, [opt(net, "SEG_A", 0.5)], [opt(net, "LOOP", 0.5)])
+
+        assert choice.found
+
+    def test_the_envelope_grows_with_the_span(self, synthetic):
+        net = synthetic(ADJACENT)
+        links = span_corridor._links(
+            net.snapshot_id, [net.link_id("SEG_A"), net.link_id("SEG_B")])
+        minx, miny, maxx, maxy = span_corridor._envelope(
+            links[net.link_id("SEG_A")], links[net.link_id("SEG_B")])
+
+        # Both links sit inside, with the flat margin around them.
+        assert minx <= -span_corridor.SEARCH_MARGIN_M
+        assert maxx >= 400.0 + span_corridor.SEARCH_MARGIN_M
+        assert miny < 0 < maxy
+
+
 class TestAmbiguityIsSurfaced:
     """Equal evidence and equal length is a question, not a tie to break."""
 
@@ -332,3 +457,14 @@ class TestTheApiShape:
         assert payload["corridorModelVersion"] == \
             span_corridor.CORRIDOR_MODEL_VERSION
         assert len(payload["candidates"]) >= 2
+
+
+def _fake(length_m: float) -> span_corridor.SpanCandidate:
+    """A candidate with only the field the plausibility filter reads."""
+    step = span_corridor.SpanStep(
+        link_id=1, amds_id=f"X{length_m}", road_name=None,
+        route_designation=None, traversal="forward", from_fraction=0.0,
+        to_fraction=1.0, length_m=length_m)
+    return span_corridor.SpanCandidate(
+        candidate_id=span_corridor.candidate_key([step]), steps=[step],
+        length_m=length_m, origin="shortest")

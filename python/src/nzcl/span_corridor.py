@@ -86,6 +86,22 @@ CONTINUITY_PREFERENCE = 0.25
 #: only corridor found.
 MAX_ALTERNATIVE_RATIO = 4.0
 
+#: The search is confined to a box around the two handles, because a corridor
+#: between two points 200 m apart does not wander across the country - and
+#: searching as though it might costs the whole national edge set on every
+#: request. Unbounded, one corridor query loaded 731,286 arcs and took 800 ms;
+#: five of them made corridor selection 4.2 s.
+#:
+#: The box is the two host links' extents, grown by whichever is larger: a flat
+#: margin, or a multiple of the span's own size. The flat margin keeps short
+#: spans workable - a 50 m outage still gets a 2 km box to find a way round -
+#: and the multiple keeps long spans proportionate.
+#:
+#: A bounded search that finds nothing is retried without the box, so this can
+#: only ever cost time, never a corridor.
+SEARCH_MARGIN_M = 2_000.0
+SEARCH_MARGIN_RATIO = 4.0
+
 _MODE_COLUMN = {"car": "mode_vehicle", "heavy": "mode_vehicle_heavy",
                 "emergency": "mode_emergency"}
 
@@ -358,6 +374,37 @@ def _across_links(snapshot_id: str, links: dict[int, dict], a: HandleOption,
     seen: set[str] = set()
     banned = {a.link_id, b.link_id}
 
+    def build(u: int, v: int, middle: list[SpanStep], origin: Origin) -> bool:
+        a_from, a_to, a_trav = exits[u]
+        b_from, b_to, b_trav = entries[v]
+        steps = [_step(la, a_trav, a_from, a_to), *middle,
+                 _step(lb, b_trav, b_from, b_to)]
+        # A handle exactly on a junction contributes no road at that end. The
+        # corridor is still valid; the empty step is dropped rather than
+        # closing a zero-length interval.
+        steps = [s for s in steps if s.covered_m > 0.0]
+        if not steps:
+            return False
+        candidate = _candidate(steps, origin)
+        if candidate.candidate_id in seen:
+            return False
+        seen.add(candidate.candidate_id)
+        out.append(candidate)
+        return True
+
+    # The handles' links meet directly: the corridor is simply the run from A
+    # to the shared junction and on to B, with nothing in between.
+    #
+    # This is built here rather than left to the planner because pgRouting
+    # returns no row for a pair whose start vertex IS its end vertex. Relying
+    # on the search to produce it meant the most ordinary corridor of all -
+    # two handles on adjacent links - was never generated, and selection fell
+    # through to whatever long way round existed. On SH 6 that turned a 185 m
+    # outage into an 813 m one across four other streets, with no sign
+    # anything was wrong.
+    for shared in sorted(set(exits) & set(entries)):
+        build(shared, shared, [], "shortest")
+
     def collect(paths, origin: Origin) -> int:
         added = 0
         for (u, v), arc_ids in sorted(paths.items()):
@@ -366,51 +413,60 @@ def _across_links(snapshot_id: str, links: dict[int, dict], a: HandleOption,
             middle = _middle_steps(snapshot_id, arc_ids)
             if middle is None:
                 continue
-            a_from, a_to, a_trav = exits[u]
-            b_from, b_to, b_trav = entries[v]
-            steps = [_step(la, a_trav, a_from, a_to), *middle,
-                     _step(lb, b_trav, b_from, b_to)]
-            # A handle exactly on a junction contributes no road at that end.
-            # The corridor is still valid; the empty step is dropped rather
-            # than closing a zero-length interval.
-            steps = [s for s in steps if s.covered_m > 0.0]
-            if not steps:
-                continue
-            candidate = _candidate(steps, origin)
-            if candidate.candidate_id in seen:
-                continue
-            seen.add(candidate.candidate_id)
-            out.append(candidate)
-            added += 1
+            if build(u, v, middle, origin):
+                added += 1
         return added
 
-    for origin, name, designation in preferences:
-        paths = _search(snapshot_id, sorted(exits), sorted(entries), profile,
-                        excluded_links=sorted(banned),
-                        prefer_name=name, prefer_designation=designation,
-                        timeout_ms=timeout_ms)
-        if paths is not None:
-            collect(paths, origin)
+    # Bounded first. Retried without the box only if it found nothing at all,
+    # so confining the search can cost time but never a corridor.
+    for envelope in (_envelope(la, lb), None):
+        for origin, name, designation in preferences:
+            paths = _search(snapshot_id, sorted(exits), sorted(entries),
+                            profile, excluded_links=sorted(banned),
+                            prefer_name=name, prefer_designation=designation,
+                            envelope=envelope, timeout_ms=timeout_ms)
+            if paths is not None:
+                collect(paths, origin)
 
-    for _ in range(max(0, limit - 1)):
-        middles = {lid for c in out for lid in c.link_ids[1:-1]}
-        if not middles - banned:
-            # Every corridor found runs only along the two handle links, so
-            # there is nothing left to ban and no different way round to find.
-            break
-        banned |= middles
-        paths = _search(snapshot_id, sorted(exits), sorted(entries), profile,
-                        excluded_links=sorted(banned), prefer_name=None,
-                        prefer_designation=None, timeout_ms=timeout_ms)
-        if paths is None or collect(paths, "alternative") == 0:
+        for _ in range(max(0, limit - 1)):
+            middles = {lid for c in out for lid in c.link_ids[1:-1]}
+            if not middles - banned:
+                # Every corridor found runs only along the two handle links, so
+                # there is nothing left to ban and no different way round.
+                break
+            banned |= middles
+            paths = _search(snapshot_id, sorted(exits), sorted(entries),
+                            profile, excluded_links=sorted(banned),
+                            prefer_name=None, prefer_designation=None,
+                            envelope=envelope, timeout_ms=timeout_ms)
+            if paths is None or collect(paths, "alternative") == 0:
+                break
+
+        if out:
             break
 
     return out
 
 
+def _envelope(la: dict, lb: dict) -> tuple[float, float, float, float]:
+    """A box around both host links, grown enough to hold a way round.
+
+    Returned in EPSG:2193 metres, which is the only frame anything here
+    measures in.
+    """
+    minx = min(float(la["minx"]), float(lb["minx"]))
+    miny = min(float(la["miny"]), float(lb["miny"]))
+    maxx = max(float(la["maxx"]), float(lb["maxx"]))
+    maxy = max(float(la["maxy"]), float(lb["maxy"]))
+    diagonal = ((maxx - minx) ** 2 + (maxy - miny) ** 2) ** 0.5
+    margin = max(SEARCH_MARGIN_M, SEARCH_MARGIN_RATIO * diagonal)
+    return (minx - margin, miny - margin, maxx + margin, maxy + margin)
+
+
 def _search(snapshot_id: str, sources: Sequence[int], targets: Sequence[int],
             profile: Profile, *, excluded_links: Sequence[int],
             prefer_name: str | None, prefer_designation: str | None,
+            envelope: tuple[float, float, float, float] | None,
             timeout_ms: int) -> dict[tuple[int, int], list[int]] | None:
     """Arc paths for every (source, target) pair, from one edge-set load.
 
@@ -441,6 +497,16 @@ def _search(snapshot_id: str, sources: Sequence[int], targets: Sequence[int],
     else:
         factor = "1.0"
 
+    # The spatial predicate goes on `links`, which carries the GIST index, and
+    # the join then runs over the handful of links inside the box rather than
+    # over every arc in the country.
+    if envelope is None:
+        bbox = ""
+    else:
+        minx, miny, maxx, maxy = (float(v) for v in envelope)
+        bbox = (f"   AND l.geom_2193 && ST_MakeEnvelope("
+                f"{minx!r}, {miny!r}, {maxx!r}, {maxy!r}, 2193)")
+
     edge_sql = (
         f"SELECT a.arc_id AS id, a.source, a.target, "
         f"       a.cost_distance_m * {factor} AS cost, "
@@ -453,6 +519,7 @@ def _search(snapshot_id: str, sources: Sequence[int], targets: Sequence[int],
         f" WHERE a.snapshot_id = '{snap_id}' AND a.{mode} "
         f"   AND a.cost_distance_m IS NOT NULL "
         f"   AND NOT (a.link_id = ANY (ARRAY[{excluded}]::bigint[]))"
+        f"{bbox}"
     )
 
     try:
@@ -619,7 +686,9 @@ def _links(snapshot_id: str, link_ids: Sequence[int]) -> dict[int, dict]:
         SELECT l.link_id, l.amds_id, l.closure_group_id, l.length_m,
                l.source_node, l.target_node,
                coalesce(dn.display_name, l.road_name) AS road_name,
-               dn.route_designation
+               dn.route_designation,
+               ST_XMin(l.geom_2193) AS minx, ST_YMin(l.geom_2193) AS miny,
+               ST_XMax(l.geom_2193) AS maxx, ST_YMax(l.geom_2193) AS maxy
           FROM links l
      LEFT JOIN link_display_names dn ON dn.snapshot_id = l.snapshot_id
                                     AND dn.link_id = l.link_id
