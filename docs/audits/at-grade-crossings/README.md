@@ -1484,3 +1484,136 @@ The honest next step, if the classifier is to be improved, is to use **these**
 findings to design the change — the two failure families the reviewers named
 are specific and actionable — and to accept that a fourth, independently drawn
 pack is what would have to score it.
+
+---
+
+## 14. The finding: broad automatic noding was tested against a predeclared gate and rejected
+
+This is the most valuable thing this branch produced, and it is a finding
+rather than an apology.
+
+**A strategy was proposed, specified, built, and measured against a bar fixed
+in writing before the measurement existed. It failed the bar. It is not
+shipping.** That is a gate doing its job. The failure mode it prevented — a
+national road graph with thousands of junctions that are not on the ground,
+published as fact to people deciding which roads matter when one closes — is
+considerably more expensive than the work it cost to find out.
+
+### What was tested
+
+That the disposition of an interior-interior road crossing can be decided
+automatically, at national scale, from AMDS source attributes plus geometric
+heuristics, accurately enough to create canonical graph nodes without a human
+looking at each one.
+
+Concretely: `AT_GRADE` from `ORDINARY_CROSSROADS` (absence of contrary
+evidence) and `JUNCTION_WITNESS` (a third road ends here), with
+`DUPLICATE_GEOMETRY`, `TANGENTIAL`, `STRUCTURE_MAPPED`, `MIXED_PLACE` and the
+road-class rules withdrawing what they could.
+
+### The bar, fixed before the measurement
+
+`docs/audits/at-grade-crossings/third-holdout-predeclaration.md`, committed
+before a single card was drawn: 350 AT_GRADE cards, at most 4 failures,
+unreviewable counted among the failures, four conditions each able to veto
+alone, encoded as `nzcl/promotion.py` with a test per condition.
+
+### The result
+
+**Rejected.** 32 not-a-junction false positives against a requirement of zero;
+86.1% against a required 97%. Section 13 has the detail, including that it was
+not an imagery problem and not one reviewer's opinion.
+
+### Why more thresholds would not have fixed it
+
+The evidence rejects the approach in **both** directions at once, which is the
+part that matters:
+
+| | |
+| --- | --- |
+| **the permissive side fabricates junctions** | 32 of 350 AT_GRADE cards are not junctions at all. `JUNCTION_WITNESS` — the *only* HIGH-confidence at-grade rule, the one backed by positive evidence rather than by absence — produced **5 of them**. |
+| **the conservative side severs real ones** | `DUPLICATE_GEOMETRY` fires on **9,830** crossings nationally, and reviewers judged **11 of 25** sampled withdrawals to be genuine junctions. `MOTORWAY_CARRIAGEWAY` was called at-grade on 11 of 16. |
+
+There is no threshold between those two. Tightening the at-grade rules
+withdraws more real junctions; loosening the withdrawal rules creates more
+false nodes. Both errors are already large, and they are large **at the same
+settings**.
+
+A further round of rules and exceptions would be fitted to the review packs —
+of which four have now been spent, three of them burned as development data —
+and would produce a classifier tuned to its own test set rather than a
+reliable national topology model.
+
+**The conclusion is about the evidence available, not about the effort
+applied.** AMDS source attributes plus geometry do not carry enough
+information to decide, unsupervised, whether two crossing centrelines are a
+junction. The z-values are a LiDAR terrain drape. The shared-vertex signal
+appears on 15.4% of crossings. Topo50 structures recover about 45% of
+grade-separation candidates on a motorway where the answer is known. What is
+left is inference from road class and geometry, and this pack measured what
+that is worth.
+
+### What survives, and it is not nothing
+
+Everything below was proved on the way and is unaffected by the rejection:
+
+- **The defect is real and quantified.** Closing 675.3 m of Greendale Road
+  returns a 7,944.4 m replacement path; with the missing crossing noded on an
+  isolated copy, 4,915.5 m. 38.1% shorter. The causal crossing is Clintons x
+  McLaughlins, and the one in the original report changes nothing.
+- **The expensive failure mode did not occur.** Zero grade-separated false
+  positives on 350 adversarially chosen cards. The never-node rule, the
+  structure evidence and the demotion of the road-class rules held.
+- **`audit_no_invented_movements()`** asserts the safety property instead of
+  reasoning about it, and the ingest refuses to load on a violation.
+- **Mixed places** are refused under every policy, so noding one pair at an
+  interchange cannot hand a grade-separated third road the same movements.
+- **The what-if machinery** copies a snapshot, edits it, and drops it, with
+  the national snapshot verified intact at 375,696 links afterwards.
+- **Decisiveness by re-routing**, after a P0 where a lone relied-on crossing
+  was called decisive by construction.
+- **The promotion gate as code**, after a summary reported `met: true` about a
+  result that did not meet it.
+- **A scorer that cannot drop a row**, after noticing that an incomplete
+  review would have shrunk the denominator instead of counting as failures.
+- **Credential controls** in CI, after the key was committed twice.
+- **A review pipeline that produces isolated reviewers**, which three sessions
+  had called impossible.
+
+### What the classifier may still be used for
+
+**Candidate ranking, and nothing else.** A score that orders which unresolved
+crossings are worth a human's attention is a perfectly good use of a signal
+that is 90% right. Creating a canonical node is not.
+
+> **The classifier must never directly create a canonical graph node.**
+
+### What replaces it
+
+Three mechanisms, specified in `docs/audits/at-grade-crossings/PIVOT.md`:
+
+1. **Evidence-backed overrides.** A canonical junction exists only where a
+   crossing carries explicit reviewable evidence — an authoritative
+   intersection source, a confirmed aerial review, a formal source-data
+   correction, or a durable project override recording reviewer, evidence and
+   date. Everything else stays disconnected.
+2. **Per-analysis topology sensitivity.** When a result looks suspicious,
+   identify nearby unresolved candidates and run bounded counterfactuals one
+   at a time, reporting the exact assumed junctions. **No national "possible"
+   graph** — that is how a route comes to rely on a chain of speculative
+   motorway turns.
+3. **Review the crossings that matter.** Rank candidates by how much they
+   change a real finding, and give a human a queue instead of 22,062
+   crossings.
+
+### The number that makes the pivot obviously right
+
+The canonical graph has **4,914** AT_GRADE crossing points the classifier
+would have noded. At the measured rate, roughly **one in eleven** of them is
+not a junction — on the order of **450 fabricated nodes nationally**, each one
+joining a road to itself or to nothing.
+
+Against that: the crossings that actually change an answer are a much smaller
+set, and mechanism 3 exists to find them. Reviewing the crossings that matter
+is a tractable amount of human attention. Reviewing 4,914 to catch 450 is not,
+and shipping the 450 is not an option.
