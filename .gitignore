@@ -64,3 +64,4 @@ scratch/blind/
 # second pack beside the first, and the ignore rule must already cover it
 # rather than be remembered at the moment it matters.
 scratch/holdout*/
+docs/audits/at-grade-crossings/classified-v2.jsonl
