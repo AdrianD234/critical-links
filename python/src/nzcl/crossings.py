@@ -62,9 +62,13 @@ pairs. See `docs/audits/at-grade-crossings/evidence.md`.
   height limits      STRONG, RARE. A height restriction on a link means
                      something passes over it. 115 crossing pairs nationally.
 
-  ramp context       STRONG. Motorway access is controlled; a crossing on a
-                     motorway carriageway or a ramp that carries no node is a
-                     structure, not an unnoded junction.
+  ramp context       MEASURED, AND DEMOTED. "Motorway access is controlled, so
+  and motorway       a crossing on a motorway carriageway or a ramp that
+  carriageway        carries no node is a structure" is an argument about road
+                     classes, and the blinded holdout scored it 2 of 8. Every
+                     miss was an ordinary at-grade urban intersection where a
+                     state highway is coded one-way. It no longer decides
+                     GRADE_SEPARATED; it decides UNRESOLVED.
 
   crossing angle     USEFUL AS A VETO. 806 pairs cross at under 10 degrees.
                      Those are parallel carriageways grazing each other, not
@@ -117,14 +121,43 @@ whole difference between them is confidence.
                           names at-grade rural roundabouts "... Interchange 45
                           Roundabout".
 
-MOTORWAY_CARRIAGEWAY measured 4/5 excluding one unclear case. Its single
-failure was SH76 Brougham Street crossing Opawa Road, a signalised at-grade
-intersection on a one-way-coded urban arterial. It is kept, and that is the
-weakest surviving GRADE_SEPARATED rule.
+MOTORWAY_CARRIAGEWAY measured 4/5 excluding one unclear case at that point.
+It was kept, and described as the weakest surviving GRADE_SEPARATED rule. The
+blinded holdout then measured it at 2 of 8. See below.
+
+What the blinded holdout changed
+--------------------------------
+A second, independent, blinded pack of 248 cards scored GRADE_SEPARATED at
+15 of 24. The failures were not spread evenly:
+
+    STRUCTURE_MAPPED       9 / 10
+    RAMP                   2 /  3
+    CONNECTOR              2 /  3
+    MOTORWAY_CARRIAGEWAY   2 /  8   [7.1%, 59.1%]
+
+ONE LINE SEPARATES THE RULE THAT SURVIVED FROM THE ONES THAT DID NOT.
+`STRUCTURE_MAPPED` and `NAMED_STRUCTURE` are POSITIVE EVIDENCE THAT A STRUCTURE
+EXISTS AT THIS POINT: an independent national mapping agency drew a bridge or
+tunnel centreline here and it lines up with one of these two roads, or the road
+carries the word "overbridge" in its own name. `RAMP`, `CONNECTOR`,
+`MOTORWAY_CARRIAGEWAY` and the ramp/interchange words that used to sit inside
+`NAMED_STRUCTURE` all argue instead that this is the KIND of road that is
+usually grade separated. That is a prior about road classes, not evidence about
+this crossing - the same absence-of-evidence reasoning `ORDINARY_CROSSROADS` is
+recorded at MEDIUM for, stated with more confidence and pointing the other way.
+
+All four are now UNRESOLVED. Nothing about the canonical graph changes:
+GRADE_SEPARATED and UNRESOLVED are both left disconnected, so no severed
+crossing becomes connected. What changes is the claim - and that the crossing
+now enters the POSSIBLE sensitivity graph, so a route depending on it is
+reported as depending on it instead of the doubt being swallowed here.
 
 Everything here is a pure function of source-link attributes and geometry, so
 it can run inside the ingest, before any graph exists, and be tested without a
-database.
+database. One exception is documented where it is made: `corridor_polyline`
+follows coincident endpoints between source features, because "are these two
+records of one road?" is a question about roads and cannot be answered from a
+15 m fragment of one.
 """
 
 from __future__ import annotations
@@ -197,16 +230,23 @@ MAT_CONNECTOR = 6
 ONEWAY_ONE = 1
 ONEWAY_BOTH = 2
 
-#: Names that assert a structure outright.
-_STRUCTURE_WORDS = ("interchange", "overbridge", "over bridge", "flyover",
-                    "fly over", "underpass", "viaduct", "off ramp", "on ramp",
-                    "offramp", "onramp")
+#: Names that assert a STRUCTURE at this point, in the source's own words.
+#: An overbridge, an underpass or a viaduct IS the structure; the name is a
+#: statement about this place, not about a class of road.
+_STRUCTURE_WORDS = ("overbridge", "over bridge", "flyover", "fly over",
+                    "underpass", "viaduct")
 
-#: ...except that "interchange" is also how NZTA names AT-GRADE roundabouts on
-#: rural state highways. "State Highway 5 Interchange 45 Roundabout" is a
-#: roundabout, and the manual review caught the classifier calling it a
-#: structure. A name that says roundabout is describing an at-grade junction,
-#: whatever else it says.
+#: Names that assert a ROAD CLASS, not a structure. These used to sit in
+#: `_STRUCTURE_WORDS` and decide GRADE_SEPARATED. They no longer do, for the
+#: same reason `RAMP` and `CONNECTOR` no longer do: "this is the kind of road
+#: that is usually grade separated" is a prior about road classes, not
+#: evidence about this crossing. `interchange` was always the clearest case -
+#: NZTA names AT-GRADE rural roundabouts "State Highway 5 Interchange 45
+#: Roundabout" - and the roundabout veto below was the patch that admitted it.
+_ROAD_CLASS_WORDS = ("interchange", "off ramp", "on ramp", "offramp", "onramp")
+
+#: ...and a name that says roundabout is describing an at-grade junction,
+#: whatever else it says. Kept, because it is cheap and it is right.
 _NOT_A_STRUCTURE_WORDS = ("roundabout",)
 
 
@@ -329,6 +369,16 @@ def _named_structure(name: str | None) -> bool:
     return any(w in low for w in _STRUCTURE_WORDS)
 
 
+def _named_road_class(name: str | None) -> bool:
+    """Does this name say "ramp" or "interchange" rather than "bridge"?"""
+    if not name:
+        return False
+    low = name.casefold()
+    if any(w in low for w in _NOT_A_STRUCTURE_WORDS):
+        return False
+    return any(w in low for w in _ROAD_CLASS_WORDS)
+
+
 def classify(ctx: CrossingContext) -> Classification:
     """Decide one crossing. Pure; no database, no network, no globals.
 
@@ -391,33 +441,92 @@ def classify(ctx: CrossingContext) -> Classification:
         ev.append("NAMED_STRUCTURE")
         return Classification(
             GRADE_SEPARATED, "NAMED_STRUCTURE",
-            "One of these roads is named as a structure or a ramp.", ev)
+            "One of these roads is named as a structure - an overbridge, an "
+            "underpass, a flyover or a viaduct. That is the source describing "
+            "THIS place, not the class of road.", ev)
 
+    # --- road-class inferences, which are NOT evidence of a structure ------
+    #
+    # RAMP, CONNECTOR, MOTORWAY_CARRIAGEWAY and the ramp/interchange half of
+    # the old NAMED_STRUCTURE word list all made the same argument: this is the
+    # KIND of road that is usually grade separated, therefore this crossing is
+    # a structure. That is a prior about road classes, not evidence about this
+    # point - the same absence-of-evidence reasoning `ORDINARY_CROSSROADS` is
+    # labelled MEDIUM for, asserted with more confidence and in the opposite
+    # direction.
+    #
+    # The blinded holdout measured it. GRADE_SEPARATED scored 15 of 24 overall,
+    # and the failures were not spread evenly:
+    #
+    #   STRUCTURE_MAPPED       9 / 10
+    #   RAMP                   2 /  3
+    #   CONNECTOR              2 /  3
+    #   MOTORWAY_CARRIAGEWAY   2 /  8   [7.1%, 59.1%]
+    #
+    # Every MOTORWAY_CARRIAGEWAY miss is an ordinary at-grade urban
+    # intersection where a state highway happens to be coded one-way: one-way
+    # pairs, divided arterials, roundabout approaches. It decides 728 pairs
+    # nationally, so at 2 of 8 the point estimate is ~546 real junctions
+    # wrongly severed, and even the optimistic end of the interval is ~300 -
+    # the same order as the Greendale defect this branch was opened to fix.
+    #
+    # RAMP and CONNECTOR were each 2 of 3, which establishes nothing except
+    # that they are unvalidated. They are demoted on the ARGUMENT rather than
+    # on three cards: they make the same road-class inference the measured rule
+    # makes, and there is no reason to believe it holds for them and not for
+    # it.
+    #
+    # DEMOTION IS NOT A CONNECTIVITY CHANGE. GRADE_SEPARATED and UNRESOLVED are
+    # identical in the canonical graph - neither is ever noded - so nothing
+    # that was severed becomes connected. What changes is the claim: a wrong
+    # assertion becomes an honest one, and the crossing enters the POSSIBLE
+    # sensitivity graph, where a route that depends on it is reported as
+    # depending on it. The cost is a looser sensitivity bound around motorways,
+    # and that is the correct direction to be loose in.
     if ramp_a or ramp_b:
         ev.append("RAMP")
         return Classification(
-            GRADE_SEPARATED, "RAMP",
-            "One side is a ramp. Ramps exist to separate movements that do "
-            "not meet at grade.", ev)
+            UNRESOLVED, "RAMP",
+            "One side is a ramp, which is a reason to SUSPECT a structure - "
+            "ramps exist to separate movements - but it is not evidence that "
+            "one is here. Measured at 2 of 3 on the blinded holdout, and it "
+            "makes the same road-class inference MOTORWAY_CARRIAGEWAY makes, "
+            "which measured 2 of 8. Left disconnected and flagged rather than "
+            "asserted.", ev)
 
     if mat_a == MAT_CONNECTOR or mat_b == MAT_CONNECTOR:
         ev.append("CONNECTOR")
         return Classification(
-            GRADE_SEPARATED, "CONNECTOR",
+            UNRESOLVED, "CONNECTOR",
             "One side is a Connector in the AMDS model asset type, which is "
-            "how ramps and interchange link roads are recorded.", ev)
+            "how ramps and interchange link roads are recorded. That says what "
+            "kind of road it is, not whether anything passes over anything "
+            "here. Measured at 2 of 3 on the blinded holdout. Left "
+            "disconnected and flagged rather than asserted.", ev)
+
+    if _named_road_class(name_a) or _named_road_class(name_b):
+        ev.append("NAMED_ROAD_CLASS")
+        return Classification(
+            UNRESOLVED, "NAMED_ROAD_CLASS",
+            "One of these roads is named as a ramp or an interchange. That "
+            "names the kind of road, not a structure at this point, and NZTA "
+            "uses 'Interchange' for at-grade rural roundabouts. Left "
+            "disconnected and flagged rather than asserted.", ev)
 
     motorway_side = ((rca_a == 1 and ow_a == ONEWAY_ONE)
                      or (rca_b == 1 and ow_b == ONEWAY_ONE))
     if motorway_side:
         ev.append("MOTORWAY_CARRIAGEWAY")
         return Classification(
-            GRADE_SEPARATED, "MOTORWAY_CARRIAGEWAY",
-            "One side is a one-way state-highway carriageway. Access to a "
-            "divided state highway is controlled, so a crossing that carries "
-            "no junction is a structure. Note this is not the rule 'it is a "
-            "state highway' - an ordinary two-way state highway is not "
-            "treated as separated by this.", ev)
+            UNRESOLVED, "MOTORWAY_CARRIAGEWAY",
+            "One side is a one-way state-highway carriageway. This used to be "
+            "read as a structure, on the argument that access to a divided "
+            "state highway is controlled. The blinded holdout measured it at 2 "
+            "of 8, and every miss was an ordinary at-grade urban intersection "
+            "where a state highway is coded one-way - a one-way pair, a "
+            "divided arterial, a roundabout approach. It decides 728 crossings "
+            "nationally, so as an assertion it was severing roughly 300 to 680 "
+            "real junctions. Left disconnected, and no longer claimed.", ev)
 
     if _has_height_limit(flags_a) or _has_height_limit(flags_b):
         ev.append("HEIGHT_LIMIT")
@@ -765,6 +874,18 @@ def is_duplicate_corridor(line_a: LineString, along_a: float,
     joining a long road looks like a duplicate if you only sample the stub.
     Both directions must stay inside the corridor for the full run, so a road
     that genuinely diverges after the junction is not caught.
+
+    SHORTNESS IS NOT AN ANSWER. A direction with less than `run_m` of line left
+    is skipped, and skipping every direction returns False - which reads as
+    "these are two roads" when what happened is "this feature was too short to
+    judge". That is how the Kimbolton case escaped: a 14.7 m source feature
+    cannot carry a 60 m run in any direction. The remedy is NOT to shorten the
+    run. At 30 degrees - the tangential threshold, so the shallowest crossing
+    that can still be called AT_GRADE - two genuinely crossing roads are within
+    8 m of each other for +/- 16 m, so any run shorter than that cannot
+    separate the classes and would withdraw real junctions wholesale. The
+    remedy is to hand this a longer line, which is what `corridor_polyline`
+    does before it is called.
     """
     for line, along, other in ((line_a, along_a, line_b),
                                (line_b, along_b, line_a)):
@@ -781,6 +902,135 @@ def is_duplicate_corridor(line_a: LineString, along_a: float,
             if ok:
                 return True
     return False
+
+
+def corridor_polyline(index: int, along: float,
+                      geoms: Sequence[LineString],
+                      endpoint_tree: STRtree,
+                      endpoint_owner: Sequence[int],
+                      *,
+                      want_m: float = DUPLICATE_RUN_M,
+                      join_tol_m: float = 0.05,
+                      max_steps: int = 8) -> tuple[LineString, float]:
+    """`geoms[index]`, continued through the features it joins end to end.
+
+    WHY THE CORRIDOR TEST NEEDS THIS
+
+    A road recorded twice does not arrive as two long lines. AMDS breaks a road
+    into source features wherever anything touches it, so the second recording
+    of a 2 km road arrives as a CHAIN - and the piece carrying the crossing can
+    be 15 m long. `is_duplicate_corridor` asks a question about a ROAD and was
+    being handed one FEATURE, and a feature shorter than the run it needs can
+    only answer "no".
+
+    Near Kimbolton in Manawatu, source feature `61c2fcad` is 14.7 m of a
+    1,959 m chain that runs 6.8 to 9.8 m from feature `7d966e5b` for the whole
+    of its length. A constant offset over 2 km is what one road recorded twice
+    looks like and what two roads never do. The two records swap sides once,
+    and that swap is the 87-degree "crossing" the classifier noded.
+
+    The walk is deliberately unambitious:
+
+      * it follows COINCIDENT ENDPOINTS only, at the same 50 mm tolerance the
+        splitter treats as one node, so it cannot wander onto a road that
+        merely passes nearby;
+      * at a fork it takes the STRAIGHTEST continuation - the one a driver
+        would call the same road - rather than the one that flatters the
+        duplicate test by staying nearest the other line;
+      * it never revisits a feature and stops after `max_steps`, so a loop
+        cannot spin it;
+      * it stops as soon as `want_m` is available either side, so the ordinary
+        case of a feature already long enough costs one length comparison and
+        no queries at all.
+
+    Returns the extended line and the crossing's distance along it. Both are
+    needed: extending backwards moves the crossing's own measure.
+    """
+    line = geoms[index]
+    before, after = along, line.length - along
+    if before >= want_m and after >= want_m:
+        return line, along
+
+    coords = list(line.coords)
+    for backwards in (True, False):
+        have = before if backwards else after
+        visited = {index}
+        cur = index
+        end = coords[0] if backwards else coords[-1]
+        for _ in range(max_steps):
+            if have >= want_m:
+                break
+            nxt = _straightest_continuation(cur, end, geoms, endpoint_tree,
+                                            endpoint_owner, visited, join_tol_m)
+            if nxt is None:
+                break
+            j, seg = nxt
+            visited.add(j)
+            if backwards:
+                # `seg` is oriented away from the join, so it is reversed and
+                # put in front - which moves the crossing further along.
+                coords = list(reversed(seg))[:-1] + coords
+                before += geoms[j].length
+            else:
+                coords = coords + seg[1:]
+            have += geoms[j].length
+            cur = j
+            end = coords[0] if backwards else coords[-1]
+
+    return LineString(coords), before
+
+
+def _straightest_continuation(index: int, end: Coord,
+                              geoms: Sequence[LineString],
+                              endpoint_tree: STRtree,
+                              endpoint_owner: Sequence[int],
+                              visited: set[int],
+                              join_tol_m: float
+                              ) -> tuple[int, list[Coord]] | None:
+    """The feature that carries on from `end`, oriented away from it.
+
+    "Straightest" is measured between the bearing arriving at `end` and each
+    candidate's bearing leaving it, over the same 10 m window the crossing
+    angle uses, so a single kinked vertex at the join does not decide which
+    road this is.
+    """
+    here = Point(end)
+    arriving = _bearing_towards(geoms[index], end)
+    best: tuple[float, int, list[Coord]] | None = None
+    for k in endpoint_tree.query(here.buffer(join_tol_m)):
+        j = int(endpoint_owner[int(k)])
+        if j in visited:
+            continue
+        g = geoms[j]
+        if _dist2(g.coords[0], end) <= join_tol_m ** 2:
+            seg = list(g.coords)
+        elif _dist2(g.coords[-1], end) <= join_tol_m ** 2:
+            seg = list(reversed(g.coords))
+        else:
+            continue
+        turn = _fold180(math.degrees(_angle_at(LineString(seg), 0.0) - arriving))
+        if best is None or turn < best[0]:
+            best = (turn, j, seg)
+    return None if best is None else (best[1], best[2])
+
+
+def _bearing_towards(line: LineString, end: Coord) -> float:
+    """The bearing this line is travelling in as it arrives at `end`."""
+    if _dist2(line.coords[0], end) <= _dist2(line.coords[-1], end):
+        # `end` is this line's START, so travel towards it runs against the
+        # line's own digitised direction.
+        return _angle_at(line, 0.0) + math.pi
+    return _angle_at(line, line.length)
+
+
+def _dist2(a: Coord, b: Coord) -> float:
+    return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+
+
+def _fold180(deg: float) -> float:
+    """Fold a signed bearing change into 0..180 degrees."""
+    d = abs(deg) % 360.0
+    return 360.0 - d if d > 180.0 else d
 
 
 def _fold90(deg: float) -> float:
@@ -826,6 +1076,15 @@ def build_context(crossing: DetectedCrossing,
         return sum(1 for k in tree.query(buf)
                    if tree.geometries[int(k)].distance(p) <= STRUCTURE_CONTEXT_M)
 
+    # The duplicate test is asked about the ROADS, not about the two source
+    # features that happen to carry this crossing. Where a feature is shorter
+    # than the run the test needs, it is continued through the features it
+    # joins end to end; where it is already long enough this costs nothing.
+    corr_a, corr_along_a = corridor_polyline(
+        i, crossing.along_a, geoms, endpoint_tree, endpoint_owner)
+    corr_b, corr_along_b = corridor_polyline(
+        j, crossing.along_b, geoms, endpoint_tree, endpoint_owner)
+
     return CrossingContext(
         angle_deg=crossing.angle_deg,
         model_asset_type=(a_at.get("model_asset_type"), b_at.get("model_asset_type")),
@@ -840,7 +1099,7 @@ def build_context(crossing: DetectedCrossing,
         ramp_links_near=near(ramp_tree),
         same_source_feature=crossing.amds_a == crossing.amds_b,
         duplicate_corridor=is_duplicate_corridor(
-            geoms[i], crossing.along_a, geoms[j], crossing.along_b),
+            corr_a, corr_along_a, corr_b, corr_along_b),
         structure_dist_m=s_dist,
         structure_align_deg=s_align,
         structure_kind=s_kind,

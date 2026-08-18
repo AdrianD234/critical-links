@@ -15,6 +15,8 @@ and the pair of them is what makes the change legible.
 from __future__ import annotations
 
 import pytest
+from shapely.geometry import LineString, Point
+from shapely.strtree import STRtree
 
 from nzcl import crossings
 from nzcl.topology import (assign_nodes, audit_no_invented_movements,
@@ -204,7 +206,29 @@ class TestARuralCrossroadsBecomesOneNode:
 
 
 class TestGradeSeparationSurvives:
-    """The overbridge fixture must still behave, now for a stated reason."""
+    """A MAPPED structure is never noded, under any policy.
+
+    The fixture carrying this invariant changed with the rules, and the change
+    is the point. It used to be a one-way state-highway carriageway, on the
+    argument that access to a divided state highway is controlled. The blinded
+    holdout scored that argument 2 of 8, so it is now UNRESOLVED and can no
+    longer carry an invariant about grade separation: a rule wrong three times
+    in four is not what should stand between the engine and an invented
+    motorway turn.
+
+    What carries it instead is the only evidence that a structure is physically
+    there - a LINZ Topo50 bridge or tunnel centreline, aligned with one of the
+    two roads - and the road's own name.
+    """
+
+    BRIDGE = [
+        src("OVER", [(-1000, 0), (1000, 0)], model_asset_type=1, oneway=2,
+            rca_code=74),
+        src("UNDER", [(0, -1000), (0, 1000)], model_asset_type=1, oneway=2,
+            rca_code=74),
+    ]
+    #: A mapped bridge centreline running ALONG "OVER" through the crossing.
+    STRUCTURES = [(LineString([(-40, 0), (40, 0)]), "bridge")]
 
     OVERBRIDGE = [
         src("MOTORWAY", [(-1000, 0), (1000, 0)],
@@ -213,31 +237,199 @@ class TestGradeSeparationSurvives:
             rca_code=74),
     ]
 
-    def test_a_motorway_carriageway_is_not_noded(self):
-        res = split_at_junctions(self.OVERBRIDGE)
+    def test_a_mapped_structure_is_not_noded(self):
+        res = split_at_junctions(self.BRIDGE, structures=self.STRUCTURES)
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
         assert len(res.crossings) == 1
         assert res.crossings[0].disposition == crossings.GRADE_SEPARATED
-        assert res.crossings[0].classification.reason == "MOTORWAY_CARRIAGEWAY"
+        assert res.crossings[0].classification.reason == "STRUCTURE_MAPPED"
 
     def test_not_even_under_the_possible_policy(self):
         """The POSSIBLE graph adds UNRESOLVED crossings. It must never add a
         GRADE_SEPARATED one, or the sensitivity lens becomes a licence to
-        invent motorway turns."""
-        res = split_at_junctions(self.OVERBRIDGE, crossing_policy="possible")
+        invent a turn onto a bridge deck."""
+        res = split_at_junctions(self.BRIDGE, structures=self.STRUCTURES,
+                                 crossing_policy="possible")
         assert res.crossing_cuts == 0
         assert components(res.links) == 2
 
-    def test_a_ramp_is_not_noded_either(self):
+    def test_a_named_structure_is_not_noded(self):
         res = split_at_junctions([
+            src("DECK", [(-500, 0), (500, 0)], model_asset_type=1, oneway=2,
+                rca_code=74, road_name="Newmarket Viaduct"),
+            src("STREET", [(0, -500), (0, 500)], model_asset_type=1, oneway=2,
+                rca_code=74),
+        ], crossing_policy="possible")
+        assert res.crossing_cuts == 0
+        assert res.crossings[0].disposition == crossings.GRADE_SEPARATED
+        assert res.crossings[0].classification.reason == "NAMED_STRUCTURE"
+
+
+class TestTheRoadClassRulesNoLongerAssert:
+    """RAMP, CONNECTOR, MOTORWAY_CARRIAGEWAY and ramp-shaped NAMES.
+
+    All four made one argument: this is the KIND of road that is usually grade
+    separated, therefore this crossing is a structure. The blinded holdout put
+    a number on the biggest of them - MOTORWAY_CARRIAGEWAY, 2 of 8 - and every
+    miss was an ordinary at-grade urban intersection where a state highway is
+    coded one-way.
+
+    Demoting them changes NOTHING in the canonical graph, because UNRESOLVED
+    and GRADE_SEPARATED are both left disconnected. All three halves of that
+    are pinned here, because the one that is easy to lose is the first.
+    """
+
+    CASES = {
+        "MOTORWAY_CARRIAGEWAY": TestGradeSeparationSurvives.OVERBRIDGE,
+        "RAMP": [
             src("RAMPY", [(-500, -500), (500, 500)], model_asset_type=1,
                 oneway=2, rca_code=74, is_ramp=True),
             src("STREET", [(-500, 500), (500, -500)], model_asset_type=1,
                 oneway=2, rca_code=74),
-        ])
+        ],
+        "CONNECTOR": [
+            src("LINKROAD", [(-500, 0), (500, 0)], model_asset_type=6,
+                oneway=2, rca_code=74),
+            src("STREET2", [(0, -500), (0, 500)], model_asset_type=1,
+                oneway=2, rca_code=74),
+        ],
+        "NAMED_ROAD_CLASS": [
+            src("SLIP", [(-500, 0), (500, 0)], model_asset_type=1, oneway=2,
+                rca_code=74, road_name="Greenlane Off Ramp"),
+            src("STREET3", [(0, -500), (0, 500)], model_asset_type=1,
+                oneway=2, rca_code=74),
+        ],
+    }
+
+    @pytest.mark.parametrize("reason", sorted(CASES))
+    def test_it_is_unresolved_and_not_grade_separated(self, reason):
+        res = split_at_junctions(self.CASES[reason])
+        assert res.crossings[0].disposition == crossings.UNRESOLVED
+        assert res.crossings[0].classification.reason == reason
+
+    @pytest.mark.parametrize("reason", sorted(CASES))
+    def test_the_canonical_graph_is_unchanged_by_the_demotion(self, reason):
+        """The whole safety argument for demoting these. The moment one of them
+        cuts the CONFIRMED graph, the demotion has stopped being free."""
+        res = split_at_junctions(self.CASES[reason])
         assert res.crossing_cuts == 0
-        assert res.crossings[0].classification.reason == "RAMP"
+        assert components(res.links) == 2
+
+    @pytest.mark.parametrize("reason", sorted(CASES))
+    def test_the_possible_graph_now_carries_the_doubt(self, reason):
+        """And the point of the demotion. Six of these eight are real junctions
+        on the measured evidence, so a sensitivity graph that cannot see them
+        is not measuring the sensitivity that exists."""
+        res = split_at_junctions(self.CASES[reason], crossing_policy="possible")
+        assert res.crossing_cuts == 1
+        assert components(res.links) == 1
+
+
+class TestOneRoadRecordedTwiceInPieces:
+    """The Kimbolton defect: a duplicate corridor arriving as a CHAIN.
+
+    `is_duplicate_corridor` needs 60 m of line either side of the crossing to
+    say anything. AMDS breaks a road into a new source feature wherever
+    anything touches it, so the second recording of a 2 km road arrives as a
+    chain of features - and the piece carrying the crossing can be 15 m long.
+    Every direction was then "too short to judge", the function returned False,
+    and False reads as "these are two different roads".
+
+    That is how the one genuine AT_GRADE false node in the 248-card blinded
+    holdout got in: near Kimbolton, source feature `61c2fcad` is 14.7 m of a
+    1,959 m chain running 6.8 to 9.8 m from feature `7d966e5b` for the whole of
+    its length. A constant offset over 2 km is one road recorded twice. The two
+    records swap sides once, and the swap was noded as an 87-degree crossroads.
+
+    The fixture below is that arrangement in miniature, and the fix is
+    `corridor_polyline`: continue each feature through the features it joins
+    end to end before asking whether the two are one road.
+    """
+
+    #: One straight road, and a second recording of it offset by 7 m that swaps
+    #: sides through a short jog. The jog crosses at 45 degrees, so neither the
+    #: tangential veto nor the angle test can see it.
+    DOUBLE_RECORDED = [
+        src("ROAD", [(-1000, 0), (1000, 0)], model_asset_type=1, oneway=2,
+            rca_code=74, road_name="Ngaio Road"),
+        src("DUP_WEST", [(-1000, 7), (-7, 7)], model_asset_type=1, oneway=2,
+            rca_code=74),
+        src("DUP_JOG", [(-7, 7), (7, -7)], model_asset_type=1, oneway=2,
+            rca_code=74),
+        src("DUP_EAST", [(7, -7), (1000, -7)], model_asset_type=1, oneway=2,
+            rca_code=74),
+    ]
+
+    def _crossing(self, res):
+        return next(c for c in res.crossings
+                    if {c.amds_a, c.amds_b} == {"ROAD", "DUP_JOG"})
+
+    def test_the_jog_is_recognised_as_duplicate_geometry(self):
+        res = split_at_junctions(self.DOUBLE_RECORDED)
+        x = self._crossing(res)
+        assert x.disposition == crossings.UNRESOLVED
+        assert x.classification.reason == "DUPLICATE_GEOMETRY"
+
+    def test_it_is_never_noded_under_any_policy(self):
+        """DUPLICATE_GEOMETRY is a NEVER_NODE reason. Joining a road to itself
+        is not a sensitivity question - the movement does not exist on any
+        reading of the evidence."""
+        for policy in ("confirmed", "possible"):
+            res = split_at_junctions(self.DOUBLE_RECORDED,
+                                     crossing_policy=policy)
+            assert self._crossing(res).classification.safe_to_node is False
+            assert res.crossing_cuts == 0, policy
+
+    def test_the_jog_alone_is_too_short_to_judge(self):
+        """The defect itself, stated as an assertion so it cannot come back.
+
+        Asked about the 19.8 m feature on its own, the corridor test has no
+        run in any direction and answers False - and False means "two roads".
+        The rule was never wrong; it was being asked about the wrong geometry.
+        """
+        jog = LineString([(-7, 7), (7, -7)])
+        road = LineString([(-1000, 0), (1000, 0)])
+        assert jog.length < crossings.DUPLICATE_RUN_M
+        assert crossings.is_duplicate_corridor(
+            road, road.project(Point(0, 0)),
+            jog, jog.project(Point(0, 0))) is False
+
+    def test_the_corridor_walk_is_what_makes_the_difference(self):
+        """Same two roads, same test, one longer line."""
+        geoms, tree, owner = _endpoint_index(self.DOUBLE_RECORDED)
+        found = crossings.detect(geoms, [s.amds_id for s in self.DOUBLE_RECORDED])
+        x = next(c for c in found
+                 if {c.amds_a, c.amds_b} == {"ROAD", "DUP_JOG"})
+        jog_i = x.index_a if x.amds_a == "DUP_JOG" else x.index_b
+        jog_along = x.along_a if x.amds_a == "DUP_JOG" else x.along_b
+        line, along = crossings.corridor_polyline(
+            jog_i, jog_along, geoms, tree, owner)
+        assert line.length > 2 * crossings.DUPLICATE_RUN_M
+        assert along > crossings.DUPLICATE_RUN_M
+
+    def test_a_real_crossroads_is_not_swallowed_by_the_walk(self):
+        """The risk the walk introduces, pinned. Extending both sides of a
+        genuine crossroads must not make them look like one road - if it did,
+        the fix would sever exactly the junctions this branch exists to
+        restore."""
+        res = split_at_junctions(RURAL_GRID)
+        x = next(c for c in res.crossings
+                 if {c.amds_a, c.amds_b} == {"GREENDALE", "CLINTONS"})
+        assert x.disposition == crossings.AT_GRADE
+        assert res.crossing_cuts == 1
+
+
+def _endpoint_index(sources):
+    """The (geoms, endpoint tree, owner) triple `build_context` is handed."""
+    geoms = [LineString(s.coords) for s in sources]
+    endpoints, owner = [], []
+    for i, s in enumerate(sources):
+        endpoints.append(Point(s.coords[0]))
+        owner.append(i)
+        endpoints.append(Point(s.coords[-1]))
+        owner.append(i)
+    return geoms, STRtree(endpoints), owner
 
 
 class TestTheThirdCategoryIsNotSilent:
@@ -583,13 +775,14 @@ class TestTheAuditCatchesAnInventedMovement:
             split_at_junctions(RURAL_GRID)) == []
 
     def test_a_deliberately_wrong_split_is_caught(self):
-        """Force the overbridge to be noded by classifying it AT_GRADE by
-        hand, then check the audit notices that a GRADE_SEPARATED crossing
-        ended up connected."""
-        res = split_at_junctions(TestGradeSeparationSurvives.OVERBRIDGE,
+        """Force the bridge to be noded by classifying it AT_GRADE by hand,
+        then check the audit notices that a GRADE_SEPARATED crossing ended up
+        connected."""
+        res = split_at_junctions(TestGradeSeparationSurvives.BRIDGE,
+                                 structures=TestGradeSeparationSurvives.STRUCTURES,
                                  crossing_policy="possible")
         assert res.crossing_cuts == 0
-        # Now build the same thing as though the motorway rule had not fired.
+        # Now build the same thing as though the structure had not been mapped.
         forced = split_at_junctions([
             src("MOTORWAY", [(-1000, 0), (1000, 0)], model_asset_type=1,
                 oneway=2, rca_code=74),
