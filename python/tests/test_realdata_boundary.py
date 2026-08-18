@@ -100,6 +100,174 @@ class TestLyonStreet375011:
             parallel, pm.from_node, pm.to_node, removed) is None
 
 
+class TestMilfordSoundHighway:
+    """A road that really is sole access, on the country's clearest example.
+
+    Link 6774 is a 10.8 km section of SH94. Closing it separates 24 links and
+    21.8 km of road, and the closure is a bridge in the graph-theoretic sense:
+    there is no second way in. This is the case where "Road cut off" is the
+    correct headline, and it is here so that the five cases in
+    TestALostCrossingIsNotARoadCutOff are testing a distinction rather than a
+    blanket suppression.
+    """
+
+    LINK = 6774
+
+    def test_it_is_a_genuine_isolation(self):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, self.LINK, scope="segment",
+                             with_isolation=True)
+        assert r.headline == "Through movement has no represented replacement"
+        assert r.principal is not None
+        assert r.principal.status == "DISCONNECTED"
+
+        iso = r.isolation
+        assert iso is not None
+        assert iso.physically_isolates is True
+        assert iso.closure_is_bridge is True
+        assert iso.separated_link_count == 24
+        assert iso.separated_length_m == pytest.approx(21760.2, abs=1.0)
+
+    def test_the_closure_is_the_segment_that_was_selected(self):
+        """Segment scope, and it removes exactly one link.
+
+        The point of the default: a sole-access road is found without having to
+        remove the whole AMDS source record around it.
+        """
+        _skip_without_snapshot()
+        c = closure_mod.resolve(NATIONAL, self.LINK, scope="segment")
+        assert c.removed_link_count == 1
+        assert c.total_closure_length_m == pytest.approx(10828.8, abs=0.5)
+
+
+class TestNationalCohorts:
+    """Three cohorts of five, spread the length of the country.
+
+    Chosen deterministically (`ORDER BY md5(link_id::text)`, then thinned so no
+    two are within 0.4 degrees of latitude) rather than picked for their
+    answers. Ordering by anything meaningful - id, length, road number - biases
+    the sample towards whatever was ingested first, which on this data is the
+    state-highway network.
+
+    The assertions are PROPERTIES rather than pinned figures. A cohort test
+    asserting "Willowflat Road separates 122 links" fails on the next ingest
+    for a reason that has nothing to do with the engine; what has to hold is
+    that each cohort still behaves like its kind.
+    """
+
+    #: One-way carriageways. The retired engine's worst case: it asked for a
+    #: path from a link's end back to its own start, which does not exist on a
+    #: one-way, called that DISCONNECTED and headlined it as a road cut off.
+    ONE_WAY = {
+        5329: "State Highway 74",
+        291336: "Resolution Drive Roundabout",
+        369743: "Riverside Drive (N)",
+        147231: "Maunganamu Drive",
+        61941: "Kennedy Road",
+    }
+
+    #: State highways, north to south. 5329 is deliberately in both cohorts:
+    #: it is a one-way state highway, and each cohort asserts a different
+    #: property of it.
+    STATE_HIGHWAY = {
+        241361: "State Highway 10",
+        1970: "State Highway 35",
+        4612: "State Highway 2",
+        370140: "State Highway 67",
+        5329: "State Highway 74",
+    }
+
+    #: Closures that genuinely separate part of the network.
+    TRUE_ISOLATION = {
+        270018: "Wilcox Road",
+        346129: "Ford Road",
+        193527: "Vintage Drive",
+        162816: "Harris Lane",
+        75365: "Willowflat Road",
+    }
+
+    HEADLINES = {
+        "Through movement diverts",
+        "Through movement has no represented replacement",
+        "No through movement identified",
+        "Partial analysis",
+        "Analysis unresolved",
+    }
+
+    @pytest.mark.parametrize("link_id", sorted(ONE_WAY))
+    def test_a_one_way_link_is_analysed_rather_than_defeated(self, link_id):
+        """It resolves, and nothing is claimed cut off that is not.
+
+        The measure is across the closure boundary, so a one-way carriageway
+        has a crossing like any other road and the question the retired engine
+        could not answer is not asked.
+        """
+        _skip_without_snapshot()
+        row = db.query_one(
+            "SELECT oneway FROM links WHERE snapshot_id=%s AND link_id=%s",
+            (NATIONAL, link_id))
+        assert row is not None and row["oneway"] == 1, (
+            f"{link_id} is not one-way; this cohort tests the wrong thing")
+
+        r = impactv2.analyse(NATIONAL, link_id, scope="segment",
+                             with_isolation=True)
+        assert r.headline in self.HEADLINES
+        assert r.isolation is not None
+        if not r.isolation.physically_isolates:
+            assert r.isolation.separated_link_count == 0
+
+    @pytest.mark.parametrize("link_id", sorted(STATE_HIGHWAY))
+    def test_a_state_highway_resolves_and_is_named(self, link_id):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, link_id, scope="segment",
+                             with_isolation=True)
+        assert r.headline in self.HEADLINES
+
+        body = impactv2.as_dict(r, include_all_movements=False)
+        pm = (body["principal"] or {}).get("movement")
+        if pm is not None:
+            # The crossing has to be identifiable. A state highway closure with
+            # a figure and no subject is the case a reader most needs to place.
+            assert "entryRoadName" in pm and "exitRoadName" in pm
+
+    @pytest.mark.parametrize("link_id", sorted(TRUE_ISOLATION))
+    def test_a_true_isolation_separates_something_and_says_so(self, link_id):
+        _skip_without_snapshot()
+        r = impactv2.analyse(NATIONAL, link_id, scope="segment",
+                             with_isolation=True)
+        iso = r.isolation
+        assert iso is not None
+        assert iso.physically_isolates is True, (
+            f"{link_id} ({self.TRUE_ISOLATION[link_id]}) no longer isolates; "
+            "this cohort is meant to be the case where 'Road cut off' is right")
+        assert iso.separated_link_count > 0
+        assert iso.separated_length_m > 0
+        # And the routing finding agrees it has nowhere to go.
+        assert r.principal is not None
+        assert r.principal.status == "DISCONNECTED"
+
+    @pytest.mark.parametrize("link_id", sorted(TRUE_ISOLATION))
+    def test_the_separated_links_can_be_drawn(self, link_id):
+        """The counts are checkable only if the reader can see them.
+
+        `separatedGeoJson` is capped, and null beyond the cap: a truncated
+        collection drawn as if whole understates the extent, which is worse
+        than drawing nothing. Below the cap it must actually be there.
+        """
+        _skip_without_snapshot()
+        from nzcl import api as api_mod
+
+        r = impactv2.analyse(NATIONAL, link_id, scope="segment",
+                             with_isolation=True)
+        iso = r.isolation
+        assert iso is not None
+        n = len(iso.separated_link_ids)
+        if 0 < n <= api_mod.MAX_DRAWN_STRANDED_LINKS:
+            gj = api_mod._links_geojson_v2(NATIONAL, iso.separated_link_ids)
+            assert gj is not None
+            assert len(gj["features"]) == n
+
+
 class TestStBathansLoopRoadStaysPartial:
     """295128 must keep saying it did not look at everything.
 
