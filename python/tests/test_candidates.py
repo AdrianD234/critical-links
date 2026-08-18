@@ -20,8 +20,13 @@ from nzcl.candidates import MAX_CANDIDATES, CandidateSearch, find
 from nzcl.sensitivity import Candidate
 
 
-def fake_db(monkeypatch, by_clause):
-    """Answer each source's query from a table keyed on a marker in the SQL."""
+def fake_db(monkeypatch, by_clause, catalogue=999):
+    """Answer each source's query from a table keyed on a marker in the SQL.
+
+    `catalogue` is the row count `catalogue_rows` reports. It defaults to a
+    non-zero value so these tests exercise the PRECOMPUTED_CATALOGUE path;
+    pass 0 to exercise on-demand detection.
+    """
     calls: list[str] = []
 
     def _query(sql, params=None):
@@ -31,7 +36,13 @@ def fake_db(monkeypatch, by_clause):
                 return rows
         return []
 
+    def _query_one(sql, params=None):
+        if "count(*)" in sql and "crossings" in sql:
+            return {"n": catalogue}
+        return None
+
     monkeypatch.setattr(cand_mod.db, "query", _query)
+    monkeypatch.setattr(cand_mod.db, "query_one", _query_one)
     return calls
 
 
@@ -258,3 +269,56 @@ class TestTheExclusionRuleIsPinned:
             "ST_MakePoint(%(fx)s": [row(999)]})
         s = find("snap", closure_link_ids=[1], force_near=[(0.0, 0.0)])
         assert 999 in {c.crossing_id for c in s.candidates}
+
+
+class TestAnEmptyCatalogueTriggersOnDemandDetectionNotAFalseZero:
+    """The two facts that wear the same number.
+
+    An empty catalogue and a search that ran and found nothing both produce
+    zero candidates. Reported the same way, the first reads as "this answer is
+    robust" when nothing was looked at. The national snapshot has zero
+    crossings rows, so this is the live case, not a hypothetical.
+    """
+
+    def test_an_empty_catalogue_runs_on_demand_detection(self, monkeypatch):
+        fake_db(monkeypatch, {}, catalogue=0)
+        monkeypatch.setattr(
+            cand_mod, "detect_on_demand",
+            lambda snap, **kw: ([Candidate(crossing_id=-1, source_a="A",
+                                           source_b="B", x=0.0, y=0.0)], True))
+        s = find("snap", closure_link_ids=[1], route_link_ids=[2])
+        assert s.source_kind == cand_mod.ON_DEMAND_NEIGHBOURHOOD
+        assert s.source_complete is True
+        assert len(s.candidates) == 1
+
+    def test_a_populated_catalogue_is_used_directly(self, monkeypatch):
+        fake_db(monkeypatch, {"link_id = ANY(%(closure)s)": [row(1)]},
+                catalogue=22062)
+        s = find("snap", closure_link_ids=[1], route_link_ids=[2])
+        assert s.source_kind == cand_mod.PRECOMPUTED_CATALOGUE
+        assert s.source_complete is True
+        assert s.catalogue_rows == 22062
+
+    def test_the_source_is_declared_on_every_response(self, monkeypatch):
+        fake_db(monkeypatch, {}, catalogue=5)
+        d = find("snap", closure_link_ids=[1], route_link_ids=[2]).as_dict()
+        assert d["candidateSource"] in (cand_mod.PRECOMPUTED_CATALOGUE,
+                                        cand_mod.ON_DEMAND_NEIGHBOURHOOD,
+                                        cand_mod.UNAVAILABLE)
+        assert "candidateSourceComplete" in d
+
+    def test_nothing_detectable_reports_unavailable_not_robust(self,
+                                                               monkeypatch):
+        fake_db(monkeypatch, {}, catalogue=0)
+        monkeypatch.setattr(cand_mod, "detect_on_demand",
+                            lambda snap, **kw: ([], False))
+        s = find("snap", closure_link_ids=[1], route_link_ids=[2])
+        assert s.source_kind == cand_mod.UNAVAILABLE
+        assert s.source_complete is False
+        assert "NOT a finding that the answer is" in s.as_dict()["aboutTheSource"]
+
+    def test_the_outcome_states_are_exactly_five(self):
+        assert cand_mod.OUTCOMES == (
+            "TESTED_CHANGED", "TESTED_UNCHANGED",
+            "EXCLUDED_BY_RELEVANCE_RULE",
+            "UNTESTED_MATERIALISATION_FAILED", "UNTESTED_CANCELLED")

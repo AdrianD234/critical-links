@@ -257,9 +257,9 @@ class TestTimingIsMeasuredPerStage:
                   "neighbourhoodExtractAndValidateMs",
                   "singleCounterfactualMs", "cleanupMs", "totalMs"):
             assert k in d
-        # Two singles, plus the pair the engine tries because neither single
-        # moved the answer.
-        assert d["singleCounterfactualMs"]["runs"] == 3
+        # Two singles. No pair combinations in the MVP: the cap is three
+        # single candidates and `test_pairs` is off.
+        assert d["singleCounterfactualMs"]["runs"] == 2
 
     def test_the_total_is_the_sum_of_the_stages(self, monkeypatch):
         state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
@@ -408,3 +408,107 @@ class TestATestedUnchangedCandidateIsGenuinelyNonMaterial:
         assert out["materialCrossingIds"] == []
         assert out["untestedCrossingIds"] == []
         assert out["analysisComplete"] is True
+
+
+class TestTheMvpCapAndWording:
+    """Bounded and honest beats forty seconds pretending to be exhaustive."""
+
+    def test_only_three_candidates_are_tested(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(
+            monkeypatch, candidates=[cand(i) for i in range(1, 9)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["testedCandidates"] == 3
+        assert out["candidateCap"] == 3
+
+    def test_the_cap_is_stated_when_it_bites(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(
+            monkeypatch, candidates=[cand(i) for i in range(1, 9)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["capNote"] == "Sensitivity check limited to 3 candidates"
+        assert out["state"] == "SENSITIVITY_INCOMPLETE"
+        assert out["message"] == "Sensitivity check incomplete/truncated"
+
+    def test_no_cap_note_when_everything_was_tested(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch,
+                                         candidates=[cand(1), cand(2)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["capNote"] is None
+        assert out["state"] == "NO_CHANGE_FOUND"
+        assert out["message"] == "No change found among the 2 tested candidates"
+
+    def test_no_pair_combinations_are_run(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch,
+                                         candidates=[cand(1), cand(2)])
+        sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                           pin_fn=pin_fn)
+        assert all(len(e[1]) <= 1 for e in state["noded"])
+
+    def test_a_change_reports_topology_sensitive(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(
+            monkeypatch, candidates=[cand(1)],
+            cf_pin_by_crossing={1: BETTER_PIN})
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["state"] == "TOPOLOGY_SENSITIVE"
+        assert out["message"] == "Topology-sensitive"
+
+    def test_an_untested_candidate_reports_incomplete(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        monkeypatch.setattr(sensitivityrun, "_crossing_links",
+                            lambda sid, c: (None, None))
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["state"] == "SENSITIVITY_INCOMPLETE"
+
+    def test_unavailable_has_its_own_state(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["state"] == "SENSITIVITY_UNAVAILABLE"
+        assert out["message"] == "Sensitivity unavailable"
+
+    def test_the_five_states_are_the_only_ones(self, monkeypatch):
+        allowed = {"TOPOLOGY_SENSITIVE", "NO_CHANGE_FOUND",
+                   "SENSITIVITY_UNAVAILABLE", "SENSITIVITY_INCOMPLETE"}
+        for cands, cf in (([cand(1)], {1: BETTER_PIN}), ([cand(1)], {}),
+                          ([], {}), ([cand(i) for i in range(1, 9)], {})):
+            state, analyse_fn, pin_fn = wire(monkeypatch, candidates=cands,
+                                             cf_pin_by_crossing=cf)
+            out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                     pin_fn=pin_fn).as_dict()
+            assert out["state"] in allowed, out["state"]
+
+
+class TestTheStaleResponseToken:
+    """An older sensitivity response must never land on a newer selection.
+
+    A real defect class in async panels: the user clicks link A, then link B,
+    and A's slower answer arrives second and overwrites B's. The output is
+    confidently wrong and looks entirely normal.
+    """
+
+    def test_the_token_is_echoed_back(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn, token="sel-7").as_dict()
+        assert out["token"] == "sel-7"
+
+    def test_it_is_echoed_on_the_unavailable_path_too(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn, token="sel-9").as_dict()
+        assert out["available"] is False and out["token"] == "sel-9"
+
+    def test_a_client_can_tell_a_stale_response_from_a_current_one(self,
+                                                                   monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        older = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                   pin_fn=pin_fn, token="sel-1").as_dict()
+        newer = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                   pin_fn=pin_fn, token="sel-2").as_dict()
+        current = "sel-2"
+        assert older["token"] != current, "the older response is discardable"
+        assert newer["token"] == current

@@ -37,6 +37,13 @@ from . import candidates as candidates_mod
 from . import db, neighbourhood, pinning, sensitivity, whatif
 
 
+#: MVP cap. Three candidates found BOTH relevant Greendale crossings, and
+#: three already cost 6.7 s against a 5 s interactive ceiling - 24 would be
+#: about 44 s. Bounded and honest beats forty seconds pretending to be
+#: exhaustive.
+MAX_TESTED_CANDIDATES = 3
+
+
 @dataclass
 class Timing:
     """Measured, per stage. Extraction alone is not a response time."""
@@ -73,6 +80,16 @@ class Timing:
         }
 
 
+def candidates_mod_rank(cands):
+    """Deterministic order for the MVP cap.
+
+    Ranking by measured impact needs the counterfactuals that have not run
+    yet, so this orders by crossing id - stable, and it does not pretend to
+    know which candidate matters before testing it.
+    """
+    return sorted(cands, key=lambda c: c.crossing_id)
+
+
 @dataclass
 class SensitivityRun:
     """The canonical answer, the assumptions, and how it was all obtained."""
@@ -84,6 +101,11 @@ class SensitivityRun:
     validation: pinning.ValidationReport | None = None
     unavailable_reason: str | None = None
     extraction: neighbourhood.Extraction | None = None
+    #: Echoed back so a client can discard a response that arrives after
+    #: it has moved on. An older sensitivity answer landing on a newer
+    #: selection is confidently wrong output.
+    token: object = None
+    tested_cap: int = MAX_TESTED_CANDIDATES
 
     @property
     def available(self) -> bool:
@@ -94,6 +116,9 @@ class SensitivityRun:
             return {
                 "available": False,
                 "unavailableReason": self.unavailable_reason,
+                "token": self.token,
+                "state": "SENSITIVITY_UNAVAILABLE",
+                "message": "Sensitivity unavailable",
                 "candidateSearch": self.search.as_dict(),
                 "canonicalPin": self.canonical_pin.as_dict(),
                 "validation": (self.validation.as_dict()
@@ -105,8 +130,29 @@ class SensitivityRun:
                         "be presented as definitive on the strength of it."),
             }
         out = sensitivity.as_dict(self.sensitivity)
+        tested = len(self.sensitivity.counterfactuals)
+        total = len(self.search.candidates)
+        if self.sensitivity.partial:
+            state, message = ("SENSITIVITY_INCOMPLETE",
+                              "Sensitivity check incomplete/truncated")
+        elif self.sensitivity.topology_sensitive:
+            state, message = "TOPOLOGY_SENSITIVE", "Topology-sensitive"
+        elif total > tested or self.search.truncated:
+            state, message = ("SENSITIVITY_INCOMPLETE",
+                              "Sensitivity check incomplete/truncated")
+        else:
+            state, message = ("NO_CHANGE_FOUND",
+                              f"No change found among the {tested} tested "
+                              f"candidates")
         out.update({
             "available": True,
+            "token": self.token,
+            "state": state,
+            "message": message,
+            "testedCandidates": tested,
+            "candidateCap": self.tested_cap,
+            "capNote": (f"Sensitivity check limited to {self.tested_cap} "
+                        f"candidates" if total > tested else None),
             "analysisPartial": self.sensitivity.partial,
             "candidateSearch": self.search.as_dict(),
             "canonicalPin": self.canonical_pin.as_dict(),
@@ -139,9 +185,8 @@ def _crossing_links(snapshot_id: str, c: sensitivity.Candidate):
 
 def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
         route_link_ids=None, port_node_ids=None, force_near=(),
-        max_single: int = sensitivity.MAX_SINGLE,
-        max_pairs: int = sensitivity.MAX_PAIRS,
-        should_cancel=None) -> SensitivityRun:
+        max_single: int = MAX_TESTED_CANDIDATES,
+        should_cancel=None, token=None) -> SensitivityRun:
     """Canonical analysis, then bounded counterfactuals against a copy.
 
     `analyse_fn(snapshot_id, link_id, pinned_movement=...)` runs one analysis;
@@ -176,7 +221,8 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
 
     def unavailable(reason, validation=None):
         return SensitivityRun(None, search, timing, canonical_pin,
-                              validation=validation, unavailable_reason=reason)
+                              validation=validation,
+                              unavailable_reason=reason, token=token)
 
     if not search.candidates:
         return unavailable(
@@ -242,8 +288,11 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
                     int((time.perf_counter() - t0) * 1000))
 
         try:
-            s = sensitivity.analyse(search.candidates, runner,
-                                    max_single=max_single, max_pairs=max_pairs)
+            # Top-N by rank, and NO pair combinations in this version.
+            ranked = candidates_mod_rank(search.candidates)
+            s = sensitivity.analyse(ranked, runner,
+                                    max_single=max_single,
+                                    test_pairs=False)
         except _Cancelled:
             return unavailable("the request was cancelled", validation)
     finally:
@@ -254,7 +303,8 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
         timing.cleanup_ms = int((time.perf_counter() - t) * 1000)
 
     return SensitivityRun(s, search, timing, canonical_pin,
-                          validation=validation, extraction=ex)
+                          validation=validation, extraction=ex,
+                          token=token)
 
 
 class CandidateMaterialisationError(sensitivity.Untestable):

@@ -71,6 +71,26 @@ MAX_CANDIDATES = 60
 #: falls inside the circuit.
 SOURCES = ("closure", "corridor", "ports", "inside_circuit")
 
+#: Where the candidates came from. Declared on every response, because "zero
+#: candidates" from an empty catalogue and "zero candidates" from a search that
+#: ran and found none are opposite facts wearing the same number.
+PRECOMPUTED_CATALOGUE = "PRECOMPUTED_CATALOGUE"
+ON_DEMAND_NEIGHBOURHOOD = "ON_DEMAND_NEIGHBOURHOOD"
+UNAVAILABLE = "UNAVAILABLE"
+
+#: How far around the closure and the canonical corridor on-demand detection
+#: reads source features. Bounded: this is not a national pass.
+ON_DEMAND_BUFFER_M = 1200.0
+
+#: What a candidate outcome may be. Exactly these, and no sixth.
+TESTED_CHANGED = "TESTED_CHANGED"
+TESTED_UNCHANGED = "TESTED_UNCHANGED"
+EXCLUDED_BY_RELEVANCE_RULE = "EXCLUDED_BY_RELEVANCE_RULE"
+UNTESTED_MATERIALISATION_FAILED = "UNTESTED_MATERIALISATION_FAILED"
+UNTESTED_CANCELLED = "UNTESTED_CANCELLED"
+OUTCOMES = (TESTED_CHANGED, TESTED_UNCHANGED, EXCLUDED_BY_RELEVANCE_RULE,
+            UNTESTED_MATERIALISATION_FAILED, UNTESTED_CANCELLED)
+
 
 @dataclass
 class CandidateSearch:
@@ -82,9 +102,15 @@ class CandidateSearch:
     truncated: bool = False
     sources_used: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    source_kind: str = UNAVAILABLE
+    source_complete: bool = False
+    catalogue_rows: int = 0
 
     def as_dict(self) -> dict:
         return {
+            "candidateSource": self.source_kind,
+            "candidateSourceComplete": self.source_complete,
+            "catalogueRows": self.catalogue_rows,
             "candidates": len(self.candidates),
             "consideredBeforeBound": self.considered,
             "bound": MAX_CANDIDATES,
@@ -104,6 +130,14 @@ class CandidateSearch:
             "ifTruncated": ("When truncated is true the search was bounded "
                             "before it finished, so 'no sensitivity found' "
                             "does NOT mean the answer is robust."),
+            "aboutTheSource": (
+                "PRECOMPUTED_CATALOGUE: the snapshot carries a crossings "
+                "catalogue and it was queried. ON_DEMAND_NEIGHBOURHOOD: it "
+                "does not, so crossings were detected around the closure "
+                "and the canonical corridor at request time - bounded, not "
+                "national. UNAVAILABLE: neither was possible, and zero "
+                "candidates here is NOT a finding that the answer is "
+                "robust."),
         }
 
 
@@ -172,6 +206,87 @@ def _query(sql_tail: str, params: dict) -> list[Candidate]:
     return _rows_to_candidates(db.query(_SELECT + sql_tail, params))
 
 
+
+def catalogue_rows(snapshot_id: str) -> int:
+    """How many crossings the snapshot's catalogue holds."""
+    r = db.query_one("SELECT count(*) AS n FROM crossings WHERE snapshot_id=%s",
+                     (snapshot_id,))
+    return int(r["n"]) if r else 0
+
+
+def detect_on_demand(snapshot_id: str, *, closure_link_ids, route_link_ids,
+                     buffer_m: float = ON_DEMAND_BUFFER_M):
+    """Detect crossings around the closure and corridor, at request time.
+
+    For snapshots with no crossings catalogue - which includes the current
+    national one, ingested before crossing detection existed. Without this, an
+    empty catalogue yields zero candidates and the analysis reports "no
+    sensitivity found", which is a false negative dressed as a finding.
+
+    Bounded by construction: it reads source features within `buffer_m` of the
+    closure and the canonical route, not the country. It is the same detector
+    the ingest uses, over a smaller set of lines.
+
+    Returns (candidates, complete). `complete` is False when the region was
+    clipped, so the caller can say the search was partial rather than empty.
+    """
+    from shapely import wkb
+    from shapely.geometry import LineString
+    from shapely.ops import linemerge
+
+    from . import crossings as crossings_mod
+
+    region_links = list(closure_link_ids) + list(route_link_ids)
+    rows = db.query(
+        "SELECT l.closure_group_id, l.rca_code, l.model_asset_type, l.oneway,"
+        "       l.quality_flags, n.display_name,"
+        "       COALESCE(n.is_ramp, false) AS is_ramp,"
+        "       ST_AsBinary(ST_Collect(l.geom_2193)) AS g"
+        "  FROM links l"
+        "  LEFT JOIN link_display_names n ON n.snapshot_id = l.snapshot_id"
+        "                        AND n.closure_group_id = l.closure_group_id"
+        " WHERE l.snapshot_id = %s AND l.mode_vehicle"
+        "   AND ST_DWithin(l.geom_2193, (SELECT ST_Collect(geom_2193)"
+        "        FROM links WHERE snapshot_id = %s AND link_id = ANY(%s)), %s)"
+        " GROUP BY 1,2,3,4,5,6,7",
+        (snapshot_id, snapshot_id, region_links, buffer_m))
+
+    geoms, ids, attrs, names = [], [], [], {}
+    for r in rows:
+        g = wkb.loads(bytes(r["g"]))
+        merged = linemerge(g) if g.geom_type != "LineString" else g
+        parts = ([merged] if merged.geom_type == "LineString"
+                 else list(getattr(merged, "geoms", [])))
+        for part in parts:
+            if len(part.coords) < 2:
+                continue
+            geoms.append(LineString(part.coords))
+            ids.append(r["closure_group_id"])
+            attrs.append({"road_name": r["display_name"],
+                          "rca_code": r["rca_code"],
+                          "model_asset_type": r["model_asset_type"],
+                          "oneway": r["oneway"],
+                          "is_ramp": bool(r["is_ramp"]),
+                          "quality_flags": list(r["quality_flags"] or [])})
+        names[r["closure_group_id"]] = r["display_name"]
+
+    if not geoms:
+        return [], False
+
+    found = crossings_mod.detect(geoms, ids, end_guard_m=0.05)
+    out = []
+    for i, x in enumerate(found):
+        # Classified for RANKING only - it never decides anything.
+        out.append(Candidate(
+            crossing_id=-(i + 1),          # negative: not a catalogue row
+            source_a=x.amds_a, source_b=x.amds_b,
+            x=x.x, y=x.y,
+            classifier_disposition=None, classifier_reason=None,
+            classifier_confidence=None,
+            name_a=names.get(x.amds_a), name_b=names.get(x.amds_b)))
+    return out, True
+
+
 def find(snapshot_id: str, *, closure_link_ids: Sequence[int],
          route_link_ids: Sequence[int] = (),
          port_node_ids: Sequence[int] = (),
@@ -188,6 +303,33 @@ def find(snapshot_id: str, *, closure_link_ids: Sequence[int],
     """
     search = CandidateSearch()
     seen: dict[int, Candidate] = {}
+
+    # WHICH SOURCE. An empty catalogue must trigger on-demand detection, never
+    # a false "zero candidates": the two are opposite facts wearing the same
+    # number, and the wrong one reads as "this answer is robust".
+    search.catalogue_rows = catalogue_rows(snapshot_id)
+    if search.catalogue_rows == 0:
+        found, complete = detect_on_demand(
+            snapshot_id, closure_link_ids=closure_link_ids,
+            route_link_ids=route_link_ids)
+        search.source_kind = (ON_DEMAND_NEIGHBOURHOOD if found or complete
+                              else UNAVAILABLE)
+        search.source_complete = bool(complete)
+        search.sources_used.append("on_demand")
+        search.by_source["on_demand"] = len(found)
+        search.considered = len(found)
+        for c in found[:max_candidates]:
+            seen[c.crossing_id] = c
+        search.truncated = len(found) > max_candidates
+        search.notes.append(
+            "the snapshot carries no crossings catalogue, so crossings were "
+            "detected around the closure and the canonical corridor at "
+            "request time - bounded, not national")
+        search.candidates = list(seen.values())
+        return search
+
+    search.source_kind = PRECOMPUTED_CATALOGUE
+    search.source_complete = True
     closure = list(closure_link_ids)
     route = [l for l in route_link_ids if l not in set(closure)]
     ports = list(port_node_ids)
