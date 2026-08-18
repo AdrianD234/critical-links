@@ -47,9 +47,15 @@ scratch/review/
 # Probe caches: raw service payloads, re-fetchable by the scripts beside them.
 scratch/_*
 
-# Derived: 10.9 MB, regenerable exactly. See classified-manifest.json.
+# Derived, regenerable exactly. Size and sha256 are in classified-manifest.json.
 docs/audits/at-grade-crossings/classified.jsonl
 
 # Blinded review pack: same reason as scratch/review/ - the tile URLs carry
 # the LINZ Basemaps API key. Regenerate with scratch/blind_review.py build.
 scratch/blind/
+
+# Blinded HOLDOUT pack: same reason again, and the same rule - regenerate with
+# scratch/holdout_review.py build. Its VERDICTS and its scored output ARE
+# committed, under docs/audits/at-grade-crossings/; only the key-bearing pages
+# are not.
+scratch/holdout/
