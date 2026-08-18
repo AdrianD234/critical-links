@@ -616,6 +616,75 @@
   word-break: break-all;
 }
 
+/* ------------------------------------------- closure panel, top level */
+
+/*
+ * The closure panel states several things OUTSIDE a disclosure: the figures
+ * under the hero, which crossing was measured, and the isolation finding. Each
+ * uses a class the stylesheet had only ever seen inside `.disclose .body`,
+ * where the horizontal padding comes from. At the top level they inherited
+ * none and ran out past the panel's edge, over the map.
+ *
+ * Padding here rather than on `.kv` itself, so a disclosure body does not end
+ * up padding its contents twice.
+ */
+.closure-panel > .kv,
+.closure-panel > .note,
+.closure-panel > h4,
+.closure-panel > .b-row {
+  padding-left: var(--pad-x);
+  padding-right: var(--pad-x);
+}
+
+.closure-panel > .kv {
+  margin-top: 10px;
+}
+
+.closure-panel h4 {
+  margin-top: 18px;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--panel-muted);
+  font-weight: var(--weight-label);
+}
+
+.note {
+  margin-top: 9px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/*
+ * A label/figure row, wherever it appears. It was reachable only as
+ * `.breakdown .b-row`, so the same markup used for the separated components
+ * and the alternative crossings had no layout at all and stacked.
+ */
+.b-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+}
+
+.b-row .n {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--panel-fg);
+  white-space: nowrap;
+}
+
+.flag-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}
+
 .flags {
   display: flex;
   flex-wrap: wrap;
@@ -944,3 +1013,31 @@
   color: var(--panel-muted);
   line-height: var(--leading-relaxed);
 }
+/* Topology sensitivity.
+ *
+ * The counterfactual must never look like the canonical answer. It is an
+ * assumption, and the styling says so before the words do: dashed rule, muted
+ * weight, and its own label. It never occupies the canonical row.
+ */
+.ts-panel { margin-top: 1rem; }
+.ts-checking { color: var(--muted, #8ea3ba); font-style: italic; }
+.ts-state[data-state='TOPOLOGY_SENSITIVE'] { color: #d98324; font-weight: 600; }
+.ts-state[data-state='NO_CHANGE_FOUND'] { color: var(--muted, #8ea3ba); }
+.ts-state[data-state='SENSITIVITY_UNAVAILABLE'],
+.ts-state[data-state='SENSITIVITY_INCOMPLETE'] { color: var(--muted, #8ea3ba); }
+.ts-cap { font-size: 0.85em; color: var(--muted, #8ea3ba); }
+.ts-compare { margin-top: 0.5rem; }
+.ts-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; }
+.ts-row-canonical { border-bottom: 1px solid var(--line, #2a323d); }
+.ts-row-assumed { border-bottom: 1px dashed #d98324; opacity: 0.85; }
+.ts-canonical-figure { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ts-assumed-figure {
+  font-weight: 400;
+  font-style: italic;
+  color: #d98324;
+  font-variant-numeric: tabular-nums;
+}
+.ts-unit { font-size: 0.8em; margin-left: 0.15em; }
+.ts-caveat { font-size: 0.85em; color: var(--muted, #8ea3ba); margin-top: 0.4rem; }
+.ts-detail { font-size: 0.85em; color: var(--muted, #8ea3ba); }
+.ts-na { color: var(--muted, #8ea3ba); }

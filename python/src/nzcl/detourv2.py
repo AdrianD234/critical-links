@@ -54,7 +54,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Literal, Sequence
 
 from . import closure as closure_mod
-from . import db, physical
+from . import config, db, physical
 from .closure import Closure, Scope
 from .physical import IsolationResult
 from .routing import Metric, Profile, route
@@ -696,7 +696,7 @@ def as_dict(out: AnalysisResult) -> dict:
         "algorithmVersion": out.algorithm_version,
         "derivationVersion": out.derivation_version,
         "engine": "v2",
-        "stability": "development preview - not a stable 3.0.0",
+        "stability": config.ENGINE_STABILITY,
         "request": {
             "scope": out.scope,
             "metric": out.metric,

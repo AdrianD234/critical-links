@@ -12,33 +12,70 @@
  */
 
 import { timestamp } from '../lib/format.js';
-import type { DetourResponse, NetworkMetadata } from '../api/types.js';
+import type { LinkSummary, NetworkMetadata } from '../api/types.js';
+
+/**
+ * Provenance, stated independently of which response carried it.
+ *
+ * The fields are named after what they are rather than after the response they
+ * were lifted from, because the two engines' responses do not share a shape and
+ * a component keyed to one of them would have to be duplicated to serve the
+ * other. Duplicating it is how the two copies come to disagree about which
+ * algorithm version produced the figures above them, which is the one thing
+ * this panel exists to state exactly.
+ *
+ * Optional fields are omitted from the table rather than rendered empty: a row
+ * reading "Retrieved —" invites the reader to wonder what went wrong, when the
+ * answer is that this response does not carry that field.
+ */
+export interface Provenance {
+  selectedLink: LinkSummary;
+  closureGroupId: string;
+  snapshotId: string;
+  sourceDataset?: string;
+  retrievedAtUtc?: string;
+  calculatedAtUtc?: string;
+  algorithm: string;
+  algorithmVersion: string;
+  /** The engine's own sentence about how settled it is. Never paraphrased. */
+  stability?: string;
+  licence?: string;
+  limitations: string[];
+  attribution?: string;
+}
 
 export default function SourceMethodology({
-  detour,
+  provenance,
   meta,
 }: {
-  detour: DetourResponse;
+  provenance: Provenance;
   meta: NetworkMetadata | null;
 }) {
-  const naming = detour.selectedLink.naming;
+  const naming = provenance.selectedLink.naming;
+  const optional = (k: string, v: string | undefined): [string, string][] =>
+    v ? [[k, v]] : [];
   const rows: [string, string][] = [
-    ['AMDS id', detour.selectedLink.amdsId],
-    ['Source OBJECTID', String(detour.selectedLink.sourceObjectId)],
-    ['Internal link id', String(detour.selectedLink.linkId)],
-    ['Closure group', detour.closure.closureGroupId],
-    ['Snapshot', detour.snapshotId],
-    ['Source dataset', detour.sourceDataset],
-    ['Retrieved', timestamp(detour.retrievedAtUtc)],
-    ['Calculated', timestamp(detour.calculatedAtUtc)],
-    ['Algorithm', `${detour.algorithm} ${detour.algorithmVersion}`],
+    ['AMDS id', provenance.selectedLink.amdsId],
+    ['Source OBJECTID', String(provenance.selectedLink.sourceObjectId)],
+    ['Internal link id', String(provenance.selectedLink.linkId)],
+    ['Closure group', provenance.closureGroupId],
+    ['Snapshot', provenance.snapshotId],
+    ...optional('Source dataset', provenance.sourceDataset),
+    ...optional('Retrieved', provenance.retrievedAtUtc
+      ? timestamp(provenance.retrievedAtUtc)
+      : undefined),
+    ...optional('Calculated', provenance.calculatedAtUtc
+      ? timestamp(provenance.calculatedAtUtc)
+      : undefined),
+    ['Algorithm', `${provenance.algorithm} ${provenance.algorithmVersion}`],
+    ...optional('Engine maturity', provenance.stability),
     ...(meta?.capabilities
       ? ([['Processing version', meta.capabilities.processingVersion]] as [
           string,
           string,
         ][])
       : []),
-    ['Licence', detour.licence],
+    ...optional('Licence', provenance.licence),
     /*
      * Where the road's NAME came from, which is not always where its geometry
      * came from. AMDS carries a name for about a third of links; the rest are
@@ -87,7 +124,7 @@ export default function SourceMethodology({
         ))}
       </dl>
 
-      {detour.limitations.length > 0 && (
+      {provenance.limitations.length > 0 && (
         <ul
           style={{
             margin: '12px 0 0',
@@ -97,7 +134,7 @@ export default function SourceMethodology({
             lineHeight: 'var(--leading-relaxed)',
           }}
         >
-          {detour.limitations.map((l) => (
+          {provenance.limitations.map((l) => (
             <li key={l}>{l}</li>
           ))}
         </ul>
@@ -111,7 +148,7 @@ export default function SourceMethodology({
           lineHeight: 'var(--leading-relaxed)',
         }}
       >
-        {detour.attribution}
+        {provenance.attribution}
       </p>
     </>
   );

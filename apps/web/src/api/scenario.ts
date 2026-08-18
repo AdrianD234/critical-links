@@ -4,21 +4,23 @@
  *
  * WHY THIS EXISTS
  *
- * V1 accepts `closure_scope=physical|directed`. Neither name is what the
- * product means, and neither can express closing one *segment* of a road
- * rather than every link derived from one AMDS source feature.
+ * The closure engine accepts `segment|direction|source_feature` and defaults
+ * to `segment`. That is a different vocabulary from the product's, and the
+ * reason this module was written the way it was. Components read and write
+ * `ClosureScope`; the mappings below are the only places that know what the
+ * wire calls it.
  *
- * V2 can: it accepts `segment|direction|source_feature` and defaults to
- * `segment`. That is a third wire vocabulary, and the reason this module was
- * written the way it was. Components read and write `ClosureScope`; the two
- * mappings below are the only places that know what either engine calls it.
+ * `closureScopeToWire` survives alongside the V2 mapping because the retired
+ * V1 wire vocabulary (`physical`/`directed`) is still in circulation in
+ * permalinks people shared before the promotion. Reading it is how those links
+ * are recognised as pre-promotion; see state/url.ts.
  *
  * The option *list* is derived from the engine's reported capabilities where
- * it offers them, falling back to a static description of what each backend
- * supports. A scope the active engine cannot honour is listed but disabled
- * with the reason shown, rather than silently missing — a control that quietly
- * lacks the option the user is looking for is worse than one that says "not
- * here, and here is why".
+ * it offers them, falling back to a static description of what the backend
+ * supports. A scope the engine cannot honour is listed but disabled with the
+ * reason shown, rather than silently missing — a control that quietly lacks
+ * the option the user is looking for is worse than one that says "not here,
+ * and here is why".
  */
 
 import type { NetworkMetadata, V2Capabilities, V2ClosureScope } from './types.js';
@@ -42,21 +44,21 @@ export interface Scenario {
   closureScope: ClosureScope;
 }
 
-export const DEFAULT_SCENARIO: Scenario = {
-  metric: 'distance',
-  vehicle: 'car',
-  closureScope: 'amds-feature',
-};
-
 /**
- * The V2 default, kept separate on purpose.
+ * Car · Distance · Road segment.
  *
- * V2 defaults to the segment the user actually selected, which is the question
- * they asked. V1 cannot answer that question, so its default above stays as it
- * is: a permalink made under V1 must keep resolving to the same closure and
- * therefore the same figures.
+ * The segment is the stretch of road the user pointed at, so it is the
+ * question they asked. The previous default closed the whole AMDS source
+ * feature, which is a data-maintenance unit: it removes whatever the record
+ * happens to span, which may be more road than was selected and may end where
+ * an authority's responsibility ends rather than where the road does. That was
+ * a limitation of the retired engine, not a description of what anyone wanted
+ * to know, and it is no longer the ordinary default.
+ *
+ * Source-feature scope remains reachable as an explicitly advanced choice,
+ * carrying its own length and piece-count warning. See `closureScopes` below.
  */
-export const DEFAULT_SCENARIO_V2: Scenario = {
+export const DEFAULT_SCENARIO: Scenario = {
   metric: 'distance',
   vehicle: 'car',
   closureScope: 'segment',
@@ -145,29 +147,18 @@ const VEHICLES: OptionDescriptor<Vehicle>[] = [
 ];
 
 /**
- * Why V1 cannot close a single segment.
- *
- * Kept as a named constant because it is a statement about one engine, not
- * about the product: under V2 it is simply false, and the two must not drift
- * into contradicting each other.
- */
-const SEGMENT_UNAVAILABLE_V1 =
-  'This engine removes every graph segment derived from one AMDS source ' +
-  'feature, so it cannot close the selected segment on its own.';
-
-/**
  * Closure scopes, in the order they should be read.
  *
- * Segment first: it is the closure the user pointed at, and under V2 it is the
- * default. AMDS source feature last and marked advanced, because it removes
- * more than was selected — an AMDS source feature is a data-maintenance unit
- * that may end where an authority's responsibility ends rather than where the
- * road does.
+ * Segment first: it is the closure the user pointed at, and it is the default.
+ * AMDS source feature last and marked advanced, because it removes more than
+ * was selected — an AMDS source feature is a data-maintenance unit that may
+ * end where an authority's responsibility ends rather than where the road
+ * does.
  *
- * An option the active engine cannot honour is listed but disabled with the
- * reason shown, rather than silently missing. A control that quietly lacks the
- * option the user is looking for is worse than one that says "not here, and
- * here is why".
+ * An option the engine cannot honour is listed but disabled with the reason
+ * shown, rather than silently missing. A control that quietly lacks the option
+ * the user is looking for is worse than one that says "not here, and here is
+ * why".
  */
 export function closureScopes(
   meta: NetworkMetadata | null,
@@ -178,8 +169,7 @@ export function closureScopes(
       value: 'segment',
       label: 'Road segment',
       hint: 'The selected stretch of road, independent of AMDS boundaries',
-      supported: false,
-      unavailableReason: SEGMENT_UNAVAILABLE_V1,
+      supported: true,
     },
     {
       value: 'direction',
@@ -198,8 +188,18 @@ export function closureScopes(
     },
   ];
 
-  /* V2 speaks for itself and is authoritative when it does. It names scopes in
-   * its own vocabulary, so the comparison happens on the wire side. */
+  /*
+   * The closure engine speaks for itself and is authoritative when it does. It
+   * names scopes in its own vocabulary, so the comparison happens on the wire
+   * side.
+   *
+   * The `meta` capabilities block is deliberately NOT consulted as a fallback.
+   * It reports what the retired V1 detour route could close — `amds-feature`
+   * and `direction`, never `segment` — so using it while the capabilities
+   * request is still in flight would disable the default scope for the first
+   * second of every session and tell the reader the engine cannot do the one
+   * thing it exists to do.
+   */
   if (v2) {
     return all.map((o) =>
       v2.closureScopes.includes(closureScopeToWireV2(o.value))
@@ -208,27 +208,12 @@ export function closureScopes(
             ...o,
             supported: false,
             unavailableReason:
-              'Not offered by the V2 engine for this snapshot.',
+              'Not offered by the closure engine for this snapshot.',
           },
     );
   }
 
-  const reported = meta?.capabilities?.closureScopes;
-  if (!reported) return all;
-
-  /* The API is authoritative when it speaks. An option it does not list is
-   * unavailable regardless of what this file assumed. */
-  return all.map((o) =>
-    reported.includes(o.value)
-      ? { ...o, supported: true, unavailableReason: undefined }
-      : {
-          ...o,
-          supported: false,
-          unavailableReason:
-            o.unavailableReason ??
-            'Not supported by the active snapshot’s processing version.',
-        },
-  );
+  return all;
 }
 
 export function metrics(): OptionDescriptor<Metric>[] {
@@ -287,10 +272,17 @@ export function closureLabelShort(scope: ClosureScope): string {
  * Read the scope back from a response.
  *
  * The response is authoritative over the control: it says what was actually
- * closed, which is what the label must describe.
+ * closed, which is what the label must describe. A control the user has
+ * already moved on from must never rename a result computed under the old one.
+ *
+ * Reads the closure engine's vocabulary — `segment|direction|source_feature`.
+ * This used to read the retired V1 wire vocabulary, where the fallback for an
+ * unrecognised value was `amds-feature`; against a V2 response that silently
+ * relabelled every segment closure as a source-feature closure, which is the
+ * one mislabelling that overstates how much road was removed.
  */
 export function scopeOfResponse(wireScope: string): ClosureScope {
-  return closureScopeFromWire(wireScope);
+  return closureScopeFromWireV2(wireScope);
 }
 
 /** "Car · Distance · Road segment" — the compact sticky summary. */

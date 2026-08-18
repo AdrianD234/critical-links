@@ -111,12 +111,18 @@ export const test = base.extend<{
   oneWayLink: LinkFixture;
 }>({
   /*
-   * A two-way link that actually produces a replacement path.
+   * A two-way link that actually produces a replacement route.
    *
    * "Two-way" alone is not enough: the first two-way link in the snapshot may
    * be a rural dead end whose closure strands it, and a suite built on that
    * would never exercise the ordinary successful-result path at all. So the
-   * candidates are probed until one returns OK — the property the tests need.
+   * candidates are probed until one diverts — the property the tests need.
+   *
+   * Probed through the engine the product uses, under the scope the product
+   * defaults to. A fixture resolved against a different engine or a different
+   * closure scope could hand the suite a link that behaves one way in the probe
+   * and another way on screen, and every failure that produced would look like
+   * a bug in the page.
    */
   twoWayLink: async ({ request }, use) => {
     const res = await request.get(`${API}/api/v1/links/search?name=&limit=200`);
@@ -129,19 +135,21 @@ export const test = base.extend<{
 
     for (const link of candidates.slice(0, 12)) {
       const d = await request.get(
-        `${API}/api/v1/links/${encodeURIComponent(link.amdsId)}` +
-          `/detour?direction=both&geometry=false`,
+        `${API}/api/v2/links/${encodeURIComponent(link.amdsId)}` +
+          `/boundary-analysis?scope=segment&geometry=false&corridor=false` +
+          `&isolation=false&allMovements=false`,
       );
       if (!d.ok()) continue;
       const body = await d.json();
-      if (body.reverse?.status === 'OK' && body.forward?.status === 'OK') {
+      if (body.headline === 'Through movement diverts') {
         await use(link);
         return;
       }
     }
 
     throw new Error(
-      'no two-way link with a computable detour found in the active snapshot',
+      'no two-way link with a computable replacement route found in the ' +
+        'active snapshot',
     );
   },
 
@@ -154,7 +162,15 @@ export const test = base.extend<{
 
 export { expect };
 
-/** The app's URL for a given link and options. */
+/**
+ * The app's URL for a given link and options.
+ *
+ * Carries `v=2`, because a URL without it is by definition a pre-promotion link
+ * and the app migrates it to the default scope and says so. A suite whose every
+ * URL looked stale would exercise the migration notice everywhere and the
+ * ordinary path nowhere. The migration itself is tested deliberately, by
+ * `legacyUrl` below.
+ */
 export function exploreUrl(
   amdsId: string,
   params: Record<string, string> = {},
@@ -163,7 +179,30 @@ export function exploreUrl(
     link: amdsId,
     metric: 'distance',
     vehicle: 'car',
+    scope: 'segment',
+    v: '2',
+    ...params,
+  });
+  return `/?${q}`;
+}
+
+/**
+ * A permalink as it was written before the promotion.
+ *
+ * No `v`, and the retired engine's own default scope. This is the exact shape
+ * of every link shared while that engine was the default, so it is the shape
+ * the migration policy has to be tested against.
+ */
+export function legacyUrl(
+  amdsId: string,
+  params: Record<string, string> = {},
+): string {
+  const q = new URLSearchParams({
+    link: amdsId,
+    metric: 'distance',
+    vehicle: 'car',
     scope: 'amds-feature',
+    focus: 'reverse',
     ...params,
   });
   return `/?${q}`;

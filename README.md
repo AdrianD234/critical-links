@@ -60,25 +60,50 @@ in `VITE_LINZ_API_KEY` adds the background map; the app runs without one.
 
 ## What it does
 
-Select a link and the engine removes it — by default the whole physical road
-asset, both directions — then re-runs a shortest-path search on the remaining
-network and reports:
+Select a road and the engine removes the segment you selected, works out which
+trips genuinely crossed it, and reports what each has to do instead:
 
 | Measure | Question it answers |
 | --- | --- |
-| **Endpoint detour** | Shortest represented-network path between this link's own endpoints, with the link removed |
-| **Network penalty** | How much longer that is than the normal shortest path |
-| **Corridor detour** | The same comparison for a *through trip*, used where the endpoint measure is undefined — routine on one-way carriageways |
-| **Isolation profile** | Which links lose connectivity, and how much road that is |
+| **Through movement** | Which crossings of this closure existed, and which one the figures describe |
+| **Replacement route** | The shortest represented-network route for that crossing with the segment removed |
+| **Network penalty** | How much longer that is than the same crossing with the segment in place |
+| **Physical isolation** | Which links lose access, computed on the undirected graph, independent of any route search |
 
-None of these is a statement about traffic. The engine computes one shortest
-path between two nodes; it does not know which vehicles used the link, how trips
-redistribute, or whether anyone would take the replacement route.
+The measurement is across the closure BOUNDARY, not between the closed
+segment's own two endpoints. The difference is not a refinement: a replacement
+route in practice leaves and rejoins the network well beyond the closure, so an
+endpoint pair is measured from the wrong two places — and on a one-way
+carriageway there is no path from a link's end back to its own start at all, so
+the endpoint question has no answer while traffic gets past perfectly well.
 
-Toggles for distance/time and car/heavy/emergency, forward/reverse, and closure
-scope. **The default closure scope removes every graph link derived from one
-AMDS source feature**, which is not necessarily a whole physical road — a
-segment-level scope is planned but not implemented. Every view is a permalink.
+None of these is a statement about traffic. The engine computes shortest paths
+between nodes; it does not know which vehicles used the road, how trips
+redistribute, or whether anyone would take the replacement route. Where a
+closure has many crossings the panel names the one being measured and lists the
+rest, because a figure with no subject is not checkable.
+
+Toggles for distance/time and car/heavy/emergency, and closure scope. **The
+default closure scope is the road segment you selected.** Closing every graph
+link derived from one AMDS source feature remains available as an advanced
+choice, and states its own cost — the kilometres and the segment count — before
+any figure, because an AMDS source feature is a data-maintenance unit that may
+cover more road than was selected. Every view is a permalink.
+
+What the engine reports and does not claim:
+
+- routes are through the **represented network**, assembled from AMDS geometry,
+  not the road network as surveyed;
+- the topology is **inferred**, junctions included, and its confidence is
+  reported per result rather than filtered out;
+- times are **estimated**: AMDS publishes no speed attribute;
+- turn restrictions are **post-validated**, not enforced during routing. A route
+  using a published applicable restriction is withheld rather than offered, but
+  that is weaker than a search constrained by the restrictions from the start —
+  and AMDS publishes 60 restricted turns for the whole country, of which one
+  restricts any modelled vehicle class;
+- a **bounded** search that did not evaluate every crossing says so, and is not
+  allowed a headline implying it looked at everything.
 
 ---
 

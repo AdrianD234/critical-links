@@ -1,0 +1,93 @@
+{
+  "what": "Compact summary of the third holdout, which measured whether the classifier could create canonical graph nodes unsupervised. It could not. The full record - 440 rendered cards, the answer key, the per-card verdicts, the seal and the 1,619-line audit - is on the research branch, referenced below rather than copied: merging 34,000 lines of evidence for a rejected strategy alongside the mechanism that replaces it buries the thing that needs reviewing.",
+  "verdict": "REJECTED. The gate is NOT MET.",
+  "researchBranch": "feature/at-grade-crossing-topology",
+  "researchBranchSha": "c45724d0eadb90d4ac168b581f46e1a1e1214615",
+  "researchPullRequest": 7,
+  "fullEvidenceLivesThere": [
+    "docs/audits/at-grade-crossings/README.md (1,619 lines, sections 12-14)",
+    "docs/audits/at-grade-crossings/holdout3-result.json (17,674 lines)",
+    "docs/audits/at-grade-crossings/holdout3-answer-key.json (14,777 lines)",
+    "docs/audits/at-grade-crossings/holdout3-cards-manifest.json",
+    "docs/audits/at-grade-crossings/holdout3-seal.json",
+    "docs/audits/at-grade-crossings/holdout3-verdicts/",
+    "docs/audits/at-grade-crossings/third-holdout-predeclaration.md",
+    "scratch/holdout3_review.py"
+  ],
+  "predeclaration": {
+    "committedBeforeAnyCardWasDrawn": true,
+    "atGradeCards": 350,
+    "toleratedFailures": 4,
+    "unreviewableCountsAsAFailure": true
+  },
+  "review": {
+    "reviewers": 4,
+    "howIsolated": "freshly spawned, disjoint 110-card subsets, cards copied out of the repository, verbatim instructions, no feedback between batches, no reviewer saw another's work",
+    "caveat": "independent AGENTS, not independent people. A real improvement on the kappa 0.847 intra-rater pass, and not human expert ground truth."
+  },
+  "atGrade": {
+    "n": 350,
+    "confirmed": 314,
+    "contradicted": 32,
+    "unreviewable": 4,
+    "gradeSeparatedFalsePositives": 0,
+    "notAJunctionFalsePositives": 32
+  },
+  "promotionGate": {
+    "met": false,
+    "conditions": [
+      {
+        "name": "zeroConfirmedGradeSeparatedFalsePositives",
+        "requirement": "must be 0",
+        "observed": 0,
+        "met": true
+      },
+      {
+        "name": "zeroConfirmedNotAJunctionFalsePositives",
+        "requirement": "must be 0",
+        "observed": 32,
+        "met": false
+      },
+      {
+        "name": "lowerBound95OnAtGradePrecision",
+        "requirement": "must be >= 97%",
+        "observed": 86.1,
+        "met": false
+      },
+      {
+        "name": "unreviewableCountedAsFailures",
+        "requirement": "the bound above must be computed with unreviewable cards counted as failures",
+        "observed": {
+          "unreviewable": 4,
+          "lowerBoundCountingThemAsFailures": 86.1,
+          "lowerBoundExcludingThem": 87.2
+        },
+        "met": true
+      }
+    ],
+    "detail": "n=350: 314 confirmed, 32 contradicted, 4 unreviewable. Lower 95% bound 86.1% counting unreviewable as failures, 87.2% excluding them. NOT MET: zeroConfirmedNotAJunctionFalsePositives, lowerBound95OnAtGradePrecision."
+  },
+  "whyMoreThresholdsWouldNotHelp": {
+    "permissiveSideFabricatesJunctions": {
+      "notAJunctionFalsePositives": 32,
+      "of": 350,
+      "fromJunctionWitness": 5,
+      "note": "JUNCTION_WITNESS is the ONLY HIGH-confidence at-grade rule - the one backed by positive evidence rather than by the absence of contrary evidence."
+    },
+    "conservativeSideSeversRealOnes": {
+      "duplicateGeometryFiresNationally": 9830,
+      "sampledWithdrawalsThatAreRealJunctions": 11,
+      "sampled": 25,
+      "motorwayCarriagewayCalledAtGrade": 11,
+      "motorwaySampled": 16
+    },
+    "conclusion": "Both errors are large AT THE SAME SETTINGS. Tightening the at-grade rules withdraws more real junctions; loosening the withdrawal rules creates more false nodes. That rejects the approach, not the parameters."
+  },
+  "nationalConsequenceAvoided": {
+    "atGradeCrossingPoints": 4914,
+    "approximateFabricatedNodes": 450,
+    "note": "roughly one in eleven, each joining a road to itself or to nothing, in a tool whose purpose is to say which roads matter when one closes"
+  },
+  "whatShipsInstead": "Evidence-backed overrides only. See PIVOT.md and nzcl/overrides.py. The classifier survives as a candidate-RANKING score and must never directly create a canonical node.",
+  "readingTheNumbers": "Performance on a deliberately difficult, stratified holdout. This is not a probability sample and is not an estimate or formal lower bound on national precision. The Wilson bound applies to this holdout's reviewed cases, not to a nationally weighted population."
+}

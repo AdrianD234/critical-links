@@ -9,6 +9,7 @@
 import {
   exploreUrl,
   expect,
+  legacyUrl,
   panel,
   renderedCount,
   test,
@@ -94,118 +95,228 @@ test.describe('Explore', () => {
 
     await expect(page.locator('.map-badge')).toContainText(/modelled closure/i);
     /*
-     * The legend names the scope actually closed, not a generic "segment".
-     *
-     * "AMDS source-feature", not "AMDS-feature": a source feature is a
-     * data-maintenance unit, and the wording says so because the scope closes
-     * every graph child of one, which is routinely much more road than the
-     * segment the reader selected.
+     * The legend names the scope actually closed, read back from the response
+     * rather than from the control. The default scope is the selected segment,
+     * so that is what it must say — labelling a segment closure as a
+     * source-feature one would claim more road was removed than was.
      */
+    await expect(page.locator('.map-legend')).toContainText(
+      /modelled segment closure/i,
+    );
+  });
+
+  /*
+   * The advanced scope still names itself, and still warns.
+   *
+   * "AMDS source-feature", not "AMDS-feature": a source feature is a
+   * data-maintenance unit, and the wording says so because the scope closes
+   * every graph child of one, which is routinely much more road than the
+   * segment the reader selected. Demoting it from the default must not quietly
+   * demote the warning that goes with it.
+   */
+  test('names the advanced scope, and warns about it', async ({
+    page,
+    twoWayLink,
+  }) => {
+    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'amds-feature' }));
+    await waitForResult(page);
+
     await expect(page.locator('.map-legend')).toContainText(
       /modelled amds source-feature closure/i,
     );
   });
 });
 
+test.describe('direction scope', () => {
+  /*
+   * A directed closure withdraws ONE direction of travel and has to name which.
+   *
+   * The direction tabs went away with the measure that needed them — they
+   * switched between two already-computed halves of an endpoint result, and
+   * this engine measures a crossing, where the other direction is a different
+   * crossing rather than the same one reversed. But `direction` scope still
+   * needs a control saying which traversal to withdraw, and without one a
+   * reader who selects that scope is stuck on whichever traversal the URL
+   * happened to carry.
+   */
+  test('offers a direction to withdraw, and only under that scope', async ({
+    page,
+    twoWayLink,
+  }) => {
+    await page.goto(exploreUrl(twoWayLink.amdsId));
+    await waitForResult(page);
+    await page.locator('.scenario-summary-btn').click();
+
+    /* Not under the default scope: a control that changes nothing implies a
+     * choice that matters. */
+    await expect(page.getByRole('group', { name: 'Direction' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Direction', exact: true }).click();
+    await waitForResult(page);
+
+    const group = page.getByRole('group', { name: 'Direction' });
+    await expect(group).toBeVisible();
+    await expect(group.getByRole('button', { name: 'Forward' })).toBeVisible();
+    await expect(group.getByRole('button', { name: 'Reverse' })).toBeVisible();
+  });
+
+  test('the chosen direction reaches the URL', async ({ page, twoWayLink }) => {
+    /* It is part of what was analysed, so a permalink that omitted it would
+     * restore a different closure from the one on screen. */
+    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'direction' }));
+    await waitForResult(page);
+    await page.locator('.scenario-summary-btn').click();
+
+    await page
+      .getByRole('group', { name: 'Direction' })
+      .getByRole('button', { name: 'Forward' })
+      .click();
+    await waitForResult(page);
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('focus'))
+      .toBe('forward');
+  });
+});
+
+test.describe('links made before the promotion', () => {
+  /*
+   * The migration policy, in the browser.
+   *
+   * A link with no semantics marker was written by a build whose default scope
+   * was the whole AMDS source feature, measured between that feature's own two
+   * endpoints. Honouring the scope as written would answer under this engine's
+   * measure while looking like the saved result, so the scope is moved to the
+   * default and the change is disclosed. The disclosure is the entire policy:
+   * without it this is the silent reinterpretation it exists to prevent.
+   */
+  test('migrates the scope and says so', async ({ page, twoWayLink }) => {
+    await page.goto(legacyUrl(twoWayLink.amdsId));
+    await waitForResult(page);
+
+    const notice = page.locator('.notice--info').first();
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText(/before the current engine/i);
+    await expect(notice).toContainText(/amds source-feature/i);
+    await expect(notice).toContainText(/segment/i);
+
+    /* And the URL now describes what is actually on screen. */
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('scope'))
+      .toBe('segment');
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('v'))
+      .toBe('2');
+  });
+
+  test('offers the original scope back rather than stranding it', async ({
+    page,
+    twoWayLink,
+  }) => {
+    await page.goto(legacyUrl(twoWayLink.amdsId));
+    await waitForResult(page);
+
+    await page
+      .getByRole('button', { name: /close the modelled amds source-feature/i })
+      .click();
+    await waitForResult(page);
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('scope'))
+      .toBe('amds-feature');
+    /* The notice is spent once acted on. One that survived its own resolution
+     * would keep describing a migration that has been undone. */
+    await expect(page.locator('.notice--info')).toHaveCount(0);
+  });
+
+  test('does not show the notice for a current link', async ({
+    page,
+    twoWayLink,
+  }) => {
+    /* A notice that fires when nothing changed teaches the reader to dismiss
+     * the one that fires when something did. */
+    await page.goto(exploreUrl(twoWayLink.amdsId));
+    await waitForResult(page);
+    await expect(page.locator('.notice--info')).toHaveCount(0);
+  });
+});
+
 test.describe('one-way links', () => {
   /*
-   * The blank-panel bug: the URL defaults to reverse, a one-way link has no
-   * reverse result, the Reverse tab is disabled, and nothing moved the focus.
+   * A one-way carriageway was where the retired engine went wrong most
+   * visibly. It asked for a path from a link's end back to its own start,
+   * which a one-way link does not have and never did, called the absence
+   * DISCONNECTED, and headlined it "Road cut off: 0 m" while traffic in fact
+   * got past with +2.46 km.
+   *
+   * That question is not asked any more — this engine measures a trip ACROSS
+   * the closure, and a one-way link has such a trip like any other — so the
+   * tests are about the finding, not about a direction control. The direction
+   * tabs went with the measure that needed them: "the other direction" here is
+   * a different crossing rather than the same one reversed, so there is
+   * nothing to put beside it.
    */
 
-  test('normalises direction when loaded from a clean URL', async ({
+  test('produces a result rather than a blank panel', async ({
     page,
     oneWayLink,
   }) => {
     await page.goto(exploreUrl(oneWayLink.amdsId));
     await waitForResult(page);
 
-    /* A result is shown, not a blank panel. */
     await expect(page.locator('.headline')).toBeVisible();
+    await expect(page.locator('.headline .lab')).not.toBeEmpty();
+    await expect(page.locator('.status-pill')).toBeVisible();
+  });
 
-    /* Exactly one enabled tab carries the keyboard tab stop. */
-    const stops = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLButtonElement>('.dirtabs button')]
-        .filter((b) => !b.disabled && b.tabIndex === 0)
-        .map((b) => b.textContent),
+  test('never headlines "road cut off" without something cut off', async ({
+    page,
+    oneWayLink,
+  }) => {
+    await page.goto(exploreUrl(oneWayLink.amdsId));
+    await waitForResult(page);
+
+    const label = await page.locator('.headline .lab').innerText();
+    if (!/road cut off/i.test(label)) return;
+
+    /*
+     * The claim is only allowed when the undirected isolation result supports
+     * it. It is computed on its own graph and does not depend on any route
+     * search, so the panel block that reports it is the evidence: the hero may
+     * not say more than that block does.
+     */
+    const value = await page.locator('.headline .val').innerText();
+    expect(value).not.toMatch(/^0\s*(m|km)$/);
+    await expect(panel(page)).toContainText(
+      /lose access in the represented physical-access graph/i,
     );
-    expect(stops).toHaveLength(1);
-
-    /* Compare requires both directions. */
-    await expect(page.getByRole('tab', { name: 'Compare' })).toBeDisabled();
   });
 
-  test('normalises a permalink that requests the unavailable direction', async ({
-    page,
-    oneWayLink,
-  }) => {
-    await page.goto(exploreUrl(oneWayLink.amdsId, { focus: 'reverse' }));
-    await waitForResult(page);
-
-    /* The selected tab is an enabled one... */
-    const selected = page.locator('.dirtabs button[aria-selected="true"]');
-    await expect(selected).toBeEnabled();
-
-    /* ...the URL was rewritten to match... */
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get('focus'))
-      .not.toBe('reverse');
-
-    /* ...and the change was explained rather than done silently. */
-    await expect(page.locator('.notice--info')).toContainText(/one-way/i);
-  });
-
-  test('replaces rather than pushes when normalising', async ({
-    page,
-    oneWayLink,
-  }) => {
-    /* Normalisation is not a navigation. Back must leave the app's history
-     * entry for this link, not step through the direction correction. */
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: /select a road/i })).toBeVisible();
-
-    const before = await page.evaluate(() => history.length);
-    await page.goto(exploreUrl(oneWayLink.amdsId, { focus: 'reverse' }));
-    await waitForResult(page);
-    const after = await page.evaluate(() => history.length);
-
-    /* One entry for the navigation itself; the correction must not add another. */
-    expect(after - before).toBeLessThanOrEqual(1);
-  });
-
-  test('does not headline a routine one-way result as "road cut off"', async ({
+  test('never turns a bounded search into a finding about the road', async ({
     page,
     oneWayLink,
   }) => {
     /*
-     * The API's own statusMeaning warns that DISCONNECTED on a one-way
-     * carriageway is routine and does not mean the area is cut off. An earlier
-     * build headlined it "Road cut off: 0 m" while traffic in fact got past
-     * with +2.46 km.
+     * "Partial analysis" and "Analysis unresolved" are statements about the
+     * search. If either is the headline, nothing beside it may read as a
+     * settled measurement of this closure.
      */
     await page.goto(exploreUrl(oneWayLink.amdsId));
     await waitForResult(page);
 
-    const status = await page.locator('.status-pill').innerText();
-    if (!/no replacement path/i.test(status)) test.skip();
-
     const label = await page.locator('.headline .lab').innerText();
-    const value = await page.locator('.headline .val').innerText().catch(() => '');
+    if (!/partial analysis|analysis unresolved/i.test(label)) return;
 
-    /* If nothing is stranded, the hero must not claim road is cut off. */
-    const stranded = await page.locator('.stranded').count();
-    if (/road cut off/i.test(label)) {
-      expect(stranded, 'claimed road cut off with no stranded panel').toBeGreaterThan(0);
-      expect(value).not.toMatch(/^0\s*m$/);
-    }
+    await expect(page.locator('.headline .val')).toHaveCount(0);
   });
 
   test('shows no permanent skeletons once a result has settled', async ({
     page,
     oneWayLink,
   }) => {
-    /* A DISCONNECTED result legitimately has null metrics. Rendering those as
-     * shimmer bars says "still calculating" about numbers that never arrive. */
+    /* A result with no replacement legitimately has null metrics. Rendering
+     * those as shimmer bars says "still calculating" about numbers that never
+     * arrive. */
     await page.goto(exploreUrl(oneWayLink.amdsId));
     await waitForResult(page);
     await page.waitForTimeout(1500);
@@ -257,6 +368,14 @@ test.describe('history', () => {
   });
 });
 
+/** The snapshot-mismatch notice, told apart from every other warning. */
+function mismatchNotice(page: import('@playwright/test').Page) {
+  return page
+    .locator('.notice--warn')
+    .filter({ hasText: /snapshot/i })
+    .filter({ hasText: /reproduced/i });
+}
+
 test.describe('snapshot permalinks', () => {
   test('flags a permalink made against a different snapshot', async ({
     page,
@@ -270,7 +389,7 @@ test.describe('snapshot permalinks', () => {
     );
     await waitForResult(page);
 
-    const notice = page.locator('.notice--warn').first();
+    const notice = mismatchNotice(page);
     await expect(notice).toBeVisible();
     await expect(notice).toContainText(/not been reproduced/i);
   });
@@ -281,7 +400,18 @@ test.describe('snapshot permalinks', () => {
   }) => {
     await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
-    await expect(page.locator('.notice--warn')).toHaveCount(0);
+    /*
+     * The mismatch notice specifically, not every warning on the panel.
+     *
+     * This asserted that NO `.notice--warn` was present, which was true when
+     * the only warning a result could carry was this one. The panel now warns
+     * about several things a reader has to meet before the figures — a
+     * source-feature closure's size, a low topology confidence, a bounded
+     * search, a withheld route — so counting them all would fail on a result
+     * that is behaving correctly, and would have to be deleted rather than
+     * fixed the first time it did.
+     */
+    await expect(mismatchNotice(page)).toHaveCount(0);
   });
 });
 
