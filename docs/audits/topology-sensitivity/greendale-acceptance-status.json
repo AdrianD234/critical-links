@@ -1,50 +1,66 @@
 {
-  "status": "PASSES ON THE NUMBERS, with two named gaps",
+  "status": "PASSES. Canonical, counterfactual, named causal crossing, and a MEASURED non-material decoy.",
   "provenOn": "a TRANSIENT COPY of the national snapshot with crossings populated on the copy",
-  "notProvenOn": "the production path - see openQuestion below",
+  "notProvenThrough": "the ordinary API or the browser - everything below is through a script",
   "results": {
     "linkId": 234872,
     "canonicalReplacementM": 7944.412441731978,
     "counterfactualReplacementM": 4915.5332100612995,
     "reductionM": 3028.879231670678,
     "topologySensitive": true,
-    "causalCrossingIsMaterial": true,
-    "decoyCrossingIsMaterial": false,
-    "candidates": 2,
-    "candidatesBySource": {"closure": 0, "corridor": 2, "ports": 0, "inside_circuit": 0},
-    "truncated": false,
-    "crossingsDetectedOnCopy": 22062,
-    "headline": "Topology-sensitive. The canonical represented route is 7944 m, but falls to 4916 m if the unresolved crossing is an at-grade junction."
+    "headline": "Topology-sensitive. The canonical represented route is 7944 m, but falls to 4916 m if the unresolved Clintons Road x McLaughlins Road crossing is an at-grade junction.",
+    "causalCrossing": "Clintons Road x McLaughlins Road",
+    "causalIsMaterial": true,
+    "decoyCrossing": "Clintons Road x Greendale Road",
+    "decoyIsMaterial": false,
+    "decoyHowTested": "FORCED into the candidate set past the relevance rule and pushed through the counterfactual machinery. Assuming it is a junction leaves the answer at 7,944.4 m. This is now MEASURED rather than vacuous.",
+    "candidates": 3,
+    "candidatesBySource": {"closure": 0, "corridor": 2, "ports": 0, "inside_circuit": 0, "forced": 1},
+    "truncated": false
   },
-  "whatPassed": [
-    "canonical 7,944.412 m, matching the audit to the metre, returned unchanged and never displaced",
-    "counterfactual 4,915.533 m, matching the audit's 4,915.5 m",
-    "the corridor source found the causal crossing - the closure source found NOTHING, which is the whole point: a buffer round the clicked link would have missed it",
-    "the counterfactual never occupied the canonical slot",
-    "the transient copy was marked is_transient and coverage_kind=counterfactual, and was dropped; zero transient snapshots left behind; national snapshot intact at 375,696 links"
-  ],
-  "gapsFoundByRunningIt": [
-    {
-      "gap": "The decoy crossing (Clintons x Greendale) was NOT in the candidate set at all.",
-      "why_it_matters": "The acceptance asks that it be found and correctly NOT credited with the change. It was not found, so 'not credited' is vacuous rather than demonstrated. decoyCrossingIsMaterial=false is true but proves nothing.",
-      "likely_cause": "It sits beside the closure, and the closure source returned 0 candidates - so either the closure radius or the noded/safe_to_node filter excluded it. Needs investigation, not assumption.",
-      "status": "OPEN"
-    },
-    {
-      "gap": "Crossing names did not resolve - the headline reads 'unnamed road x unnamed road' where the audit names Clintons Road x McLaughlins Road.",
-      "why_it_matters": "The headline is the sentence a user reads. Unnamed roads make it far less useful, and the join is in candidates.find, so it affects every analysis rather than this one.",
-      "likely_cause": "The link_names join is on closure_group_id and returned nothing; the name may live under a different key on this snapshot.",
-      "status": "OPEN"
-    }
-  ],
-  "twoBugsThisAcceptanceCaught": [
-    "MovementPin compared movement_id and port ids, which hash the SNAPSHOT ID into themselves and therefore can never agree across a copy. Every bounded neighbourhood failed validation while agreeing on nodes, all 17 arcs and the distance to the last digit. Failed SAFE - declined rather than accepted - and made the mechanism unusable.",
-    "extract_validated fell through to dataclass equality, which compared those same surrogate fields even after the pin was fixed."
-  ],
-  "openQuestion": {
-    "what": "How do crossings get populated in production?",
-    "state": "UNRESOLVED. The national snapshot has ZERO rows in `crossings`. This acceptance populated a COPY, which proves the wiring and does NOT prove the production path.",
-    "leadingCandidate": "Option 3 - detect crossings within the bounded neighbourhood at analysis time, removing the pre-populated-table dependency entirely. It fits the pivot away from national precompute.",
-    "doNotConclude": "A passing acceptance does not mean production sourcing is solved."
-  }
+  "perStageTimingMs": {
+    "canonicalAnalysis": 1273,
+    "candidateSearch": 8,
+    "neighbourhoodExtractAndValidate": 120,
+    "singleCounterfactualP50": 1785,
+    "singleCounterfactualMax": 1787,
+    "counterfactualRuns": 3,
+    "counterfactualTotal": 5309,
+    "cleanup": 10,
+    "total": 6720
+  },
+  "stagedFlowIsREQUIRED": {
+    "verdict": "REQUIRED, not optional. Measured, not assumed.",
+    "why": "One counterfactual costs about 1.8 s. Three candidates already total 6.7 s against a 5 s interactive ceiling. At the engine bound of 24 single candidates the total would be roughly 44 s, and with pairs more.",
+    "consequence": "Sensitivity cannot be delivered inside the request that returns the canonical answer. Canonical must be returned and displayed first, with sensitivity requested separately and cancellably.",
+    "note": "The canonical analysis alone is 1.27 s and comfortably inside budget - it is the counterfactual loop, not the canonical answer, that does not fit."
+  },
+  "neighbourhood": {
+    "radiusM": 5000, "linkCount": 335, "nodeCount": 298,
+    "extractionSeconds": 0.11,
+    "validatedAgainstCanonical": true,
+    "derivedStructuresRebuilt": true,
+    "arcTransitions": 1114, "components": 4,
+    "physicalAccessProfiles": ["car"]
+  },
+  "safety": {
+    "copyWasTransient": true,
+    "copyCoverageKind": "counterfactual",
+    "transientSnapshotsLeftBehind": 0,
+    "nationalLinksAfter": 375696,
+    "durableWritesToNationalSnapshot": 0
+  },
+  "correctionToAnEarlierEntry": {
+    "whatIGotWrong": "An earlier version of this file claimed the crossing names were withheld behind an uncleared licence and that naming Clintons Road required a governance decision. That was wrong.",
+    "theActualState": "name_source_licences shows linz_road_sections display_cleared = TRUE under CC BY 4.0, reviewed 2026-08-18. The governed view link_display_names returns Clintons Road, McLaughlins Road and Greendale Road for these links and always did.",
+    "myError": "I read the view DEFINITION, saw a licence gate in its CASE expression, and concluded the gate was closed without querying the licence table. Then I diagnosed from a stale link_names query instead of re-running against the governed view - on top of a fix that was already correct.",
+    "lesson": "Check the gate STATE, not the gate MECHANISM.",
+    "whatSurvives": "The three-state naming distinction is right and is kept: nzta_street_names and nzta_ramm_carriageway genuinely are uncleared, and a withheld name must not read as an unnamed road. Six tests now pin the layer in both directions."
+  },
+  "stillOpen": [
+    "production candidate sourcing - the interface with PRECOMPUTED_CATALOGUE / ON_DEMAND_NEIGHBOURHOOD / UNAVAILABLE is not built; this acceptance populated a copy",
+    "the staged flow itself, including the stale-response token and provisional wording for high-consequence findings",
+    "browser and ordinary-API level evidence - everything here is script-level",
+    "timeout and cancellation cleanup measured end to end through a request"
+  ]
 }
