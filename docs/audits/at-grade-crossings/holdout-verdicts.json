@@ -1,0 +1,17 @@
+{
+  "pass": 1,
+  "pack": "holdout",
+  "seed": "at-grade-holdout-2026-08-18",
+  "method": "BLINDED. Each card showed LINZ Basemaps aerial imagery at zoom 18 (400 px, and zoom 20 at 660-720 px for any card the reviewer could not settle at zoom 18), both AMDS centrelines (link A red, link B cyan), the crossing point in yellow, a card code, the two link ids and the two road names. The classifier's disposition and deciding rule were NOT shown: they live in answer-key.json and were joined only after every verdict below was written. Card order was randomised across strata with seed 'at-grade-holdout-2026-08-18'.",
+  "independence": "Drawn from the national record EXCLUDING every link pair in the 208-card development pack and the earlier unblinded pack, and every crossing within 50 m of one of those. 288 pairs and a further 152 near neighbours were removed before the draw. The 208-card pack is DEVELOPMENT data: both surviving classifier fixes were derived from it.",
+  "reviewer": "single reviewer (the model), one pass. NOT independent human ground truth: it is a model-assisted visual review, blinded to the classifier's answer but not a separate party from the code. Pass 2 in holdout-verdicts-recode.json double-codes a subset to measure consistency; that measures reliability, not validity.",
+  "legend": {
+    "a": "at_grade",
+    "g": "grade_separated",
+    "n": "not_a_junction",
+    "u": "unclear"
+  },
+  "verdicts": "H001 n H002 a H003 a H004 a H005 n H006 a H007 a H008 a H009 a H010 a H011 a H012 a H013 a H014 a H015 a H016 u H017 a H018 a H019 a H020 a H021 a H022 a H023 a H024 a H025 n H026 a H027 a H028 a H029 u H030 n H031 a H032 a H033 a H034 g H035 a H036 n H037 a H038 n H039 n H040 n H041 a H042 a H043 a H044 a H045 a H046 a H047 a H048 a H049 a H050 a H051 a H052 a H053 a H054 g H055 a H056 a H057 a H058 a H059 a H060 a H061 a H062 a H063 a H064 a H065 g H066 a H067 a H068 a H069 a H070 a H071 a H072 a H073 a H074 a H075 g H076 a H077 a H078 a H079 a H080 a H081 g H082 a H083 a H084 a H085 a H086 a H087 a H088 a H089 a H090 n H091 a H092 a H093 a H094 a H095 a H096 a H097 a H098 a H099 a H100 a H101 a H102 a H103 a H104 a H105 a H106 a H107 g H108 a H109 a H110 a H111 a H112 a H113 a H114 a H115 a H116 a H117 a H118 a H119 g H120 a H121 a H122 a H123 a H124 a H125 g H126 a H127 a H128 a H129 a H130 a H131 n H132 a H133 a H134 a H135 a H136 a H137 a H138 a H139 a H140 a H141 a H142 a H143 g H144 u H145 a H146 a H147 a H148 a H149 a H150 a H151 n H152 a H153 a H154 a H155 a H156 a H157 a H158 a H159 a H160 a H161 a H162 a H163 a H164 g H165 a H166 a H167 n H168 a H169 a H170 a H171 a H172 a H173 a H174 a H175 a H176 a H177 a H178 a H179 g H180 a H181 a H182 a H183 a H184 a H185 u H186 a H187 a H188 a H189 a H190 n H191 a H192 n H193 a H194 a H195 a H196 n H197 a H198 a H199 a H200 a H201 a H202 a H203 a H204 a H205 n H206 a H207 a H208 a H209 a H210 a H211 a H212 n H213 a H214 a H215 a H216 a H217 a H218 a H219 a H220 a H221 a H222 a H223 a H224 a H225 a H226 a H227 a H228 a H229 a H230 a H231 a H232 a H233 a H234 a H235 a H236 a H237 n H238 a H239 a H240 a H241 a H242 a H243 a H244 a H245 a H246 g H247 a H248 a",
+  "notes": {},
+  "cardsScored": 248
+}

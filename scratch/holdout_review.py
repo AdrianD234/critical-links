@@ -783,10 +783,51 @@ def agree(outdir: Path, pass1: Path, pass2: Path) -> int:
     return 0
 
 
+def zoom(outdir: Path, codes: list[str], z: int = 20, size: int = 720) -> int:
+    """Re-render named cards larger and closer, still blinded.
+
+    A 400 px card at zoom 18 is enough for a plain rural crossroads and not
+    enough for a motorway, a canopy-covered urban street or a case where the
+    centreline looks displaced from the carriageway. Guessing those would put
+    noise into the very cells the pack was drawn to test, so they get looked
+    at properly instead. Nothing about the classifier's answer is shown here
+    either - this is the same card, magnified.
+    """
+    global ZOOM, CARD
+    key = json.loads((outdir / "answer-key.json").read_text(encoding="utf-8"))
+    by_code = {c["code"]: c for c in key["cards"]}
+    want = [by_code[c] for c in codes if c in by_code]
+    for c in codes:
+        if c not in by_code:
+            print(f"  unknown code {c}")
+    if not want:
+        return 1
+
+    ids = sorted({c["linkA"] for c in want} | {c["linkB"] for c in want})
+    geo = {g["link_id"]: json.loads(g["gj"]) for g in db.query(
+        "SELECT link_id, ST_AsGeoJSON(geom_4326, 7) AS gj FROM links "
+        " WHERE snapshot_id=%s AND link_id = ANY(%s)", (SNAP, ids))}
+
+    ZOOM, CARD = z, size
+    linz = linz_key()
+    html = [_HEAD.replace("{PAGE}", f"zoom z{z}")]
+    for c in want:
+        html.append(_card(c, geo, linz))
+    html.append("</div></body>")
+    name = f"zoom-{'-'.join(codes)[:60]}.html"
+    (outdir / name).write_text("\n".join(html), encoding="utf-8")
+    print(f"wrote {outdir / name} ({len(want)} cards at z{z}, {size}px)")
+    return 0
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "build":
         raise SystemExit(build(Path(sys.argv[2])))
+    if cmd == "zoom":
+        raise SystemExit(zoom(Path(sys.argv[2]), sys.argv[3].split(","),
+                              int(sys.argv[4]) if len(sys.argv) > 4 else 20,
+                              int(sys.argv[5]) if len(sys.argv) > 5 else 720))
     if cmd == "score":
         raise SystemExit(score(Path(sys.argv[2]), Path(sys.argv[3])))
     if cmd == "recode":
