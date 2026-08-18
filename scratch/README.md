@@ -62,3 +62,22 @@ Scoring, once verdicts exist, runs the gate in `nzcl/promotion.py`:
 
     cd python && PYTHONPATH=src python ../scratch/holdout3_review.py score \
         ../scratch/holdout3 <verdicts>
+
+Seal the pack BEFORE the reviewer receives anything, and push the checkpoint:
+
+    cd python && PYTHONPATH=src python ../scratch/holdout3_review.py seal ../scratch/holdout3
+
+`seal` re-verifies independence against every prior pack, checks every card's
+bytes against the manifest, refuses to seal if any card has an unresolved tile
+failure, and writes `holdout3-seal.json` — card SHAs, classifier SHAs,
+generator SHAs, record SHAs, and the answer key as a SHA ONLY, so the
+checkpoint can be published without disclosing a disposition.
+
+Scoring refuses to score an incomplete review. The completeness rules live in
+`nzcl/holdout.py` and are pinned by `tests/test_holdout.py`; a missing verdict
+must never leave the denominator.
+
+    cd python && PYTHONPATH=src python ../scratch/holdout3_review.py score \
+        ../scratch/holdout3 <verdicts>                      # exits 2 if short
+    cd python && PYTHONPATH=src python ../scratch/holdout3_review.py score \
+        ../scratch/holdout3 <verdicts> --materialise-missing  # each as `unclear`

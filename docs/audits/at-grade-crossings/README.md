@@ -352,10 +352,22 @@ UNRESOLVED accepts every verdict but "unclear" by construction — it makes no
 claim about the ground — so its 100% is not a meaningful number and is printed
 only for completeness.
 
-**These figures are a conservative floor, not national precision.** The pack
-deliberately over-weights the cells most likely to fail. No population-weighted
-estimate is offered: the cells overlap and the draw is not a clean probability
-sample, and inventing a number would be worse than saying so.
+**These figures are performance on a deliberately difficult, stratified
+holdout. This is not a probability sample and is not an estimate or formal
+lower bound on national precision.** The Wilson bound applies to this
+holdout's reviewed cases, not to a nationally weighted population. No
+population-weighted estimate is offered: the cells overlap and the draw is not
+a clean probability sample, and inventing a number would be worse than saying
+so.
+
+> **Correction.** This paragraph used to call the figures a "conservative
+> floor". That is withdrawn. A floor is a claim about the *population* — it
+> says national precision is at least this much — and earning it needs a
+> probability sample and population weights. These cells overlap, they were
+> chosen for being hard, and no weights exist. Over-weighting hard cases makes
+> a number *likely* to be pessimistic; it does not make it a bound. The
+> difference matters, because "floor" is the word that would let a reader
+> treat 92.8% as a guarantee about 375,696 links.
 
 ### The three AT_GRADE misses are all one defect, and it is not grade separation
 
@@ -1120,3 +1132,97 @@ instructions, is compatible with everything the predeclaration requires — the
 cards are independent and the blinding is per card. Splitting it across
 several *passes by the same reviewer* is not, and is the exact mistake the
 kappa 0.847 "double review" already made.
+
+### 12a. Four corrections applied before any verdict is scored
+
+**1. The scorer fails closed.** `nzcl/holdout.py`, under test in
+`tests/test_holdout.py`. The loophole it closes: 350 cards are drawn, a
+reviewer returns 340, and a scorer that joins on what came back computes a
+bound over n=340 — the ten missing cards leaving the *denominator* instead of
+counting as failures. They are not a random ten, they are the hard ones, and
+the omission moves the number in the flattering direction by exactly the
+mechanism the gate exists to forbid. `promotion.evaluate` cannot see it: it
+takes counts, and by then the loss has happened.
+
+`collate` returns **one row per card in the pack, always**, and raises unless
+every card has exactly one valid verdict. A missing verdict, a duplicate, an
+unknown card code and an invalid label each refuse to score, and the scorer
+exits 2 without computing or writing a promotion verdict. `score
+--materialise-missing` is the documented fallback: every missing, duplicated
+or unparseable verdict becomes `unclear`, counted as a failure, and every
+substitution is named. An unknown card code is fatal in both modes — it cannot
+be materialised into anything, and it means the verdict file does not describe
+this pack. The pack itself is asserted first: exactly 350 AT_GRADE cards, no
+repeated code.
+
+The tests prove each failure mode is impossible, including the one that
+matters most: **a reviewer who omits ten hard cards and one who marks the same
+ten `unclear` land on identical numbers.** If omission ever scored better the
+incentive would point the wrong way.
+
+**2. Independence fails closed, and was re-verified after the fact.** The
+generator now stops rather than warns if any prior reviewed card cannot be
+located or mapped. `seal` re-checks the drawn pack against every prior pack
+rather than quoting the draw's own report:
+
+| | |
+| --- | --- |
+| prior reviewed cards expected | 537 (208 + 248 + 81) |
+| prior reviewed cards located as points | **537 — all of them** |
+| prior link ids with no closure group | 0 of 1,054 |
+| prior link pairs not mappable to a source-feature pair | 0 of 536 |
+| link pairs collapsing onto another source pair | 1 — two graph pieces of one source pair, not a lost row |
+| drawn cards sharing a burned source-feature pair | **0** |
+| drawn cards within 50 m of a burned point | **0** |
+| closest any drawn card comes to a burned point | **52.8 m** |
+
+The exclusion is therefore exactly as strong as declared, with nothing
+assumed.
+
+**3. "Conservative floor" is withdrawn.** It appeared in the predeclaration,
+in section 6a above and in `holdout-result.json`, and it claimed more than the
+design supports. A floor is a statement about the *population*; earning it
+needs a probability sample and population weights, and this draw has neither —
+the cells overlap and were chosen for being hard. Over-weighting hard cases
+makes a result likely to come in below national precision; it does not make it
+a bound. All three sites now read: **performance on a deliberately difficult,
+stratified holdout; not a probability sample, and not an estimate or formal
+lower bound on national precision.** The Wilson interval applies to this
+holdout's reviewed cases, not to a nationally weighted population. The
+predeclaration carries the correction with the original words struck rather
+than replaced, because a pre-registration that can be quietly rewritten is not
+one. Nothing that governs the outcome moved: n is 350, the tolerance is 4,
+unreviewable still counts as a failure.
+
+**4. The draw is sealed.** `holdout3-seal.json`, written by
+`holdout3_review.py seal` and pushed before the reviewer receives anything.
+440 cards present, 0 bytes changed since the manifest, 0 files unaccounted
+for, **0 unresolved tile failures**, and the sha256 of every card, of the
+classifier (`crossings.py`, `topology.py`, `promotion.py`, `holdout.py`), of
+the three generators, of the national record and its manifest, and of the
+answer key.
+
+The answer key appears there **as a hash and nothing else**, so the checkpoint
+can be published — the repository is now public — and even shown to the
+reviewer without disclosing a single disposition.
+
+A card with a transient missing tile is now **retried as the same card**. If a
+hole survives the retry the build stops. It is never answered by dropping the
+card or drawing a replacement: cards that fail to render are not a random
+subset, and swapping an awkward case for a convenient one is sample selection
+performed by the network.
+
+**After the seal, no card may be redrawn, re-rendered or substituted.**
+
+### 12b. What the reviewer receives, exactly
+
+`scratch/holdout3/cards/` — `T001.jpg` … `T440.jpg` and `INSTRUCTIONS.md`.
+
+Nothing else. No repository access, no answer key, no manifest (it names
+`missingTiles` and card counts but the seal is the public artefact), no
+transcript, no prior verdicts, no score summary.
+
+One isolated reviewer may work the fixed pack in batches. **No scoring and no
+feedback between batches** — a reviewer who learns how they did on batch one
+is no longer blind for batch two, which is exactly what made the kappa 0.847
+"double review" an upper bound rather than an independent check.

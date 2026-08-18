@@ -56,6 +56,7 @@ import io
 import json
 import math
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -254,24 +255,49 @@ def burned_points() -> tuple[list[tuple[float, float]], set[frozenset], dict]:
     unblinded = json.loads((AUDIT / "review-verdicts.json")
                            .read_text(encoding="utf-8"))["verdicts"]
     v1 = AUDIT / "classified.jsonl"
+    if not v1.exists():
+        raise SystemExit(
+            f"{v1} is absent, so the 81 cards of the earlier unblinded pack "
+            f"cannot be located and the 50 m exclusion cannot be applied to "
+            f"them. The declaration promises exclusion around EVERY prior "
+            f"reviewed place; a warning here would leave that promise "
+            f"unenforced. Regenerate the v1 record before drawing.")
     by_pair = {}
-    if v1.exists():
-        for line in v1.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                r = json.loads(line)
-                by_pair[(int(r["linkA"]), int(r["linkB"]))] = r
-    else:
-        print("  WARNING: classified.jsonl absent; the unblinded pack can only "
-              "be excluded by link pair, not by position.")
-    located = 0
+    for line in v1.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            r = json.loads(line)
+            by_pair[(int(r["linkA"]), int(r["linkB"]))] = r
+    located, unlocatable = 0, []
     for v in unblinded:
         p = (int(v["linkA"]), int(v["linkB"]))
         link_pairs.add(p)
-        if p in by_pair:
-            pts.append((float(by_pair[p]["x"]), float(by_pair[p]["y"])))
-            located += 1
+        r = by_pair.get(p) or by_pair.get((p[1], p[0]))
+        if r is None:
+            unlocatable.append(p)
+            continue
+        pts.append((float(r["x"]), float(r["y"])))
+        located += 1
     provenance["unblinded81"] = len(unblinded)
     provenance["unblindedLocatable"] = located
+
+    # FAIL CLOSED. Every prior reviewed card must be locatable as a point,
+    # because the 50 m rule is what stops a holdout card being a near
+    # neighbour of a burned one, and a card whose position is unknown cannot
+    # have a radius drawn around it. A short count here means the exclusion is
+    # weaker than the declaration says it is, and the only honest response is
+    # to stop rather than to draw a pack whose independence is partly assumed.
+    expected_points = sum(provenance[k] for k in
+                          ("blind208", "holdout248", "unblinded81"))
+    provenance["priorCardsExpected"] = expected_points
+    provenance["priorCardsLocated"] = len(pts)
+    if unlocatable or len(pts) != expected_points:
+        raise SystemExit(
+            f"STOPPED: {expected_points - len(pts)} of {expected_points} prior "
+            f"reviewed cards could not be located, so the 50 m exclusion "
+            f"cannot be applied to them.\n  unlocatable link pairs: "
+            f"{unlocatable[:20]}\nThe declared independence is exact-pair "
+            f"exclusion AND a 50 m radius around every prior reviewed place. "
+            f"A warning is not enough.")
 
     group_pairs: set[frozenset] = set()
     ids = sorted({i for p in link_pairs for i in p})
@@ -279,11 +305,23 @@ def burned_points() -> tuple[list[tuple[float, float]], set[frozenset], dict]:
                     " WHERE snapshot_id = %s AND link_id = ANY(%s)",
                     (SNAP, ids))
     grp = {r["link_id"]: r["closure_group_id"] for r in rows}
+    unmapped = [(a, b) for a, b in link_pairs if a not in grp or b not in grp]
+    if unmapped:
+        raise SystemExit(
+            f"STOPPED: {len(unmapped)} prior link pair(s) could not be mapped "
+            f"to AMDS source features, so they cannot be excluded by pair: "
+            f"{unmapped[:20]}")
     for a, b in link_pairs:
-        if a in grp and b in grp:
-            group_pairs.add(frozenset((grp[a], grp[b])))
+        group_pairs.add(frozenset((grp[a], grp[b])))
     provenance["burnedLinkPairs"] = len(link_pairs)
+    provenance["burnedLinkIds"] = len(ids)
+    provenance["burnedLinkIdsMapped"] = len(grp)
     provenance["burnedSourceFeaturePairs"] = len(group_pairs)
+    # Two link pairs can be two graph pieces of ONE source-feature pair, so
+    # this number is allowed to be smaller. It is recorded rather than left to
+    # be re-derived, because "535 from 536" otherwise reads like a lost row.
+    provenance["linkPairsCollapsingOntoAnotherSourcePair"] = \
+        len(link_pairs) - len(group_pairs)
     provenance["burnedPoints"] = len(pts)
     return pts, group_pairs, provenance
 
@@ -898,9 +936,41 @@ def build(outdir: Path, workers: int = 8) -> int:
         if n % 100 == 0:
             print(f"  {n}/{len(sample)} in {time.perf_counter()-t0:.0f}s")
     total_bytes = sum(m["bytes"] for m in meta.values())
-    holes = sum(1 for m in meta.values() if m["missingTiles"])
+    holed = sorted(c for c, m in meta.items() if m["missingTiles"])
     print(f"  rendered in {time.perf_counter()-t0:.0f}s, "
-          f"{total_bytes/1e6:.1f} MB, {holes} cards with a missing tile")
+          f"{total_bytes/1e6:.1f} MB, {len(holed)} cards with a missing tile")
+
+    # A transient tile failure is retried as THE SAME CARD. It is never
+    # answered by dropping the card or drawing a replacement: the cards that
+    # fail to render are not a random subset, and substituting a more
+    # convenient case for an awkward one is sample selection performed by the
+    # network. If a card still will not render after the retry, the build
+    # stops and the pack is not handed over.
+    if holed:
+        print(f"  retrying {len(holed)} card(s) with a missing tile")
+        retry: set[tuple[int, int]] = set()
+        for code in holed:
+            r = next(x for x in sample if x["code"] == code)
+            cx, cy = lonlat_to_px(r["_lon"], r["_lat"])
+            retry.update(tiles_for(cx, cy))
+        tiles.failed.clear()
+        for t in sorted(retry):
+            p = tiles.path(*t)
+            if not p.exists() or p.stat().st_size == 0:
+                tiles.fetch(*t)
+        for code in holed:
+            r = next(x for x in sample if x["code"] == code)
+            meta[code] = render_card(code, r, geo, tiles, cards_dir)
+        total_bytes = sum(m["bytes"] for m in meta.values())
+        still = sorted(c for c, m in meta.items() if m["missingTiles"])
+        if still:
+            raise SystemExit(
+                f"STOPPED: {len(still)} card(s) still have a missing imagery "
+                f"tile after a retry: {', '.join(still)}.\nThe pack is not "
+                f"sealed and must not be handed to a reviewer. Fix the tile "
+                f"source and re-run `build`; do NOT drop these cards and do "
+                f"NOT substitute others for them.")
+        print("  retry cleared every hole")
 
     (cards_dir / "INSTRUCTIONS.md").write_text(
         REVIEWER_INSTRUCTIONS.format(n=len(sample)), encoding="utf-8")
@@ -957,6 +1027,10 @@ def build(outdir: Path, workers: int = 8) -> int:
         "cards": len(sample),
         "atGrade": len(at_grade), "decoys": len(decoys),
         "totalBytes": total_bytes,
+        "unresolvedTileFailures": sum(m["missingTiles"] for m in meta.values()),
+        "cardsWithAMissingTile": sorted(c for c, m in meta.items()
+                                        if m["missingTiles"]),
+        "independence": prov,
         "why_not_committed": (
             "440 rendered JPEGs, reproducible exactly from this repository "
             "plus a LINZ Basemaps key. Same convention as "
@@ -1000,77 +1074,259 @@ def _report_spread(sample: list[dict], at_grade: list[dict]) -> None:
 
 
 # --------------------------------------------------------------------------
-#: What a reviewer verdict is allowed to be, per disposition. Unchanged from
-#: the previous packs, and stated here so scoring cannot quietly re-interpret
-#: it: AT_GRADE is the only disposition that creates a node, so only "at
-#: grade" confirms it.
-ACCEPTS = {
-    "AT_GRADE": {"at_grade"},
-    "GRADE_SEPARATED": {"grade_separated", "not_a_junction"},
-    "UNRESOLVED": {"at_grade", "grade_separated", "not_a_junction"},
-}
-LEGEND = {"a": "at_grade", "g": "grade_separated",
-          "n": "not_a_junction", "u": "unclear"}
+#: The verdict vocabulary and the disposition semantics live in
+#: `nzcl.holdout`, which is under test. They are imported rather than restated
+#: here: a second copy is a second thing to keep in step, and the copy in the
+#: scratch script is the one nobody would notice drifting.
+from nzcl.holdout import ACCEPTS, LEGEND  # noqa: E402
 
 
 def _load_verdicts(path: Path) -> list[dict]:
+    """Parse a verdict file. Parses only - it never drops or resolves a row.
+
+    Every line that looks like a verdict is returned, including duplicates and
+    labels that are not in the legend, because deciding what to do about those
+    is `nzcl.holdout.collate`'s job and silently discarding them here would
+    defeat it. Lines that carry no verdict at all are returned with a `None`
+    verdict rather than skipped, so an unparseable answer for a real card is
+    an invalid verdict rather than a missing one.
+    """
     text = path.read_text(encoding="utf-8")
     try:
         doc = json.loads(text)
     except json.JSONDecodeError:
         out = []
         for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
             parts = line.split(None, 2)
-            if len(parts) >= 2 and parts[0].startswith("T"):
-                out.append({"code": parts[0],
-                            "verdict": LEGEND.get(parts[1], parts[1]),
-                            "note": parts[2] if len(parts) > 2 else ""})
+            if not re.fullmatch(r"[A-Za-z]\d{1,4}", parts[0]):
+                continue
+            out.append({"code": parts[0],
+                        "verdict": parts[1] if len(parts) > 1 else None,
+                        "note": parts[2] if len(parts) > 2 else ""})
         return out
     v = doc["verdicts"] if isinstance(doc, dict) else doc
     if isinstance(v, str):
         toks = v.split()
-        return [{"code": toks[i], "verdict": LEGEND.get(toks[i + 1], toks[i + 1])}
+        return [{"code": toks[i], "verdict": toks[i + 1]}
                 for i in range(0, len(toks) - 1, 2)]
-    return [{**r, "verdict": LEGEND.get(r["verdict"], r["verdict"])} for r in v]
+    return list(v)
 
 
-def score(outdir: Path, verdicts_path: Path) -> int:
-    from nzcl import promotion
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def seal(outdir: Path) -> int:
+    """Freeze the pack before the reviewer receives anything.
+
+    Everything a later reader would need to prove that the cards which were
+    reviewed are the cards that were drawn, and that they were drawn by the
+    classifier as it stood - and nothing they could use to work out an answer.
+
+    The answer key appears here ONLY as a sha256. That is the point: the
+    checkpoint can be pushed to a public repository and shown to anybody,
+    including the reviewer, without disclosing a single disposition.
+
+    Fails if any card is missing, if any card's bytes have moved since the
+    manifest was written, or if any card still carries an unresolved tile
+    failure. After this runs, no card may be redrawn, re-rendered or
+    substituted.
+    """
+    cards_dir = outdir / "cards"
+    man_path = outdir / "cards-manifest.json"
+    key_path = outdir / "answer-key.json"
+    man = json.loads(man_path.read_text(encoding="utf-8"))
+
+    missing, moved = [], []
+    for code, info in man["files"].items():
+        p = cards_dir / f"{code}.jpg"
+        if not p.exists():
+            missing.append(code)
+            continue
+        b = p.read_bytes()
+        if len(b) != info["bytes"] or hashlib.sha256(b).hexdigest() != info["sha256"]:
+            moved.append(code)
+    stray = sorted(p.stem for p in cards_dir.glob("*.jpg")
+                   if p.stem not in man["files"])
+    holes = sorted(c for c, i in man["files"].items() if i.get("missingTiles"))
+
+    print(f"cards in manifest: {len(man['files'])}")
+    print(f"  missing from disk: {len(missing)} {missing[:10]}")
+    print(f"  bytes changed since the manifest: {len(moved)} {moved[:10]}")
+    print(f"  files on disk not in the manifest: {len(stray)} {stray[:10]}")
+    print(f"  cards with an unresolved tile failure: {len(holes)} {holes[:10]}")
+    if missing or moved or stray or holes:
+        raise SystemExit(
+            "STOPPED: the pack is not sealable. A card is missing, has "
+            "changed, is unaccounted for, or never rendered completely. Do "
+            "not hand it to a reviewer, and do not paper over it by dropping "
+            "the offending cards - that is sample selection.")
+
+    key = json.loads(key_path.read_text(encoding="utf-8"))
+    n_at_grade = sum(1 for c in key["cards"] if c["disposition"] == "AT_GRADE")
+    if n_at_grade != AT_GRADE_TARGET:
+        raise SystemExit(
+            f"STOPPED: the answer key holds {n_at_grade} AT_GRADE cards and "
+            f"the predeclaration says {AT_GRADE_TARGET}.")
+
+    # Independence is RE-VERIFIED here rather than quoted from the draw. The
+    # draw's own report is the claim; this is the check on it, run against the
+    # cards as they now stand and against every prior pack as it now stands.
+    # `burned_points` fails closed, so reaching this line at all means every
+    # prior card was locatable and mappable.
+    pts, burned_pairs, prov = burned_points()
+    independence = {k: v for k, v in prov.items() if k != "cellReport"}
+    independence.setdefault("priorCardsExpected", sum(
+        prov[k] for k in ("blind208", "holdout248", "unblinded81")))
+    independence.setdefault("priorCardsLocated", prov["burnedPoints"])
+    shares_pair = [c["code"] for c in key["cards"]
+                   if frozenset((c["groupA"], c["groupB"])) in burned_pairs]
+    nearest = {}
+    too_close = []
+    for c in key["cards"]:
+        d = min(math.hypot(c["x"] - px, c["y"] - py) for px, py in pts)
+        nearest[c["code"]] = d
+        if d <= INDEPENDENCE_M:
+            too_close.append((c["code"], round(d, 1)))
+    closest_code = min(nearest, key=nearest.get)
+    independence.update({
+        "drawnCardsSharingABurnedSourceFeaturePair": len(shares_pair),
+        "drawnCardsWithin50mOfABurnedPoint": len(too_close),
+        "closestApproachToABurnedPointM": round(nearest[closest_code], 1),
+    })
+    print(f"independence re-verified against {len(pts)} burned points: "
+          f"{len(shares_pair)} share a burned pair, {len(too_close)} within "
+          f"{INDEPENDENCE_M:.0f} m, closest approach "
+          f"{nearest[closest_code]:.1f} m")
+    if shares_pair or too_close:
+        raise SystemExit(
+            f"STOPPED: the drawn pack is not independent of the prior packs. "
+            f"sharing a burned source-feature pair: {shares_pair[:20]}; "
+            f"within {INDEPENDENCE_M:.0f} m: {too_close[:20]}")
+
+    src = REPO_ROOT / "python/src/nzcl"
+    v2man = json.loads((AUDIT / "classified-v2-manifest.json")
+                       .read_text(encoding="utf-8"))
+    import subprocess
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
+                          capture_output=True, text=True).stdout.strip()
+
+    checkpoint = {
+        "what": ("The draw is sealed. Every card below existed, in exactly "
+                 "these bytes, before any reviewer saw anything. No card may "
+                 "be redrawn, re-rendered or substituted after this point."),
+        "sealedAtGitHead": head,
+        "cards": len(man["files"]),
+        "atGradeCards": n_at_grade,
+        "decoyCards": len(key["cards"]) - n_at_grade,
+        "unresolvedTileFailures": 0,
+        "totalBytes": sum(i["bytes"] for i in man["files"].values()),
+        "classifierSha256": {
+            "python/src/nzcl/crossings.py": _sha256(src / "crossings.py"),
+            "python/src/nzcl/topology.py": _sha256(src / "topology.py"),
+            "python/src/nzcl/promotion.py": _sha256(src / "promotion.py"),
+            "python/src/nzcl/holdout.py": _sha256(src / "holdout.py"),
+        },
+        "generatorSha256": {
+            "scratch/holdout3_review.py":
+                _sha256(REPO_ROOT / "scratch/holdout3_review.py"),
+            "scratch/classify_national_v2.py":
+                _sha256(REPO_ROOT / "scratch/classify_national_v2.py"),
+            "scratch/corridor_withdrawn.py":
+                _sha256(REPO_ROOT / "scratch/corridor_withdrawn.py"),
+        },
+        "recordSha256": {
+            "classified-v2-manifest.json":
+                _sha256(AUDIT / "classified-v2-manifest.json"),
+            "classified-v2.jsonl (as pinned by that manifest)":
+                v2man["sha256"],
+            "classified-v2.jsonl (as on disk now)":
+                _sha256(AUDIT / "classified-v2.jsonl")
+                if (AUDIT / "classified-v2.jsonl").exists() else None,
+        },
+        # Counts only. Expected, located and excluded, plus the RE-VERIFIED
+        # result of checking every drawn card against every prior one. It is
+        # checkable from a public artefact rather than from the answer key,
+        # and none of it says anything about any card's disposition.
+        "independence": independence,
+        "independenceRule": (
+            "Every prior reviewed card must be locatable as a point and "
+            "mappable to a source-feature pair, or the draw stops. "
+            "priorCardsExpected must equal priorCardsLocated, and no drawn "
+            "card may share a burned source-feature pair or lie within 50 m "
+            "of a burned point."),
+        "answerKeySha256": _sha256(key_path),
+        "answerKeyNote": ("Recorded as a hash and nothing else, so this "
+                          "checkpoint can be published, and shown to the "
+                          "reviewer if they ask what they are being given, "
+                          "without disclosing one disposition."),
+        "cardSha256": {c: i["sha256"] for c, i in sorted(man["files"].items())},
+    }
+    out = AUDIT / "holdout3-seal.json"
+    out.write_text(json.dumps(checkpoint, indent=2) + "\n", encoding="utf-8")
+    print(f"\nsealed. wrote {out}")
+    print(f"  answer key sha256 {checkpoint['answerKeySha256']}")
+    print("  push this checkpoint and confirm the remote matches BEFORE the "
+          "reviewer receives a card.")
+    return 0
+
+
+def score(outdir: Path, verdicts_path: Path, strict: bool = True) -> int:
+    """Score a completed review, and refuse to score an incomplete one.
+
+    The collation rules, the completeness checks and the pack assertions live
+    in `nzcl.holdout`, under test in `tests/test_holdout.py`, rather than
+    here. The check that stops a short review from passing is not a
+    scratch-script concern, and a guard with no test is a guard nobody has
+    shown to work.
+    """
+    from nzcl import holdout, promotion
 
     key = json.loads((outdir / "answer-key.json").read_text(encoding="utf-8"))
-    by_code = {c["code"]: c for c in key["cards"]}
     verdicts = _load_verdicts(verdicts_path)
 
-    rows, seen = [], set()
-    for v in verdicts:
-        c = by_code.get(v["code"])
-        if c is None:
-            print(f"  unknown code {v['code']}")
-            continue
-        if v["code"] in seen:
-            print(f"  duplicate verdict for {v['code']}")
-            continue
-        seen.add(v["code"])
-        rows.append({**c, "verdict": v["verdict"], "note": v.get("note", "")})
-    missing = sorted(set(by_code) - seen)
-    print(f"scored {len(rows)} of {len(by_code)} cards")
-    if missing:
-        print(f"  NOT SCORED ({len(missing)}): {', '.join(missing)}")
-        print("  A card with no verdict is not a pass. The predeclaration "
-              "counts every unreviewable card as a failure; a card that was "
-              "never reviewed is at best the same thing.")
+    try:
+        collated = holdout.collate(key["cards"], verdicts, strict=strict)
+    except holdout.ReviewNotComplete as e:
+        print("REFUSED TO SCORE.\n")
+        print(f"  {e}\n")
+        print("  No promotion verdict has been computed, and nothing has been "
+              "written. A card with no\n"
+              "  verdict is not a pass: the predeclaration counts every "
+              "unreviewable card as a failure,\n"
+              "  and a card that was never answered is at best the same "
+              "thing. Obtain the missing\n"
+              "  verdicts, or re-run with `--materialise-missing`, which "
+              "records each one as `unclear`\n"
+              "  and therefore as a FAILURE, and names every card it had to "
+              "assume.")
+        return 2
 
-    ag = [r for r in rows if r["disposition"] == "AT_GRADE"]
-    conf = sum(1 for r in ag if r["verdict"] in ACCEPTS["AT_GRADE"])
-    unrev = sum(1 for r in ag if r["verdict"] == "unclear")
-    contra = len(ag) - conf - unrev
-    gs_fp = sum(1 for r in ag if r["verdict"] == "grade_separated")
-    nj_fp = sum(1 for r in ag if r["verdict"] == "not_a_junction")
+    rows = collated.rows
+    if collated.materialised:
+        print(f"MATERIALISED {len(collated.materialised)} missing, duplicated "
+              f"or unparseable verdict(s) as `unclear`, counted as failures:")
+        print("  " + ", ".join(collated.materialised) + "\n")
+    print(f"scored {len(rows)} of {len(key['cards'])} cards")
 
-    gate = promotion.evaluate(
-        confirmed=conf, contradicted=contra, unreviewable=unrev,
-        grade_separated_false_positives=gs_fp,
-        not_a_junction_false_positives=nj_fp)
+    ag = collated.of_disposition("AT_GRADE")
+    counts = collated.counts("AT_GRADE")
+    conf = counts["confirmed"]
+    contra = counts["contradicted"]
+    unrev = counts["unreviewable"]
+    gs_fp = counts["grade_separated_false_positives"]
+    nj_fp = counts["not_a_junction_false_positives"]
+    # The denominator is the pack's, not the verdict file's. If this ever
+    # fails, the bound below would be computed over a sample that is not the
+    # one that was declared.
+    assert conf + contra + unrev == len(ag) == holdout.DECLARED_AT_GRADE_N, (
+        f"AT_GRADE denominator is {conf + contra + unrev} over {len(ag)} "
+        f"cards; the declaration says {holdout.DECLARED_AT_GRADE_N}")
+
+    gate = promotion.evaluate(**counts)
     print("\n=== PROMOTION GATE ===")
     for c in gate.conditions:
         print(f"  [{'MET' if c.met else 'NOT MET'}] {c.name}: "
@@ -1079,7 +1335,21 @@ def score(outdir: Path, verdicts_path: Path) -> int:
     print(f"  {gate.detail}")
 
     out = {"pack": "holdout3", "seed": SEED, "snapshot": SNAP,
-           "cardsScored": len(rows), "notScored": missing,
+           "cardsScored": len(rows),
+           "materialisedAsUnclear": list(collated.materialised),
+           "howIncompleteInputWasHandled": (
+               "STRICT: every card had exactly one valid verdict."
+               if strict and not collated.materialised else
+               "MATERIALISED: missing, duplicated and unparseable verdicts "
+               "were recorded as `unclear` and counted as failures. They are "
+               "listed in materialisedAsUnclear. The denominator is the "
+               "pack's 350 AT_GRADE cards either way."),
+           "readingTheNumbers": (
+               "Performance on a deliberately difficult, stratified holdout. "
+               "This is not a probability sample and is not an estimate or "
+               "formal lower bound on national precision. The Wilson bound "
+               "applies to this holdout's reviewed cases, not to a nationally "
+               "weighted population."),
            "atGrade": {"n": len(ag), "confirmed": conf,
                        "contradicted": contra, "unreviewable": unrev,
                        "gradeSeparatedFalsePositives": gs_fp,
@@ -1123,6 +1393,10 @@ if __name__ == "__main__":
         raise SystemExit(plan())
     if cmd == "build":
         raise SystemExit(build(Path(sys.argv[2])))
+    if cmd == "seal":
+        raise SystemExit(seal(Path(sys.argv[2])))
     if cmd == "score":
-        raise SystemExit(score(Path(sys.argv[2]), Path(sys.argv[3])))
-    raise SystemExit("plan | build <outdir> | score <outdir> <verdicts>")
+        raise SystemExit(score(Path(sys.argv[2]), Path(sys.argv[3]),
+                               strict="--materialise-missing" not in sys.argv))
+    raise SystemExit("plan | build <outdir> | seal <outdir> | "
+                     "score <outdir> <verdicts> [--materialise-missing]")

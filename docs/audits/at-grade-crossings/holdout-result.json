@@ -417,7 +417,7 @@
       "cell": "same_name_not_dup"
     }
   ],
-  "readingTheNumbers": "The pack is STRATIFIED and deliberately over-weights the cells most likely to fail - the band just above the tangential threshold, structures just outside the match radius, same-named roads that DUPLICATE_GEOMETRY did not catch, unsealed access roads. It is therefore NOT a random sample of national AT_GRADE crossings, and the figures below are a conservative floor rather than an estimate of national precision. No population-weighted estimate is offered, because the cells overlap and the draw is not a clean probability sample; inventing one would be worse than saying so.",
+  "readingTheNumbers": "The pack is STRATIFIED and deliberately over-weights the cells most likely to fail - the band just above the tangential threshold, structures just outside the match radius, same-named roads that DUPLICATE_GEOMETRY did not catch, unsealed access roads. So these are PERFORMANCE ON A DELIBERATELY DIFFICULT, STRATIFIED HOLDOUT. This is not a probability sample and is not an estimate or formal lower bound on national precision. The Wilson bound applies to this holdout reviewed cases, not to a nationally weighted population.",
   "spread": {
     "northingSpanKm": 1269.0,
     "occupied200kmNorthingBands": 7,
@@ -443,5 +443,6 @@
       "None": 2
     },
     "note": "The per-authority cap exists so the biggest councils do not supply every cell; without it the pack measures Auckland rather than New Zealand."
-  }
+  },
+  "retractedClaim": "This field previously called the figures a conservative floor. That was not established and is withdrawn. A floor is a claim about the POPULATION - it says national precision is at least this - and it needs the strata to be a probability sample with population weights. These cells overlap, they were chosen for being hard, and no weights exist. Over-weighting hard cases makes a number likely to be pessimistic; it does not make it a bound."
 }

@@ -128,9 +128,31 @@ from anything else measures something that is not shipped.
 
 Aimed at the rules as they now stand, not at the ones the previous packs
 tested. Every cell over-weights a way the classifier could be wrong, so the
-result is a conservative floor rather than an estimate of national precision —
-and the pack says so rather than offering a population-weighted number it
-cannot support.
+result is ~~a conservative floor rather than an estimate of national
+precision~~ **performance on a deliberately difficult, stratified holdout —
+not a probability sample, and not an estimate or formal lower bound on
+national precision** — and the pack says so rather than offering a
+population-weighted number it cannot support.
+
+> **Correction, made before any card was reviewed and recorded here rather
+> than made silently.** The struck words are the ones this file was committed
+> with. They claimed too much and the claim is withdrawn.
+>
+> "Conservative floor" is a statement about the *population*: it says national
+> precision is at least this much. Earning that needs a probability sample and
+> population weights. This draw has neither — the cells overlap, they were
+> chosen precisely because they are hard, and no weights exist. Deliberately
+> over-weighting hard cases makes a result *likely* to come in below national
+> precision; it does not make it a bound, and the two are not the same claim.
+>
+> The Wilson interval computed by `nzcl.promotion.evaluate` applies to this
+> holdout's reviewed cases. It is not a nationally weighted figure and must
+> not be quoted as one.
+>
+> Nothing that governs the outcome has moved: n is still 350, the tolerated
+> failures are still 4, unreviewable still counts as a failure, and the four
+> gate conditions are unchanged. This corrects how the result may be
+> *described*, not what it has to clear.
 
 | cell | why it exists |
 | --- | --- |
