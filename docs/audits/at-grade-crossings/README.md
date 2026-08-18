@@ -947,7 +947,7 @@ because no snapshot with crossings has ever been built. Fixed with idempotent
 | a holdout the classifier was not derived from | **does not exist.** All four fixes above were driven by the 248-card pack, so it is development data now |
 | independent review | **has never been performed.** The double-review was the same reviewer, after scoring |
 | classifier frozen | **yes**, as of the commit that declares the third holdout |
-| third holdout | **declared, not drawn.** 350 AT_GRADE cards, at most 4 failures — see `third-holdout-predeclaration.md` |
+| third holdout | **declared, drawn and rendered — not reviewed, not scored.** 350 AT_GRADE cards plus 90 decoys, at most 4 failures. Declaration in `third-holdout-predeclaration.md`; what was actually drawn is section 12 |
 
 The classifier is in better shape than it was: one real false node fixed, two
 apparent ones shown to be measurement artefacts, four over-confident
@@ -960,16 +960,17 @@ has now walked into twice and is not walking into a third time.
 
 **What must happen before a rebuild is recommended**
 
-1. Draw the third holdout at the declared size, from `classified-v2.jsonl`,
-   excluding all three previous packs and everything within 50 m of them.
-2. Review it blind.
-3. Have it reviewed a second time by a **fresh isolated reviewer** — no
-   previous transcript, no access to the classifier source, no prior verdicts,
-   no score summary, anonymous randomised cards. If that cannot be done to that
-   standard, the rebuild does not proceed and the blockage is reported. An
-   honest statement that it was unavailable is required and is **not** a
-   waiver.
-4. Evaluate `nzcl.promotion.evaluate` on the result. If it fails, stop and
+1. ~~Draw the third holdout at the declared size, from `classified-v2.jsonl`,
+   excluding all three previous packs and everything within 50 m of them.~~
+   **Done — section 12.** 350 AT_GRADE plus 90 decoys, rendered as
+   self-contained images so a reviewer can be handed cards rather than a URL.
+2. Have it reviewed by a **fresh isolated reviewer** — no previous transcript,
+   no access to the classifier source, no prior verdicts, no score summary,
+   anonymous randomised cards. If that cannot be done to that standard, the
+   rebuild does not proceed and the blockage is reported. An honest statement
+   that it was unavailable is required and is **not** a waiver. **Not yet
+   done.**
+3. Evaluate `nzcl.promotion.evaluate` on the result. If it fails, stop and
    report. Do not add cards, do not re-read the unclear ones, do not change a
    rule and re-score.
 
@@ -979,3 +980,143 @@ Do not tune `corridor_polyline`, `DUPLICATE_GEOMETRY` or anything else against
 the third pack. Three samples have now been burned this way. A fourth pack is
 the price of changing the classifier again, and there is a limit to how many
 independent samples this dataset can supply.
+
+---
+
+## 12. The third holdout, as drawn — 440 cards, no verdicts
+
+**Status: DRAWN AND RENDERED. NOT REVIEWED. NOT SCORED.** No verdict exists
+for any card in this pack, by anyone, and none may be recorded by whoever
+drew it.
+
+Built by `scratch/holdout3_review.py build`, seed `at-grade-holdout3-2026-08-18`,
+from `classified-v2.jsonl` — the record produced by the code that ships, not
+the SQL record the first two packs were drawn from.
+
+### Why the cards are images and not a web page
+
+The two previous packs are browser-rendered HTML that pulls LINZ tiles live.
+That cannot meet the standard this holdout has to meet. A reviewer handed a
+URL is holding a browser, a network connection and — one directory up — the
+classifier, its source, its previous verdicts and its score summaries. So
+every card is rendered once into a self-contained JPEG. The reviewer is given
+a directory of images and nothing else: no repository, no network, no way to
+recover what the classifier said.
+
+Each card carries the aerial imagery at zoom 19 in a 512 px viewport, the two
+road centrelines in two colours, a ring on the crossing point, a scale bar
+with the ground distance marked, "north is up", and an anonymous id.
+
+It carries **no** disposition, **no** deciding rule, **no** confidence, **no**
+stratum, **no** link or source-feature ids — and **no road names**. The
+previous packs printed the names. "Hansen Road × Hansen Road" gives away the
+answer before the reviewer has looked at a pixel, and two of the three
+AT_GRADE failures of the 248-card pack were exactly that case. Ids are
+assigned after shuffling AT_GRADE cards and decoys together, so T001 is no
+more likely to be anything than T440 is, and **which centreline is drawn in
+which colour is randomised per card**, so colour cannot correlate with state
+highway status or with anything else the classifier used.
+
+The LINZ key is read from `.env` at render time and used only on the wire. A
+JPEG has nowhere to put a URL, so unlike the HTML packs this artefact cannot
+carry a key even by mistake. All 440 files were scanned for the key and for a
+tile URL before anything was committed.
+
+### What was drawn
+
+| | |
+| --- | --- |
+| AT_GRADE cards | **350** — the predeclared n, unchanged |
+| decoys, scored separately and not part of n | **90** |
+| total cards | **440**, 50.0 MB of JPEG |
+| eligible pool after exclusions | 21,037 of 22,062 crossing points |
+| excluded because a reviewer has already seen that source-feature pair | 719 crossing points |
+| further excluded as within 50 m of a burned card | 306 |
+| spread | 1,300 km of northing, 7 occupied 200 km bands, **54 road controlling authorities** |
+| per-authority cap | 42 of 350 (12%) |
+
+Decoys: 24 `GRADE_SEPARATED/STRUCTURE_MAPPED`, 16
+`UNRESOLVED/MOTORWAY_CARRIAGEWAY`, 25 `UNRESOLVED/DUPLICATE_GEOMETRY` (14 of
+them the crossings the corridor walk and only the corridor walk withdrew), 14
+`NO_EVIDENCE_EITHER_WAY`, 10 `TANGENTIAL`, 1 `MIXED_PLACE`.
+
+### Stratification achieved, against the strata predeclared
+
+The predeclaration names the cells; it does not split 350 across them. The
+split was committed in `holdout3_review.py` **before the first draw**, for the
+same reason the sample size was.
+
+Cells overlap and a card is drawn once, so "drawn" below is which cell reached
+it first and **"in pack" is its true stratum membership** — the number that
+should be reported when the pack is scored. Every card carries the full list
+in `qualifyingCells`.
+
+| cell | intended | in pack | nationally eligible |
+| --- | --- | --- | --- |
+| angle 30-40 deg | 40 | **40** | 45 |
+| angle 40-60 deg | 28 | 44 | 248 |
+| angle 60-80 deg | 28 | 71 | 776 |
+| angle 80-90 deg | 36 | 195 | 3,511 |
+| structure 25-70 m away | 28 | **32** | 36 |
+| same name, duplicate rule did not fire | 25 | **5** | **5** |
+| unsealed access | 25 | 110 | 1,046 |
+| unnamed both | 21 | 136 | 1,666 |
+| state highway | 21 | 36 | 201 |
+| urban | 21 | 150 | 2,549 |
+| rural | 25 | 85 | 606 |
+| junction witness | 21 | 94 | 940 |
+| imagery <= 2023 | 25 | 69 | 591 |
+| imagery year unknown | 6 | **0** | **0** |
+| top-up, no cell | — | 30 | — |
+
+Three cells could not be filled as intended, and none of it is a reason to
+move a number:
+
+1. **`same_name_not_dup` has five members in the entire eligible pool, and all
+   five are in the pack.** This is the stratum that produced every one of the
+   248-card holdout's three AT_GRADE failures. On the source-feature path
+   `DUPLICATE_GEOMETRY` fires on 9,830 crossings rather than 712, and it has
+   all but emptied the cell. The pack therefore cannot retest that failure
+   mode at n=25 — it retests it at n=5, because n=5 is all there is.
+2. **`imagery_unknown` has no members at all.** Basemaps attribution now
+   covers 21,035 of 21,037 eligible crossings.
+3. **`gs_named_structure` has no members**, so the decoy pack is 90 rather
+   than 94. `NAMED_STRUCTURE` is described in the predeclaration as one of the
+   two surviving GRADE_SEPARATED rules. On the shipping path it decides
+   **nothing nationally** — zero of 22,062 crossing points. It is not wrong;
+   it is inert, and no card can be drawn to test it.
+
+The 30 cards short of 350 were topped up from the unstratified eligible
+AT_GRADE pool by the same seeded rank and carry cell `topup`. Under-filling
+instead would have moved n, which is the one number the declaration fixes.
+
+### Where everything is
+
+| | |
+| --- | --- |
+| the 440 card images | `scratch/holdout3/cards/` — gitignored, 50 MB, regenerate with the command in the manifest |
+| every card's sha256 and size | `holdout3-cards-manifest.json` (committed) |
+| three sample cards | `holdout3-sample-cards/` (committed) |
+| the exact text the reviewer is given | `holdout3-reviewer-instructions.md` (committed), also written into the pack as `cards/INSTRUCTIONS.md` |
+| **the answer key** | **`holdout3-answer-key.json` (committed, and the reviewer must never see it or anything derived from it)** |
+
+### What has NOT happened, and must not happen out of order
+
+No card has been reviewed. The pack was built by the same agent that wrote the
+generator, which is precisely why that agent must not score it: the review
+must be performed by a **fresh isolated reviewer** with no prior transcript, no
+access to the classifier source, no prior verdicts and no score summary. That
+reviewer is given `cards/` and `INSTRUCTIONS.md` and nothing else.
+
+`scratch/holdout3_review.py score` then evaluates `nzcl.promotion.evaluate` on
+the result. **If it fails, stop and report.** Do not draw more cards, do not
+re-read the unclear ones, and do not change a rule and re-score this pack.
+
+### One practical finding about reviewing 440 images
+
+440 cards is a large amount of imagery for one reviewer to hold. Splitting the
+pack across several fresh reviewers, each given a disjoint subset and the same
+instructions, is compatible with everything the predeclaration requires — the
+cards are independent and the blinding is per card. Splitting it across
+several *passes by the same reviewer* is not, and is the exact mistake the
+kappa 0.847 "double review" already made.
