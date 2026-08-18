@@ -1,6 +1,16 @@
 """Apply crossings.classify() to every national crossing and report the split.
 
 Runs the SAME function the ingest will run. Nothing is reimplemented in SQL.
+
+That claim was not true for one input. `crossings.build_context()`, which the
+ingest uses, computes `duplicate_corridor` from the two centrelines; this
+script built its context by hand and never set it, so it silently defaulted to
+False. The DUPLICATE_GEOMETRY rule - the larger of the two fixes the blinded
+review produced, accounting for eleven of its seventeen AT_GRADE misses - could
+therefore never fire on the national record, and the record still showed the
+pre-fix classification. Fixed: the geometries are loaded and
+`crossings.is_duplicate_corridor()` is called, which is the same function
+`build_context()` calls.
 """
 from __future__ import annotations
 
@@ -8,6 +18,9 @@ import collections
 import json
 import sys
 from pathlib import Path
+
+from shapely import wkb
+from shapely.geometry import Point
 
 from nzcl import crossings, db
 
@@ -32,8 +45,37 @@ def load() -> list[dict]:
         """, (SNAP, SNAP, SNAP))
 
 
-def context_of(r: dict) -> crossings.CrossingContext:
+def load_geometries(rows: list[dict]) -> dict[int, object]:
+    """Centrelines in NZTM for every link that takes part in a crossing.
+
+    Needed for `is_duplicate_corridor`, which is a question about geometry and
+    cannot be answered from the attribute row.
+    """
+    ids = sorted({int(r["link_a"]) for r in rows} | {int(r["link_b"]) for r in rows})
+    out: dict[int, object] = {}
+    CHUNK = 20000
+    for i in range(0, len(ids), CHUNK):
+        for g in db.query(
+                "SELECT link_id, ST_AsBinary(geom_2193) AS g FROM links "
+                " WHERE snapshot_id=%s AND link_id = ANY(%s)",
+                (SNAP, ids[i:i + CHUNK])):
+            out[int(g["link_id"])] = wkb.loads(bytes(g["g"]))
+    print(f"loaded {len(out)} centrelines for {len(ids)} referenced links")
+    return out
+
+
+def duplicate_of(r: dict, geoms: dict[int, object]) -> bool:
+    a = geoms.get(int(r["link_a"]))
+    b = geoms.get(int(r["link_b"]))
+    if a is None or b is None:
+        return False
+    p = Point(float(r["px"]), float(r["py"]))
+    return crossings.is_duplicate_corridor(a, a.project(p), b, b.project(p))
+
+
+def context_of(r: dict, duplicate_corridor: bool = False) -> crossings.CrossingContext:
     return crossings.CrossingContext(
+        duplicate_corridor=duplicate_corridor,
         angle_deg=float(r["angle_deg"]),
         model_asset_type=(r["mat_a"], r["mat_b"]),
         oneway=(r["oneway_a"], r["oneway_b"]),
@@ -57,14 +99,17 @@ def main() -> int:
     outdir = Path(sys.argv[1]) if len(sys.argv) > 1 else None
     rows = load()
     print(f"{len(rows)} point-like crossing pairs")
+    geoms = load_geometries(rows)
 
     by_disp = collections.Counter()
     by_reason = collections.Counter()
     results = []
     for r in rows:
-        c = crossings.classify(context_of(r))
+        dup = duplicate_of(r, geoms)
+        c = crossings.classify(context_of(r, dup))
         by_disp[c.disposition] += 1
         by_reason[(c.disposition, c.reason)] += 1
+        r["duplicate_corridor"] = dup
         results.append((r, c))
 
     print()
@@ -146,6 +191,7 @@ def main() -> int:
                     "onewayA": r["oneway_a"], "onewayB": r["oneway_b"],
                     "matA": r["mat_a"], "matB": r["mat_b"],
                     "urA": r["ur_a"], "urB": r["ur_b"],
+                    "duplicateCorridor": bool(r["duplicate_corridor"]),
                     "thirdLinkNodes": int(r["third_link_nodes"]),
                     "motorwayLinks300m": int(r["motorway_links_300m"]),
                     "rampLinks300m": int(r["ramp_links_300m"]),
