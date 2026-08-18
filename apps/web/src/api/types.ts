@@ -649,6 +649,66 @@ export interface V2Movement {
   confidence: 'high' | 'medium' | 'low';
 }
 
+/**
+ * What a route found on the POSSIBLE graph assumed, junction by junction.
+ *
+ * The POSSIBLE graph nodes the interior crossings `nzcl.crossings` could not
+ * resolve — the ones where the evidence says neither "junction" nor
+ * "structure". It is a SENSITIVITY INSTRUMENT and never the published answer,
+ * which is why `canonical` is false in every payload that carries this block.
+ *
+ * `robustness` separates the two states that must not read alike: a result
+ * hinging on ONE unresolved junction is a single checkable claim — the
+ * coordinates here are where to go and look — while a result needing several
+ * is a chain of assumptions no single photograph settles.
+ */
+export interface PossibleProvenance {
+  /** Always `possible`. */
+  graph: string;
+  /** Always false. Said in the payload so a renderer cannot forget. */
+  canonical: boolean;
+  robustness:
+    | 'ROBUST'
+    | 'ONE_UNRESOLVED_CROSSING'
+    | 'MULTIPLE_UNRESOLVED_CROSSINGS';
+  speculativeJunctionCount: number;
+  /** True when removing one single crossing would move the distance. */
+  changedByOneCrossing: boolean;
+  /** True when no single crossing decides it and the route needs several. */
+  requiresMultipleAssumptions: boolean;
+  /**
+   * How `changedByOneCrossing` was arrived at. `UNTESTED_COUNT_ONLY` means no
+   * re-routing was available, so "no single crossing is decisive" was NOT
+   * established and must not be presented as though it were.
+   */
+  decisivenessMethod: string;
+  unresolvedCrossingIds: number[];
+  decisiveCrossingIds: number[];
+  crossings: PossibleProvenanceCrossing[];
+  detail: string;
+}
+
+export interface PossibleProvenanceCrossing {
+  crossingId: number;
+  /** AMDS SOURCE FEATURE ids, not link ids. */
+  sourceA: string;
+  sourceB: string;
+  /** EPSG:2193 metres — what the analysis measured in. */
+  x: number;
+  y: number;
+  /** WGS84 — what a reader needs to open imagery at the point. */
+  lon: number;
+  lat: number;
+  reason: string;
+  confidence: string;
+  angleDeg: number | null;
+  placeId: number | null;
+  fromLinkId: number;
+  toLinkId: number;
+  /** Null when decisiveness was not tested, which is not the same as false. */
+  decisive: boolean | null;
+}
+
 export interface V2ReplacementPath {
   movementId: string;
   status: string;
@@ -678,6 +738,17 @@ export interface V2ReplacementPath {
     detail: string;
   } | null;
   qualityFlags: string[];
+  /**
+   * Present ONLY when this route was found on the POSSIBLE graph — the
+   * sensitivity graph that nodes the crossings the classifier could not
+   * resolve. Absent on every canonical answer, and its absence is meaningful:
+   * it says the question was not asked, which is not the same as asking and
+   * finding nothing.
+   *
+   * Its presence is what stops the route being drawn as the teal replacement
+   * path. See apps/web/src/map/routeTarget.ts.
+   */
+  possibleProvenance?: PossibleProvenance | null;
   movement?: V2Movement | null;
 }
 

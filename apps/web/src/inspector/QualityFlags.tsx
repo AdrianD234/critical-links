@@ -24,6 +24,14 @@ const MEANINGS: Record<string, string> = {
   SHORT_LINK:
     'The link is short enough that snapping tolerances could affect which ' +
     'node it connects to.',
+  RELIES_ON_UNRESOLVED_CROSSING:
+    'This route drives through at least one crossing the classifier could ' +
+    'not resolve — a point where two roads cross with no shared node and no ' +
+    'evidence saying whether they meet at grade or one passes over the ' +
+    'other. It was found on the sensitivity graph, which assumes they meet, ' +
+    'and it is NOT the published answer. The provenance block lists each ' +
+    'crossing with its coordinates, so the assumption can be checked against ' +
+    'aerial photography.',
 };
 
 export default function QualityFlags({ flags }: { flags: string[] }) {

@@ -424,11 +424,22 @@ class TestSeveralAssumptionsDoNotReadLikeOne:
 
     ENDS = (at(0, -500), at(BLOCK, BLOCK + 500))
 
-    def test_the_lattice_offers_two_routes_of_identical_length(self):
+    def test_the_northern_and_southern_ways_round_cost_the_same(self):
         """The property the case below depends on, measured rather than
-        assumed: without the tie there is always a decisive crossing."""
+        assumed: without this tie there is always a decisive crossing, and
+        every assertion about stacked assumptions would be vacuous."""
         res = split_at_junctions(LATTICE, crossing_policy="possible")
-        assert shortest(res, *self.ENDS)[0] == pytest.approx(2 * BLOCK + 1000)
+        cost, links = shortest(res, *self.ENDS)
+        assert cost == pytest.approx(2 * BLOCK + 1000)
+
+        used = frozenset(
+            r.crossing.crossing_id for r in
+            analyse(route_of(res, links), crossing_rows(res)).relied_on)
+        assert len(used) == 2
+        # With BOTH of the route's own crossings withdrawn, the other pair
+        # carries the trip for exactly the same distance.
+        assert shortest(res, *self.ENDS, suppress=used)[0] == \
+            pytest.approx(cost)
 
     def test_no_single_crossing_decides_it(self):
         res = split_at_junctions(LATTICE, crossing_policy="possible")
@@ -567,7 +578,7 @@ class TestTheSerialisedShape:
         assert RELIES_ON_UNRESOLVED_CROSSING in d["qualityFlags"]
 
 
-class TestCrossingsThatCannotHaveBeenRelinedOn:
+class TestCrossingsThatCannotHaveBeenReliedOn:
     """Rows that exist in the table but describe no assumption this route made.
 
     All three are filtered before the geometry is looked at, because each is a

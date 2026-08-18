@@ -497,6 +497,42 @@ def load_route(snapshot_id: str, link_ids: Sequence[int]) -> list[RouteLink]:
     return out
 
 
+def is_possible_graph(snapshot_id: str) -> bool:
+    """Was this snapshot built with `crossing_policy='possible'`?
+
+    Asked of the DATA, not of the snapshot's prose. The ingest records the
+    policy only in a free-text note, and parsing prose to decide whether an
+    answer is canonical would make the distinction depend on a sentence
+    somebody could reword. The structural fact is equivalent and cannot drift:
+    a noded UNRESOLVED crossing exists under exactly one policy.
+
+    A `possible` snapshot on which the classifier happened to resolve
+    everything answers False, which is correct - it produced the canonical
+    graph, and there is no assumption to report.
+    """
+    row = db.query_one(
+        "SELECT 1 AS yes FROM crossings "
+        " WHERE snapshot_id=%s AND disposition='UNRESOLVED' AND noded "
+        " LIMIT 1", (snapshot_id,))
+    return row is not None
+
+
+def load_all_speculative_crossings(snapshot_id: str) -> list[CrossingRecord]:
+    """Every noded UNRESOLVED crossing in the snapshot.
+
+    For the cached lookup. Nationally this is a subset of 13,056 crossing
+    pairs, so it is a small table to hold rather than a per-route query - and a
+    closure with a dozen movements would otherwise run a dozen of them.
+    """
+    return _records(db.query(
+        "SELECT crossing_id, source_a, source_b, disposition, noded, reason, "
+        "       confidence, angle_deg, place_id, "
+        "       ST_X(geom_2193) AS x, ST_Y(geom_2193) AS y "
+        "  FROM crossings "
+        " WHERE snapshot_id=%s AND disposition='UNRESOLVED' AND noded",
+        (snapshot_id,)))
+
+
 def load_candidate_crossings(snapshot_id: str,
                              closure_group_ids: Sequence[str]
                              ) -> list[CrossingRecord]:
@@ -521,6 +557,10 @@ def load_candidate_crossings(snapshot_id: str,
         " WHERE snapshot_id=%s AND disposition='UNRESOLVED' AND noded "
         "   AND source_a = ANY(%s) AND source_b = ANY(%s)",
         (snapshot_id, groups, groups))
+    return _records(rows)
+
+
+def _records(rows) -> list[CrossingRecord]:
     return [
         CrossingRecord(
             crossing_id=int(r["crossing_id"]),
@@ -550,11 +590,22 @@ def lookup_for(snapshot_id: str, *, reroute: Reroute | None = None
                ) -> Callable[[Sequence[int]], Provenance]:
     """A per-snapshot lookup, for handing to `replacement.compute`.
 
-    A closure rather than a bound method so the caller decides whether this
-    question is being asked at all. On a canonical snapshot nobody should:
-    `possible_provenance` stays None and every canonical route serialises
-    exactly as it did before this module existed.
+    A closure rather than a bound method so the CALLER decides whether this
+    question is being asked at all - see `is_possible_graph`. On a canonical
+    snapshot nobody should ask: `possible_provenance` stays None and every
+    canonical route serialises exactly as it did before this module existed.
+
+    The snapshot's speculative crossings are loaded once, on the first route,
+    and reused. A closure has one replacement path per movement and they are
+    all on one snapshot; querying per path would multiply one small read by
+    the movement count for no new information.
     """
+    cached: list[CrossingRecord] | None = None
+
     def lookup(link_ids: Sequence[int]) -> Provenance:
-        return for_route(snapshot_id, link_ids, reroute=reroute)
+        nonlocal cached
+        if cached is None:
+            cached = load_all_speculative_crossings(snapshot_id)
+        return analyse(load_route(snapshot_id, link_ids), cached,
+                       reroute=reroute)
     return lookup

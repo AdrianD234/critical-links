@@ -91,6 +91,9 @@ function fullStyle(withLinz: boolean): any {
     SRC.routeHit,
     SRC.corridor,
     SRC.stranded,
+    /* The POSSIBLE-graph route's own source. Dashed and never animated, so
+     * unlike routeFocus it needs no lineMetrics. */
+    SRC.routeSpeculative,
   ]) {
     style.sources[id] = { type: 'geojson', data: emptyCollection() };
   }
