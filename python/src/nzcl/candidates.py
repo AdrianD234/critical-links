@@ -107,6 +107,22 @@ class CandidateSearch:
         }
 
 
+def _label(name, withheld_source):
+    """What to call a road, honestly.
+
+    Three states, not two. A road can be named, genuinely unnamed, or NAMED
+    BUT WITHHELD - the naming layer holds a HIGH-confidence external match
+    whose licence has not been cleared for display. Calling the third case
+    \"unnamed road\" is wrong: it tells a user the road has no name when the
+    system knows one and is not allowed to show it.
+    """
+    if name:
+        return name
+    if withheld_source:
+        return f"(name withheld: {withheld_source} not cleared for display)"
+    return None
+
+
 def _rows_to_candidates(rows) -> list[Candidate]:
     out = []
     for r in rows:
@@ -117,7 +133,8 @@ def _rows_to_candidates(rows) -> list[Candidate]:
             classifier_disposition=r.get("disposition"),
             classifier_reason=r.get("reason"),
             classifier_confidence=r.get("confidence"),
-            name_a=r.get("name_a"), name_b=r.get("name_b")))
+            name_a=_label(r.get("name_a"), r.get("withheld_a")),
+            name_b=_label(r.get("name_b"), r.get("withheld_b"))))
     return out
 
 
@@ -125,11 +142,21 @@ _SELECT = """
     SELECT c.crossing_id, c.source_a, c.source_b,
            ST_X(c.geom_2193) AS x, ST_Y(c.geom_2193) AS y,
            c.disposition, c.reason, c.confidence,
-           na.display_name AS name_a, nb.display_name AS name_b
+           na.display_name AS name_a, nb.display_name AS name_b,
+           na.withheld_name_source AS withheld_a,
+           nb.withheld_name_source AS withheld_b
       FROM crossings c
-      LEFT JOIN link_names na ON na.snapshot_id = c.snapshot_id
+      -- THE GOVERNED NAMING LAYER, not link_names directly. The view applies
+      -- the licence gate: an externally matched name is withheld from display
+      -- until its source is cleared, and `withheld_name_source` says so. The
+      -- Darfield crossing is exactly this case - the naming layer holds
+      -- \"Clintons Road\" and \"McLaughlins Road\" from linz_road_sections at HIGH
+      -- confidence, and the view withholds both pending clearance. Reading
+      -- link_names directly would bypass a deliberate governance decision to
+      -- make a sentence read better.
+      LEFT JOIN link_display_names na ON na.snapshot_id = c.snapshot_id
                              AND na.closure_group_id = c.source_a
-      LEFT JOIN link_names nb ON nb.snapshot_id = c.snapshot_id
+      LEFT JOIN link_display_names nb ON nb.snapshot_id = c.snapshot_id
                              AND nb.closure_group_id = c.source_b
      WHERE c.snapshot_id = %(snap)s
        -- Only crossings the canonical graph did NOT node: a crossing that is
