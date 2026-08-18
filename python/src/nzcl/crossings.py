@@ -219,6 +219,18 @@ class CrossingContext:
     structure_kind: str | None = None
 
 
+#: UNRESOLVED reasons that mean "these are not two roads meeting" rather than
+#: "we cannot tell whether they meet".
+#:
+#: The distinction matters only to the POSSIBLE graph. POSSIBLE exists to ask
+#: "would this answer change if the crossings we could not resolve turned out
+#: to be junctions?" - and for a 4-degree graze between two carriageways of one
+#: road, "it is a junction" is not a live hypothesis. Connecting those would not
+#: measure sensitivity, it would fabricate turns across a median, which is
+#: precisely the failure the two-lens design exists to avoid.
+NOT_A_JUNCTION_REASONS = frozenset({"TANGENTIAL", "SAME_SOURCE_FEATURE"})
+
+
 @dataclass
 class Classification:
     disposition: str
@@ -228,6 +240,11 @@ class Classification:
     detail: str
     #: Every rule that fired, decisive or not.
     evidence: list[str] = field(default_factory=list)
+
+    @property
+    def plausible_junction(self) -> bool:
+        """Could this be a junction, if the doubt broke the other way?"""
+        return self.reason not in NOT_A_JUNCTION_REASONS
 
 
 def _has_height_limit(flags: Iterable[str]) -> bool:
