@@ -168,12 +168,62 @@
     }
   },
   "promotionGate": {
-    "confirmedGradeSeparatedFalsePositives": 0,
-    "requirement": "must be 0",
-    "met": true,
-    "confirmed": 189,
-    "contradicted": 3,
-    "unreviewable": 4
+    "met": false,
+    "requiresAllOf": [
+      "zeroConfirmedGradeSeparatedFalsePositives",
+      "zeroConfirmedNotAJunctionFalsePositives",
+      "lowerBound95OnAtGradePrecision",
+      "unreviewableCountedAsFailures"
+    ],
+    "conditions": [
+      {
+        "name": "zeroConfirmedGradeSeparatedFalsePositives",
+        "requirement": "must be 0",
+        "observed": 0,
+        "met": true,
+        "why": "an AT_GRADE crossing the reviewer calls grade separated is a node created where one road passes over another: it invents a turn onto a motorway, which is the confident wrong answer the never-node rule existed to prevent"
+      },
+      {
+        "name": "zeroConfirmedNotAJunctionFalsePositives",
+        "requirement": "must be 0",
+        "observed": 3,
+        "met": false,
+        "why": "an AT_GRADE crossing the reviewer calls not-a-junction is usually one road recorded twice; noding it joins a road to itself and fabricates a cycle, a shortcut or a turn that is not on the ground"
+      },
+      {
+        "name": "lowerBound95OnAtGradePrecision",
+        "requirement": "must be >= 97%",
+        "observed": 92.8,
+        "met": false,
+        "why": "AT_GRADE is the only disposition that changes the canonical graph, so its precision is the number that governs whether the classifier may rebuild it"
+      },
+      {
+        "name": "unreviewableCountedAsFailures",
+        "requirement": "the bound above must be computed with unreviewable cards counted as failures",
+        "observed": {
+          "unreviewable": 4,
+          "lowerBoundCountingThemAsFailures": 92.8,
+          "lowerBoundExcludingThem": 95.5
+        },
+        "met": true,
+        "why": "a card the reviewer could not read is not evidence that the classifier was right; excluding them measures precision on the subset that was easiest to see, which is the subset least likely to hold the errors. Recorded as met because it describes HOW the bound above was computed - it is a property of the method, not of the result"
+      }
+    ],
+    "detail": "n=196: 189 confirmed, 3 contradicted, 4 unreviewable. Lower 95% bound 92.8% counting unreviewable as failures, 95.5% excluding them. NOT MET: zeroConfirmedNotAJunctionFalsePositives, lowerBound95OnAtGradePrecision.",
+    "falsePositiveCodes": {
+      "gradeSeparated": [],
+      "notAJunction": [
+        "H001",
+        "H040",
+        "H192"
+      ]
+    },
+    "counts": {
+      "confirmed": 189,
+      "contradicted": 3,
+      "unreviewable": 4
+    },
+    "supersedes": "an earlier block that encoded only confirmedGradeSeparatedFalsePositives and reported met: true. The agreed gate was always both conditions; the counts were right and the verdict drawn from them was not."
   },
   "contradictions": [
     {
