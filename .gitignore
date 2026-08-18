@@ -39,3 +39,29 @@ venv/
 /test-results/
 /tests/e2e/.output/
 /playwright-report/
+
+# Review sheets embed the LINZ Basemaps API key in every tile URL.
+# Generate them locally with scratch/review_sheets.py; never commit them.
+scratch/review/
+
+# Probe caches: raw service payloads, re-fetchable by the scripts beside them.
+scratch/_*
+
+# Derived, regenerable exactly. Size and sha256 are in classified-manifest.json.
+docs/audits/at-grade-crossings/classified.jsonl
+
+# Blinded review pack: same reason as scratch/review/ - the tile URLs carry
+# the LINZ Basemaps API key. Regenerate with scratch/blind_review.py build.
+scratch/blind/
+
+# Blinded HOLDOUT pack. The pages themselves no longer carry a key - the
+# generator injects it at runtime from a linz-key.js sidecar - but the sidecar
+# does, and a pack is derived output either way. Regenerate with
+# scratch/holdout_review.py build. Its VERDICTS and its scored output ARE
+# committed, under docs/audits/at-grade-crossings/.
+#
+# Glob rather than an exact name: verifying the generator means building a
+# second pack beside the first, and the ignore rule must already cover it
+# rather than be remembered at the moment it matters.
+scratch/holdout*/
+docs/audits/at-grade-crossings/classified-v2.jsonl
