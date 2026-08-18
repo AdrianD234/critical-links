@@ -1,0 +1,66 @@
+{
+  "status": "PASSES. Canonical, counterfactual, named causal crossing, and a MEASURED non-material decoy.",
+  "provenOn": "a TRANSIENT COPY of the national snapshot with crossings populated on the copy",
+  "notProvenThrough": "the ordinary API or the browser - everything below is through a script",
+  "results": {
+    "linkId": 234872,
+    "canonicalReplacementM": 7944.412441731978,
+    "counterfactualReplacementM": 4915.5332100612995,
+    "reductionM": 3028.879231670678,
+    "topologySensitive": true,
+    "headline": "Topology-sensitive. The canonical represented route is 7944 m, but falls to 4916 m if the unresolved Clintons Road x McLaughlins Road crossing is an at-grade junction.",
+    "causalCrossing": "Clintons Road x McLaughlins Road",
+    "causalIsMaterial": true,
+    "decoyCrossing": "Clintons Road x Greendale Road",
+    "decoyIsMaterial": false,
+    "decoyHowTested": "FORCED into the candidate set past the relevance rule and pushed through the counterfactual machinery. Assuming it is a junction leaves the answer at 7,944.4 m. This is now MEASURED rather than vacuous.",
+    "candidates": 3,
+    "candidatesBySource": {"closure": 0, "corridor": 2, "ports": 0, "inside_circuit": 0, "forced": 1},
+    "truncated": false
+  },
+  "perStageTimingMs": {
+    "canonicalAnalysis": 1273,
+    "candidateSearch": 8,
+    "neighbourhoodExtractAndValidate": 120,
+    "singleCounterfactualP50": 1785,
+    "singleCounterfactualMax": 1787,
+    "counterfactualRuns": 3,
+    "counterfactualTotal": 5309,
+    "cleanup": 10,
+    "total": 6720
+  },
+  "stagedFlowIsREQUIRED": {
+    "verdict": "REQUIRED, not optional. Measured, not assumed.",
+    "why": "One counterfactual costs about 1.8 s. Three candidates already total 6.7 s against a 5 s interactive ceiling. At the engine bound of 24 single candidates the total would be roughly 44 s, and with pairs more.",
+    "consequence": "Sensitivity cannot be delivered inside the request that returns the canonical answer. Canonical must be returned and displayed first, with sensitivity requested separately and cancellably.",
+    "note": "The canonical analysis alone is 1.27 s and comfortably inside budget - it is the counterfactual loop, not the canonical answer, that does not fit."
+  },
+  "neighbourhood": {
+    "radiusM": 5000, "linkCount": 335, "nodeCount": 298,
+    "extractionSeconds": 0.11,
+    "validatedAgainstCanonical": true,
+    "derivedStructuresRebuilt": true,
+    "arcTransitions": 1114, "components": 4,
+    "physicalAccessProfiles": ["car"]
+  },
+  "safety": {
+    "copyWasTransient": true,
+    "copyCoverageKind": "counterfactual",
+    "transientSnapshotsLeftBehind": 0,
+    "nationalLinksAfter": 375696,
+    "durableWritesToNationalSnapshot": 0
+  },
+  "correctionToAnEarlierEntry": {
+    "whatIGotWrong": "An earlier version of this file claimed the crossing names were withheld behind an uncleared licence and that naming Clintons Road required a governance decision. That was wrong.",
+    "theActualState": "name_source_licences shows linz_road_sections display_cleared = TRUE under CC BY 4.0, reviewed 2026-08-18. The governed view link_display_names returns Clintons Road, McLaughlins Road and Greendale Road for these links and always did.",
+    "myError": "I read the view DEFINITION, saw a licence gate in its CASE expression, and concluded the gate was closed without querying the licence table. Then I diagnosed from a stale link_names query instead of re-running against the governed view - on top of a fix that was already correct.",
+    "lesson": "Check the gate STATE, not the gate MECHANISM.",
+    "whatSurvives": "The three-state naming distinction is right and is kept: nzta_street_names and nzta_ramm_carriageway genuinely are uncleared, and a withheld name must not read as an unnamed road. Six tests now pin the layer in both directions."
+  },
+  "stillOpen": [
+    "production candidate sourcing - the interface with PRECOMPUTED_CATALOGUE / ON_DEMAND_NEIGHBOURHOOD / UNAVAILABLE is not built; this acceptance populated a copy",
+    "the staged flow itself, including the stale-response token and provisional wording for high-consequence findings",
+    "browser and ordinary-API level evidence - everything here is script-level",
+    "timeout and cancellation cleanup measured end to end through a request"
+  ]
+}

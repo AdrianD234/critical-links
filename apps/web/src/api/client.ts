@@ -21,6 +21,7 @@ import {
   type Vehicle,
 } from './scenario.js';
 import type {
+  V2TopologySensitivity,
   DetourResponse,
   NetworkMetadata,
   SearchResponse,
@@ -223,6 +224,39 @@ export const api = {
     }
     return get<V2BoundaryAnalysis>(
       `/api/v2/links/${encodeURIComponent(String(req.link))}/boundary-analysis?${q}`,
+      signal,
+    );
+  },
+
+  /**
+   * Topology sensitivity, as its OWN request.
+   *
+   * Not folded into `boundaryAnalysisV2` on purpose: the canonical analysis is
+   * about 1.3 s and this is about 6.7 s for three candidates, so bundling them
+   * would make every closure wait for a diagnostic most closures do not need.
+   * The canonical answer is already on screen by the time this resolves.
+   *
+   * `token` is echoed back untouched by the server. The caller compares it
+   * against its current selection and DISCARDS a response that belongs to a
+   * previous one - an older answer landing on a newer click is confidently
+   * wrong output that looks entirely normal.
+   */
+  topologySensitivityV2: (
+    req: ClosureAnalysisRequest,
+    token: string,
+    signal?: AbortSignal,
+  ) => {
+    const q = new URLSearchParams({
+      scope: closureScopeToWireV2(req.closureScope),
+      metric: req.metric,
+      vehicle: req.vehicle,
+      token,
+    });
+    if (req.closureScope === 'direction' && req.direction !== 'both') {
+      q.set('direction', req.direction);
+    }
+    return get<V2TopologySensitivity>(
+      `/api/v2/links/${encodeURIComponent(String(req.link))}/topology-sensitivity?${q}`,
       signal,
     );
   },

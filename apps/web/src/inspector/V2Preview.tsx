@@ -28,6 +28,7 @@ import {
   MUTUAL_REACHABILITY_UNKNOWN_REASON,
   mutualReachability,
 } from '../v2Wording.js';
+import TopologySensitivity from './TopologySensitivity.js';
 import V2BoundaryFindings from './V2BoundaryFindings.js';
 import type {
   NetworkMetadata,
@@ -35,6 +36,7 @@ import type {
   V2Capabilities,
   V2ClosureAnalysis,
   V2DirectionResult,
+  V2TopologySensitivity,
 } from '../api/types.js';
 
 export default function V2Preview({
@@ -43,6 +45,10 @@ export default function V2Preview({
   boundaryLoading,
   boundaryError,
   onBoundaryRetry,
+  sensitivity,
+  sensitivityLoading,
+  sensitivityError,
+  sensitivityToken,
   capabilities,
   meta,
   pendingName,
@@ -57,6 +63,13 @@ export default function V2Preview({
   /** The boundary-movement measure. A third question, not a better answer. */
   boundary: V2BoundaryAnalysis | null;
   boundaryLoading: boolean;
+  /* Topology sensitivity arrives on its OWN request, after the canonical
+   * answer is already on screen. `sensitivityToken` is the selection this
+   * panel is showing; a response carrying any other token is discarded. */
+  sensitivity?: V2TopologySensitivity;
+  sensitivityLoading?: boolean;
+  sensitivityError?: Error | null;
+  sensitivityToken?: string;
   boundaryError: Error | null;
   onBoundaryRetry: () => void;
   capabilities: V2Capabilities | null;
@@ -119,6 +132,19 @@ export default function V2Preview({
         error={boundaryError}
         onRetry={onBoundaryRetry}
       />
+
+      {/* AFTER the boundary result, and only once it exists. Sensitivity is a
+        * qualification of the canonical answer, so the canonical answer has to
+        * be on screen first - and it is a second request precisely so the user
+        * is not made to wait for it. */}
+      {sensitivityToken ? (
+        <TopologySensitivity
+          data={sensitivity}
+          loading={Boolean(sensitivityLoading)}
+          error={sensitivityError ?? null}
+          token={sensitivityToken}
+        />
+      ) : null}
 
       {/* The scope control belongs with the V2 figures: segment scope is the
         * whole reason this engine exists and it cannot be reached from the V1

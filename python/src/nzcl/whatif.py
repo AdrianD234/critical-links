@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import datetime as _dt
+
 from . import db
 
 #: Tables copied verbatim, keyed by snapshot_id. `arc_transitions` is REBUILT
@@ -88,6 +90,14 @@ def copy_snapshot(src: str, dst: str, *, coverage_note: str | None = None) -> No
             cols = [c for c in row]
             row = dict(row)
             row["snapshot_id"] = dst
+            # EVERY whatif copy is a working copy, so every one is transient.
+            # Marked here rather than left to callers: a copy that forgets can
+            # win automatic snapshot selection on recency and serve a fragment
+            # as the national network.
+            row["is_transient"] = True
+            row["transient_created_at"] = _dt.datetime.now(_dt.timezone.utc)
+            if "coverage_kind" in row:
+                row["coverage_kind"] = "counterfactual"
             notes = list(row.get("notes") or [])
             notes.append(
                 coverage_note
