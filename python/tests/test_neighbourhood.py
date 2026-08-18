@@ -165,15 +165,27 @@ class TestAgainstARealSnapshot:
     """Needs an ingested snapshot; deselected from the default suite."""
 
     def test_a_neighbourhood_is_a_small_fraction_of_the_network(self):
+        """The claim the bounded copy rests on, checked against real data.
+
+        This test shipped BROKEN: it ordered by `created_at`, which does not
+        exist - the column is `retrieved_at_utc` - and being `realdata` marked
+        it was deselected from every default run, so it had never once
+        executed. A test that cannot run is a test that proves nothing, and it
+        reached main that way.
+        """
         from nzcl import db
-        snaps = db.query("SELECT snapshot_id FROM network_snapshots "
-                         " ORDER BY created_at DESC LIMIT 1")
+        snaps = db.query(
+            "SELECT snapshot_id FROM network_snapshots "
+            " WHERE NOT is_transient AND coverage_kind <> 'synthetic' "
+            " ORDER BY retrieved_at_utc DESC LIMIT 1")
         if not snaps:
-            pytest.skip("no snapshot ingested")
+            pytest.skip("no real snapshot ingested")
         snap = snaps[0]["snapshot_id"]
         total = db.query("SELECT count(*) AS n FROM links WHERE snapshot_id=%s",
                          (snap,))[0]["n"]
         link = db.query("SELECT link_id FROM links WHERE snapshot_id=%s "
-                        " LIMIT 1", (snap,))[0]["link_id"]
+                        "   AND mode_vehicle LIMIT 1", (snap,))[0]["link_id"]
         near = neighbourhood.count_links_within(snap, link, 5000.0)
-        assert near < total
+        assert 0 < near < total, (
+            f"a 5 km neighbourhood holds {near} of {total} links")
+        assert near <= neighbourhood.MAX_LINKS
