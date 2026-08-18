@@ -367,5 +367,31 @@
       "cell": "same_name_not_dup"
     }
   ],
-  "readingTheNumbers": "The pack is STRATIFIED and deliberately over-weights the cells most likely to fail - the band just above the tangential threshold, structures just outside the match radius, same-named roads that DUPLICATE_GEOMETRY did not catch, unsealed access roads. It is therefore NOT a random sample of national AT_GRADE crossings, and the figures below are a conservative floor rather than an estimate of national precision. No population-weighted estimate is offered, because the cells overlap and the draw is not a clean probability sample; inventing one would be worse than saying so."
+  "readingTheNumbers": "The pack is STRATIFIED and deliberately over-weights the cells most likely to fail - the band just above the tangential threshold, structures just outside the match radius, same-named roads that DUPLICATE_GEOMETRY did not catch, unsealed access roads. It is therefore NOT a random sample of national AT_GRADE crossings, and the figures below are a conservative floor rather than an estimate of national precision. No population-weighted estimate is offered, because the cells overlap and the draw is not a clean probability sample; inventing one would be worse than saying so.",
+  "spread": {
+    "northingSpanKm": 1269.0,
+    "occupied200kmNorthingBands": 7,
+    "distinctRoadControllingAuthorities": 50,
+    "perAuthorityCap": 23,
+    "topAuthorities": {
+      "Land Information New Zealand": 31,
+      "Waka Kotahi NZ Transport Agency": 29,
+      "Auckland Transport": 28,
+      "Manawatu District Council": 17,
+      "unknown": 16,
+      "Ashburton District Council": 14,
+      "Palmerston North City Council": 11,
+      "Selwyn District Council": 8
+    },
+    "imageryYear": {
+      "2019": 1,
+      "2022": 22,
+      "2023": 11,
+      "2024": 62,
+      "2025": 123,
+      "2026": 27,
+      "None": 2
+    },
+    "note": "The per-authority cap exists so the biggest councils do not supply every cell; without it the pack measures Auckland rather than New Zealand."
+  }
 }
