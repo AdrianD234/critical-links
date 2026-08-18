@@ -62,12 +62,22 @@ def main(argv: list[str]) -> int:
         raise SystemExit(
             f"{record} is not present. It is derived and gitignored; "
             f"regenerate it with the command in classified-v2-manifest.json.")
+    # The key ignores which side is A and which is B.
+    #
+    # `classify_national_v2.load_sources` reads the links table with no ORDER
+    # BY, so the order of `sources` - and therefore which feature of a pair is
+    # index_a - is whatever the database hands back that day. Nothing about
+    # the classification depends on it, but an ORDERED key does: matching on
+    # (x, y, groupA, groupB) lost 567 of 22,062 points here, and every one of
+    # them was the same crossing with its two sides swapped. Silently dropping
+    # 2.6% of the population would have understated the withdrawn set.
     on = {}
     for line in record.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         r = json.loads(line)
-        on[(round(r["x"], 3), round(r["y"], 3), r["groupA"], r["groupB"])] = r
+        on[(round(r["x"], 3), round(r["y"], 3),
+            frozenset((r["groupA"], r["groupB"])))] = r
     print(f"{len(on)} crossing points in the record (corridor walk ON)")
 
     sources, unmerged, meta = base.load_sources()
@@ -89,7 +99,7 @@ def main(argv: list[str]) -> int:
     withdrawn = []
     unmatched = 0
     for x in off:
-        k = (round(x.x, 3), round(x.y, 3), x.amds_a, x.amds_b)
+        k = (round(x.x, 3), round(x.y, 3), frozenset((x.amds_a, x.amds_b)))
         r = on.get(k)
         if r is None:
             unmatched += 1
@@ -102,8 +112,11 @@ def main(argv: list[str]) -> int:
         if x.disposition == crossings.AT_GRADE \
                 and r["disposition"] != crossings.AT_GRADE:
             withdrawn.append({
-                "groupA": x.amds_a, "groupB": x.amds_b,
-                "x": round(x.x, 3), "y": round(x.y, 3),
+                # The RECORD's side order, not this run's: consumers join on
+                # classified-v2.jsonl and the two runs do not agree about
+                # which side is A. See the note on the key above.
+                "groupA": r["groupA"], "groupB": r["groupB"],
+                "x": r["x"], "y": r["y"],
                 "wasReason": x.classification.reason,
                 "nowDisposition": r["disposition"], "nowReason": r["reason"],
                 "angleDeg": r["angleDeg"],

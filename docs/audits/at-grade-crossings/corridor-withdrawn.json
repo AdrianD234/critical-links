@@ -1,0 +1,876 @@
+{
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "producedBy": "scratch/corridor_withdrawn.py",
+  "what": "Crossing points classified AT_GRADE with `corridor_polyline` stubbed out, and something other than AT_GRADE with it in place. These are exactly the junctions the corridor walk withdraws, and the third holdout draws a decoy stratum from them: if the rule over-fires, the evidence is here.",
+  "comparedAgainst": "classified-v2.jsonl",
+  "unmatchedCrossingPoints": 0,
+  "transitions": {
+    "UNRESOLVED/CONNECTOR -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/TANGENTIAL -> UNRESOLVED/DUPLICATE_GEOMETRY": 286,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY -> UNRESOLVED/DUPLICATE_GEOMETRY": 169,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/MIXED_PLACE": 4,
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/RAMP -> UNRESOLVED/DUPLICATE_GEOMETRY": 2,
+    "GRADE_SEPARATED/STRUCTURE_MAPPED -> UNRESOLVED/DUPLICATE_GEOMETRY": 3,
+    "UNRESOLVED/RAMP_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": 1,
+    "UNRESOLVED/MIXED_PLACE -> UNRESOLVED/DUPLICATE_GEOMETRY": 123,
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/DUPLICATE_GEOMETRY": 24,
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/DUPLICATE_GEOMETRY": 55,
+    "UNRESOLVED/MOTORWAY_CONTEXT -> UNRESOLVED/DUPLICATE_GEOMETRY": 5,
+    "AT_GRADE/JUNCTION_WITNESS -> UNRESOLVED/MIXED_PLACE": 4,
+    "AT_GRADE/ORDINARY_CROSSROADS -> UNRESOLVED/MIXED_PLACE": 2
+  },
+  "count": 85,
+  "crossings": [
+    {
+      "groupA": "{1a894727-f28f-442e-aa5a-22f9760f66f4}",
+      "groupB": "{8e99d5f1-7b7c-4a6d-abee-825e4aa98127}",
+      "x": 1304959.825,
+      "y": 4845598.754,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 69.6
+    },
+    {
+      "groupA": "{11098814-862f-43db-8a18-e8213c9942a2}",
+      "groupB": "{03a8a304-a65d-404f-908b-bb54224339e3}",
+      "x": 1250448.19,
+      "y": 4852869.915,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.18
+    },
+    {
+      "groupA": "{19770ce7-9227-4fc6-a29b-dce9092f860c}",
+      "groupB": "{3edb3d74-dc0b-466c-9940-a348e24dab4a}",
+      "x": 1340042.959,
+      "y": 4908407.705,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 76.2
+    },
+    {
+      "groupA": "{b9e3678c-1dec-464f-9597-d68947338a45}",
+      "groupB": "{d32b7cd8-8595-46a4-a1ef-a3a3d5e84454}",
+      "x": 1410124.285,
+      "y": 4932145.974,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 64.71
+    },
+    {
+      "groupA": "{5f519867-e897-4a05-95b9-141b9c4282a9}",
+      "groupB": "{9b2919e8-effb-431b-a478-c0b46f21300c}",
+      "x": 1258638.316,
+      "y": 5004310.795,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.65
+    },
+    {
+      "groupA": "{b60d970e-8799-4cf7-9d77-aae351b4ff20}",
+      "groupB": "{25c4364b-3dc7-44c9-bbcc-711698b16e06}",
+      "x": 1438725.558,
+      "y": 5085073.614,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 56.24
+    },
+    {
+      "groupA": "{7066b677-c562-42de-bdbe-b03c532f401e}",
+      "groupB": "{9b73cf02-0098-4a23-98db-547d31eb0f55}",
+      "x": 1430433.966,
+      "y": 5088946.869,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.04
+    },
+    {
+      "groupA": "{86c80ac6-1423-4566-809c-49acd255af45}",
+      "groupB": "{444fa610-47ab-405d-bc68-560ee8eb6966}",
+      "x": 1436173.365,
+      "y": 5090806.924,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 76.94
+    },
+    {
+      "groupA": "{0f2aa150-39b1-4901-be3d-eb2c96a48a86}",
+      "groupB": "{6af00063-7881-4d59-af96-8aa40c32a954}",
+      "x": 1436302.553,
+      "y": 5091514.076,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 70.46
+    },
+    {
+      "groupA": "{1fb7711a-cd53-486e-b681-802a307b80ca}",
+      "groupB": "{919ddce5-f4ae-48e9-abb7-112896b19293}",
+      "x": 1527997.171,
+      "y": 5184641.938,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.89
+    },
+    {
+      "groupA": "{40f646f3-15b8-4ee1-a008-6ebe0457ea61}",
+      "groupB": "{9e2ac011-bb76-468a-8afa-ff96f36acaf8}",
+      "x": 1572851.415,
+      "y": 5196773.233,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.99
+    },
+    {
+      "groupA": "{cd6ec56d-a793-44e4-aad3-56cb20018d99}",
+      "groupB": "{877c8789-21ed-4a80-aaf3-84d525fea7ea}",
+      "x": 1566372.053,
+      "y": 5199913.499,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 57.87
+    },
+    {
+      "groupA": "{6f3345aa-927b-4c0c-97d5-58c7b15a12f9}",
+      "groupB": "{8af4d324-8263-493b-a2e1-7dca9e9c1a80}",
+      "x": 1560891.715,
+      "y": 5202937.103,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 50.95
+    },
+    {
+      "groupA": "{6d6e4de9-c54e-460b-8d9f-b6f035cb067b}",
+      "groupB": "{7de38406-5b75-4148-a445-669e3cbffefd}",
+      "x": 1616064.787,
+      "y": 5423471.204,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.53
+    },
+    {
+      "groupA": "{c2f0ef29-d37f-4d39-9457-0cdb647b883d}",
+      "groupB": "{a4fafe70-1830-4e1c-9ec9-eaa4aade371d}",
+      "x": 1756915.964,
+      "y": 5444379.811,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 67.65
+    },
+    {
+      "groupA": "{c0ebbfa5-8c15-49d0-8feb-81514dade8aa}",
+      "groupB": "{6a0a7aea-8360-4c16-9c57-d894b5962228}",
+      "x": 1787931.915,
+      "y": 5518572.54,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.47
+    },
+    {
+      "groupA": "{ed0afb0c-4c0c-4b9e-880f-e3f6c1c9096e}",
+      "groupB": "{f2cc7fe2-fd49-4e88-bcbb-0bfacb7d83d5}",
+      "x": 1842592.128,
+      "y": 5526927.575,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 37.51
+    },
+    {
+      "groupA": "{a6e9ad89-46d9-4dfa-af92-47d54840c721}",
+      "groupB": "{46d1391f-0a37-4abf-b7c4-a90116ed370a}",
+      "x": 1818381.765,
+      "y": 5545024.419,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.8
+    },
+    {
+      "groupA": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "groupB": "{ad6d4e8f-2442-4f49-8ab4-b0b9befec37a}",
+      "x": 1811171.843,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "groupB": "{20e18d17-55fb-4c49-b291-4b54e3d3b08c}",
+      "x": 1811171.843,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "groupB": "{67167f39-7bd2-445e-9b3b-db1a99ab6e05}",
+      "x": 1811171.843,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "groupB": "{0570bcf0-331e-491c-95c2-f1f0bc53dd77}",
+      "x": 1811171.843,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "groupB": "{7c2e4d23-cc36-4c0e-8a73-22bc8e3a6967}",
+      "x": 1811171.843,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{bd431f46-2ac5-4d95-9151-b5706f89ad25}",
+      "groupB": "{89141853-ff08-41a6-8aa8-b6b50084f955}",
+      "x": 1811171.847,
+      "y": 5547090.805,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 85.72
+    },
+    {
+      "groupA": "{7d966e5b-051a-48aa-8742-ddb253b4bdc8}",
+      "groupB": "{61c2fcad-60fe-4a9a-bf5b-6897a6345b1d}",
+      "x": 1808992.893,
+      "y": 5548507.825,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.11
+    },
+    {
+      "groupA": "{6ffb91e6-e060-488d-985a-2c7057ae43c9}",
+      "groupB": "{8cea62d9-eb5a-498d-9167-c4a0078c5a48}",
+      "x": 1810212.69,
+      "y": 5550812.552,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.53
+    },
+    {
+      "groupA": "{8cea62d9-eb5a-498d-9167-c4a0078c5a48}",
+      "groupB": "{f43c31e2-5c0a-4e60-b4ae-363a11a3bef1}",
+      "x": 1810212.691,
+      "y": 5550812.552,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.53
+    },
+    {
+      "groupA": "{c947074d-006c-448c-8df5-6e1383730d45}",
+      "groupB": "{1ebee370-bfdd-4aad-b970-0106a341046e}",
+      "x": 1884221.145,
+      "y": 5551298.212,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 71.57
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{eb484d22-d8eb-42e3-900c-0746136ba683}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{49d8f1a3-f942-4b7b-9ba4-edfd8475beb6}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{1f196784-c820-4b5f-abe3-922601a5a4f4}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{c9c4c442-9a51-45de-b150-3dfe6fdea896}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{c0d33ea1-ad7e-41b4-8059-94fd67031dee}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{fe4d24a3-3638-4938-9df3-63b5b5f10178}",
+      "groupB": "{6436e5d6-f341-4e99-8b14-5e73845fd21f}",
+      "x": 1810439.367,
+      "y": 5552208.866,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.5
+    },
+    {
+      "groupA": "{4450fe31-18a9-4b8a-a788-360b94b42695}",
+      "groupB": "{ae54435f-b8c1-4eed-862d-2ae910385a93}",
+      "x": 1924019.629,
+      "y": 5607770.945,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.75
+    },
+    {
+      "groupA": "{d2967cf3-4c2a-4a8d-ae5e-537e531dedf3}",
+      "groupB": "{d84fb421-b23a-4442-8c17-3485917aac3b}",
+      "x": 1857668.039,
+      "y": 5609848.16,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 64.01
+    },
+    {
+      "groupA": "{b8807fcf-330e-41d3-99d6-1e9e5a36427e}",
+      "groupB": "{2df183a7-5cd8-4999-ba08-80d30529e281}",
+      "x": 1927788.174,
+      "y": 5615429.836,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 82.82
+    },
+    {
+      "groupA": "{b8807fcf-330e-41d3-99d6-1e9e5a36427e}",
+      "groupB": "{a87714ff-b1eb-4e76-86a3-49f56a546047}",
+      "x": 1927788.174,
+      "y": 5615429.836,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 82.82
+    },
+    {
+      "groupA": "{add0d380-9206-444b-ba6d-ff0777cd28b2}",
+      "groupB": "{4601c6a7-1fe2-4518-a37e-6783969a1eaf}",
+      "x": 1932672.607,
+      "y": 5620597.647,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 86.77
+    },
+    {
+      "groupA": "{6ba6d6f9-4c99-4e36-a02c-1901dc8afe5e}",
+      "groupB": "{814b64ac-fd9f-42aa-a927-0998e973af1d}",
+      "x": 1934016.289,
+      "y": 5621611.317,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.17
+    },
+    {
+      "groupA": "{ce7fcf62-f804-4eff-980b-cfaa6f93eb9b}",
+      "groupB": "{eae5a5ea-1063-4e34-bc52-75ca03af1eb4}",
+      "x": 1887888.429,
+      "y": 5729992.968,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.38
+    },
+    {
+      "groupA": "{cc28ed00-4f19-4b93-985c-9b4a7fba596e}",
+      "groupB": "{4631ca8b-1863-4745-8229-2686474a1dc0}",
+      "x": 1769236.71,
+      "y": 5771400.146,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 79.63
+    },
+    {
+      "groupA": "{b518b0c6-57a7-4525-8285-444a87e131de}",
+      "groupB": "{ae60da8d-597e-454b-92d6-4b794b0e914a}",
+      "x": 1818680.602,
+      "y": 5776336.046,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 39.2
+    },
+    {
+      "groupA": "{9cac6376-7885-465b-aa4d-975e8f9435fa}",
+      "groupB": "{6e7a9639-9b5a-416e-8576-657b86b84e53}",
+      "x": 1833286.948,
+      "y": 5795732.067,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.11
+    },
+    {
+      "groupA": "{51e14df4-898d-42db-bef1-0076c43279c0}",
+      "groupB": "{2977da8f-a2eb-4036-b2d6-227f7385bc1a}",
+      "x": 1813279.864,
+      "y": 5806766.919,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 86.78
+    },
+    {
+      "groupA": "{51e14df4-898d-42db-bef1-0076c43279c0}",
+      "groupB": "{2977da8f-a2eb-4036-b2d6-227f7385bc1a}",
+      "x": 1813280.284,
+      "y": 5806779.913,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 56.34
+    },
+    {
+      "groupA": "{7a698fb3-627f-4c0e-9aed-66192dc6b743}",
+      "groupB": "{f6161036-3243-4c05-9c3b-b3b71fca7e5e}",
+      "x": 1799642.809,
+      "y": 5811994.689,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.62
+    },
+    {
+      "groupA": "{3961cf64-57fe-45b5-80a3-04082e55e460}",
+      "groupB": "{e05385d5-5a61-4faa-b8e0-927d87017663}",
+      "x": 1798157.786,
+      "y": 5813471.766,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.92
+    },
+    {
+      "groupA": "{7d5935fb-6736-4718-956e-2abf6d8cfe44}",
+      "groupB": "{bf9d4b17-449d-40cb-9301-bf5f3e54ab7e}",
+      "x": 1796412.666,
+      "y": 5814672.048,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 79.19
+    },
+    {
+      "groupA": "{48cd59f7-5b66-4364-8a52-9cdd41d9949f}",
+      "groupB": "{262d0d95-ce9b-40ea-8acc-b25437ec09a6}",
+      "x": 1807518.262,
+      "y": 5816224.156,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 41.86
+    },
+    {
+      "groupA": "{6e504a8c-d1ab-4937-b7e3-a4bb8cb0dd6f}",
+      "groupB": "{fdd4a6f8-262b-464e-b3fb-6b24b4dba865}",
+      "x": 1807514.305,
+      "y": 5816330.62,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.29
+    },
+    {
+      "groupA": "{b3c0dcdf-a44c-4618-a19d-9b9e8d0dd3b5}",
+      "groupB": "{fcc68d6d-43ce-4e0c-948c-59d2808a8c69}",
+      "x": 1807536.144,
+      "y": 5816411.059,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 30.62
+    },
+    {
+      "groupA": "{ca4f8f22-3bd2-4a96-aa64-114bcad5b5df}",
+      "groupB": "{f18d47cb-488b-4267-994e-d47c67affb7f}",
+      "x": 1881027.001,
+      "y": 5817164.832,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 63.83
+    },
+    {
+      "groupA": "{c54c2760-d40d-4fca-af63-14ef7b14a8b0}",
+      "groupB": "{60bd0d27-b28c-4dd3-8462-04cd89642fb4}",
+      "x": 1799000.263,
+      "y": 5822858.368,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 56.57
+    },
+    {
+      "groupA": "{4ae4d5c8-ffbc-49d6-9f14-3f931721ecee}",
+      "groupB": "{60c7c9fc-afd8-4738-b82f-f3914b6a9a47}",
+      "x": 1797391.797,
+      "y": 5823167.087,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.26
+    },
+    {
+      "groupA": "{1a845049-0b1e-4f32-af6d-23bc16ab24eb}",
+      "groupB": "{3e74e18a-9a29-4930-99fa-7db46a78c408}",
+      "x": 1851730.214,
+      "y": 5857742.925,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.26
+    },
+    {
+      "groupA": "{83ad2447-e753-4c4f-a95a-6d75926b3234}",
+      "groupB": "{d711ab18-e003-4c0e-950a-aa495ce300d8}",
+      "x": 1831112.841,
+      "y": 5867338.589,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 86.51
+    },
+    {
+      "groupA": "{8d981523-bcd0-418f-af15-aefc6919ce0e}",
+      "groupB": "{dad8a8ee-e590-4dcc-ae8f-49d15fd1e615}",
+      "x": 1834939.792,
+      "y": 5869218.355,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 84.02
+    },
+    {
+      "groupA": "{5312a564-808d-4b5e-916f-b96e7eac14fa}",
+      "groupB": "{98339062-d63b-4c6f-bedf-a825efcb17f3}",
+      "x": 1841281.454,
+      "y": 5869290.504,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 77.94
+    },
+    {
+      "groupA": "{6453b291-5496-48e2-942c-298a1ebdf927}",
+      "groupB": "{1500c211-0a87-400d-9b1c-bb8220a63a13}",
+      "x": 1805567.848,
+      "y": 5871472.66,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 74.97
+    },
+    {
+      "groupA": "{b7652799-7922-429f-8dd9-3f37213bd213}",
+      "groupB": "{df2fbdcc-e3eb-4db6-90d6-a445d1bab01b}",
+      "x": 1753643.455,
+      "y": 5873929.959,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 71.59
+    },
+    {
+      "groupA": "{d4697233-cb36-402a-a11d-3cc995f404d1}",
+      "groupB": "{7728a466-28a1-4723-81d5-34a426cddd53}",
+      "x": 1753916.995,
+      "y": 5874611.974,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 86.6
+    },
+    {
+      "groupA": "{83dae3af-57e2-44a7-9ea7-5b29de367b1b}",
+      "groupB": "{aaafacbb-8ada-4689-834f-88274fad5e8c}",
+      "x": 1755825.113,
+      "y": 5875783.315,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 71.29
+    },
+    {
+      "groupA": "{ce492077-135c-4d94-91a3-d7664221e5b3}",
+      "groupB": "{2f8dcc91-a925-410d-adde-be01fb9e37f9}",
+      "x": 1766096.181,
+      "y": 5877044.26,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 84.95
+    },
+    {
+      "groupA": "{1dd2570a-e3ae-4605-84b3-ad959c2f59b3}",
+      "groupB": "{b5339cef-7014-4de0-91ed-958da6f8102a}",
+      "x": 1770255.395,
+      "y": 5877158.46,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.86
+    },
+    {
+      "groupA": "{f3983232-1934-4f1c-8dfe-773eda98e1fb}",
+      "groupB": "{d839b770-9bca-44d5-82dc-e9aa6b608f02}",
+      "x": 1771090.352,
+      "y": 5878264.398,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 52.96
+    },
+    {
+      "groupA": "{d775ba27-3163-4d89-8021-ca722c18d45f}",
+      "groupB": "{a4b3d8d0-ddc1-4625-8943-97bffcf00ed5}",
+      "x": 1771633.563,
+      "y": 5879281.437,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 71.61
+    },
+    {
+      "groupA": "{1c0b63a5-5504-430e-b003-775f2e32a3b6}",
+      "groupB": "{cd49fd46-e1f5-4de6-917c-133aea2d0fb2}",
+      "x": 1771812.536,
+      "y": 5879550.242,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 58.17
+    },
+    {
+      "groupA": "{2166791e-bf27-4763-be8d-cc2cf8381c7b}",
+      "groupB": "{64be3c6d-0e57-4407-9bc2-7cd01debf94d}",
+      "x": 1773523.22,
+      "y": 5881420.806,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 66.62
+    },
+    {
+      "groupA": "{331f7b02-5298-4e23-bda0-84322aaf8845}",
+      "groupB": "{7de40d82-1703-4f2e-bd99-f2852f2080a5}",
+      "x": 1781558.059,
+      "y": 5882891.559,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.13
+    },
+    {
+      "groupA": "{a92615f7-4215-4175-aae5-d03bb37fde4d}",
+      "groupB": "{87429d3f-8cbc-4b70-a478-b7370851b4d0}",
+      "x": 1787333.487,
+      "y": 5883667.029,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 34.51
+    },
+    {
+      "groupA": "{50f20747-0b4e-4036-ba4e-36ecb7342e96}",
+      "groupB": "{87429d3f-8cbc-4b70-a478-b7370851b4d0}",
+      "x": 1787311.634,
+      "y": 5883677.038,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 41.38
+    },
+    {
+      "groupA": "{3659704a-995d-46ae-bd38-b6e58a768055}",
+      "groupB": "{bad5bab2-b16a-4621-aea1-d231ad97bf59}",
+      "x": 1826470.161,
+      "y": 5885921.83,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 88.45
+    },
+    {
+      "groupA": "{4e335aff-9e3b-49be-b03d-94b291fee03e}",
+      "groupB": "{4cbfc1c4-ec3d-4ac4-8316-5babe02e4e39}",
+      "x": 1770917.299,
+      "y": 5895080.343,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.44
+    },
+    {
+      "groupA": "{2eb5a723-3a18-41a4-99f9-5d495224aae2}",
+      "groupB": "{3611bb1f-a4e6-48eb-9e79-7cfa0df6a127}",
+      "x": 1772425.208,
+      "y": 5898975.53,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 84.64
+    },
+    {
+      "groupA": "{36b20b6e-7c95-49ab-b414-6563cf388cdf}",
+      "groupB": "{bb383b1c-cb1b-4ba8-b018-be1aa8ea3757}",
+      "x": 1768619.937,
+      "y": 5901132.193,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.85
+    },
+    {
+      "groupA": "{bb383b1c-cb1b-4ba8-b018-be1aa8ea3757}",
+      "groupB": "{90d2ac9f-544a-4356-b1d0-b2a31709f552}",
+      "x": 1768546.057,
+      "y": 5901230.199,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 77.96
+    },
+    {
+      "groupA": "{5be9b935-a751-4628-8d9d-7874b988cc43}",
+      "groupB": "{9442ed66-f640-4c06-8aef-104655abb18d}",
+      "x": 1746082.329,
+      "y": 5908072.748,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 64.3
+    },
+    {
+      "groupA": "{c91b611c-c49b-4b4c-a1bd-79287f046dfe}",
+      "groupB": "{da4c15f7-3ab9-4cc3-92e1-a27d7b135b5e}",
+      "x": 1778727.013,
+      "y": 5914970.845,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.8
+    },
+    {
+      "groupA": "{714750f8-cb12-496e-9726-8e6ae8e59839}",
+      "groupB": "{7d9b5933-335b-4bdf-a1b5-a47270d58f86}",
+      "x": 1745453.746,
+      "y": 5915168.965,
+      "wasReason": "ORDINARY_CROSSROADS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.02
+    },
+    {
+      "groupA": "{901b5a93-ef60-4da0-9782-edf7c3304c70}",
+      "groupB": "{0035dc85-e96d-4d05-9d4e-d52f763a38a4}",
+      "x": 1844884.325,
+      "y": 5918996.97,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 83.26
+    },
+    {
+      "groupA": "{1f16ed5e-58c0-4a36-b0db-0a4203d8a9e1}",
+      "groupB": "{bc6a3e3a-8e53-4a61-ba11-59d30c92d68b}",
+      "x": 1840623.281,
+      "y": 5921927.097,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 74.68
+    },
+    {
+      "groupA": "{1f16ed5e-58c0-4a36-b0db-0a4203d8a9e1}",
+      "groupB": "{dfd7ce03-b3da-470b-8747-396e2ce159c0}",
+      "x": 1840623.334,
+      "y": 5921927.203,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "MIXED_PLACE",
+      "angleDeg": 56.95
+    },
+    {
+      "groupA": "{ff12d76d-fed0-4302-afbb-8bac539fb222}",
+      "groupB": "{03c00fba-57cb-449c-ac97-f3a787f51c35}",
+      "x": 1755840.926,
+      "y": 5925696.935,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 87.93
+    },
+    {
+      "groupA": "{861a7ee8-cddc-4e57-b4b4-45a9d9c0f15a}",
+      "groupB": "{0d611f71-e5d0-4215-b28c-3acb92a88b83}",
+      "x": 1760048.506,
+      "y": 5947237.931,
+      "wasReason": "JUNCTION_WITNESS",
+      "nowDisposition": "UNRESOLVED",
+      "nowReason": "DUPLICATE_GEOMETRY",
+      "angleDeg": 89.38
+    }
+  ]
+}

@@ -419,11 +419,14 @@ def attach_corridor_withdrawn(rows: list[dict]) -> int:
             f"and cannot be drawn from a count. Run "
             f"scratch/corridor_withdrawn.py first.")
     doc = json.loads(path.read_text(encoding="utf-8"))
-    want = {(round(c["x"], 3), round(c["y"], 3), c["groupA"], c["groupB"])
-            for c in doc["crossings"]}
+    # Unordered pair: `load_sources` reads the links table with no ORDER BY,
+    # so which side of a crossing is A is not stable between runs.
+    want = {(round(c["x"], 3), round(c["y"], 3),
+             frozenset((c["groupA"], c["groupB"]))) for c in doc["crossings"]}
     n = 0
     for r in rows:
-        k = (round(r["x"], 3), round(r["y"], 3), r["groupA"], r["groupB"])
+        k = (round(r["x"], 3), round(r["y"], 3),
+             frozenset((r["groupA"], r["groupB"])))
         r["corridorWithdrawn"] = k in want
         n += r["corridorWithdrawn"]
     print(f"corridor walk withdrew {doc['count']} crossings nationally; "
@@ -473,6 +476,25 @@ def draw(pool: list[dict], cells: dict, rca_cap: int | None,
         print(f"  {cell:<20} intended {want:>3}  drawn {taken:>3}  "
               f"(pool {len(cand):>5}){flag}")
     return report
+
+
+def qualifying_cells(r: dict) -> list[str]:
+    """Every stratum a card belongs to, not just the one that claimed it.
+
+    Cells overlap and a card is drawn once, so `cell` records which cell got
+    there first. That is an artefact of iteration order, and reporting a
+    stratum's result by it would understate the stratum: `same_name_not_dup`
+    has 5 members in the whole eligible pool and four of them are claimed by
+    an angle cell before it is reached. Scoring joins on THIS list.
+    """
+    out = []
+    for name, (expr, _) in {**AT_GRADE_CELLS, **DECOY_CELLS}.items():
+        try:
+            if eval(expr, {"__builtins__": {}}, dict(r)):  # noqa: S307
+                out.append(name)
+        except Exception:  # noqa: BLE001
+            continue
+    return out
 
 
 def top_up(pool: list[dict], picked: dict, target: int,
@@ -763,7 +785,15 @@ for.
 """
 
 
-def build(outdir: Path, workers: int = 8) -> int:
+def select(verbose: bool = True) -> tuple[list[dict], list[dict], dict, dict, dict, int]:
+    """The draw, with nothing rendered and nothing written.
+
+    `plan` runs this and stops. It is deterministic from SEED, so it selects
+    the identical cards `build` will, and it exists so a rendering bug does
+    not cost 3,500 tile fetches. It reports which cells could not be filled -
+    which is a fact about the eligible pool, not licence to change a cell
+    count. The counts were committed before the first draw and they stay put.
+    """
     rows = load_rows()
     eligible, prov = independent(rows)
     print()
@@ -789,10 +819,36 @@ def build(outdir: Path, workers: int = 8) -> int:
     decoy_picked: dict = dict(picked)
     decoy_report = draw(eligible, DECOY_CELLS, None, decoy_picked)
     decoys = [r for k, r in decoy_picked.items() if k not in picked]
-
-    sample = at_grade + decoys
     print(f"\ndrew {len(at_grade)} AT_GRADE + {len(decoys)} decoys "
-          f"= {len(sample)} cards")
+          f"= {len(at_grade) + len(decoys)} cards")
+
+    print("\nstratum MEMBERSHIP of the 350 AT_GRADE cards (cells overlap, so "
+          "these do not sum to 350):")
+    member = collections.Counter(c for r in at_grade
+                                 for c in qualifying_cells(r))
+    pool_member = collections.Counter(c for r in at_grade_pool
+                                      for c in qualifying_cells(r))
+    for cell in AT_GRADE_CELLS:
+        print(f"  {cell:<20} in pack {member[cell]:>3}  "
+              f"of {pool_member[cell]:>5} nationally eligible")
+    print(f"  {'topup (no cell)':<20} in pack "
+          f"{sum(1 for r in at_grade if r['cell'] == 'topup'):>3}")
+
+    prov["cellReport"] = cell_report
+    return at_grade, decoys, cell_report, decoy_report, prov, topped
+
+
+def plan() -> int:
+    at_grade, decoys, _, _, _, topped = select()
+    _report_spread(at_grade + decoys, at_grade)
+    print(f"\nplan only: nothing rendered, nothing written. "
+          f"{topped} top-up card(s).")
+    return 0
+
+
+def build(outdir: Path, workers: int = 8) -> int:
+    at_grade, decoys, cell_report, decoy_report, prov, topped = select()
+    sample = at_grade + decoys
 
     rng = random.Random(SEED)
     rng.shuffle(sample)
@@ -809,7 +865,7 @@ def build(outdir: Path, workers: int = 8) -> int:
     for i in range(0, len(groups), CHUNK):
         for g in db.query(
                 "SELECT closure_group_id, ST_AsGeoJSON(geom_4326, 7) AS gj "
-                "  FROM links WHERE snapshot_id = %s "
+                "  FROM links WHERE snapshot_id = %s AND mode_vehicle "
                 "   AND closure_group_id = ANY(%s)",
                 (SNAP, groups[i:i + CHUNK])):
             geo[g["closure_group_id"]].append(
@@ -871,6 +927,7 @@ def build(outdir: Path, workers: int = 8) -> int:
         "cards": [{
             "code": r["code"],
             "cell": r["cell"],
+            "qualifyingCells": qualifying_cells(r),
             "disposition": r["disposition"],
             "reason": r["reason"],
             "confidence": r["confidence"],
@@ -1029,8 +1086,15 @@ def score(outdir: Path, verdicts_path: Path) -> int:
                        "notAJunctionFalsePositives": nj_fp},
            "promotionGate": gate.as_dict(),
            "byCell": {}, "byRule": {}, "decoys": {}, "verdicts": rows}
-    for cell in sorted({r["cell"] for r in ag}):
-        sub = [r for r in ag if r["cell"] == cell]
+    # By STRATUM MEMBERSHIP, not by which cell drew the card first. See
+    # `qualifying_cells`. A card can appear in more than one row here; the
+    # rows do not sum to n and are not meant to.
+    for cell in sorted({c for r in ag for c in r.get("qualifyingCells", ())}
+                       | {"topup"}):
+        sub = [r for r in ag if cell in r.get("qualifyingCells", ())
+               or (cell == "topup" and r["cell"] == "topup")]
+        if not sub:
+            continue
         out["byCell"][cell] = {
             "n": len(sub),
             "confirmed": sum(1 for r in sub if r["verdict"] in ACCEPTS["AT_GRADE"]),
@@ -1055,8 +1119,10 @@ def score(outdir: Path, verdicts_path: Path) -> int:
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "plan":
+        raise SystemExit(plan())
     if cmd == "build":
         raise SystemExit(build(Path(sys.argv[2])))
     if cmd == "score":
         raise SystemExit(score(Path(sys.argv[2]), Path(sys.argv[3])))
-    raise SystemExit("build <outdir> | score <outdir> <verdicts>")
+    raise SystemExit("plan | build <outdir> | score <outdir> <verdicts>")
