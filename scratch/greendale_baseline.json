@@ -1,0 +1,83 @@
+{
+  "headline": "Through movement diverts",
+  "quality_flags": [
+    "CORRIDOR_CONFIDENCE_LOW"
+  ],
+  "scope": "segment",
+  "metric": "distance",
+  "profile": "car",
+  "closure": {
+    "removed_link_ids": [
+      234872
+    ],
+    "removed_arc_ids": [
+      455717,
+      455718
+    ],
+    "boundary_nodes": [
+      215061,
+      217297
+    ],
+    "closure_nodes": [
+      215061,
+      217297
+    ],
+    "selected_segment_length_m": 675.2687902429254,
+    "total_closure_length_m": 675.2687902429254,
+    "shape": "single_segment"
+  },
+  "principal": {
+    "movement_id": "1a24dd0a76d58469b3a65326",
+    "status": "OK",
+    "resolved": true,
+    "entry_port_id": "dcdbcaf63d9dd1d312c28845",
+    "exit_port_id": "66c4a3cadada7c4feb40cefc",
+    "replacement_distance_m": 7944.412441731978,
+    "intact_distance_m": 675.2687902429254,
+    "network_penalty_m": 7269.143651489053,
+    "arc_count": 17,
+    "arc_ids": [
+      455719,
+      455721,
+      452222,
+      451408,
+      451410,
+      451412,
+      498617,
+      498619,
+      498621,
+      498623,
+      498625,
+      454108,
+      454106,
+      455709,
+      455711,
+      455713,
+      455715
+    ]
+  },
+  "principal_movement": {
+    "key": [
+      "{4a6995c0-5059-4402-9403-f6f1dcded441}#5|reverse@1527307.342,5182737.581>1527395.775,5183113.961",
+      "{4a6995c0-5059-4402-9403-f6f1dcded441}#3|reverse@1527586.712,5183921.932>1527551.061,5183771.129"
+    ],
+    "entry_port_id": "dcdbcaf63d9dd1d312c28845",
+    "exit_port_id": "66c4a3cadada7c4feb40cefc",
+    "intact_arc_ids": [
+      455718
+    ]
+  },
+  "isolation": {
+    "topology_confidence": "medium",
+    "topology_confidence_reason": "no unresolved near miss lies near this closure. Capped at medium because the represented graph is inferred throughout: AMDS publishes no node identifiers, junctions are inferred, and there is no z-level field to distinguish an overbridge from a missed junction."
+  },
+  "stage_ms": {
+    "closure_resolution": 1,
+    "port_generation": 14,
+    "intact_movements": 681,
+    "isolation": 1432,
+    "replacement_paths": 561,
+    "corridor_expansion": 774,
+    "total": 3466
+  }
+}
