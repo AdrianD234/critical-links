@@ -80,7 +80,7 @@ class TestOneCrossingChangesDistanceButNotStatus:
 
     def test_the_other_candidate_changes_nothing(self):
         other = [c for c in self.s.counterfactuals if c.assumed == (2,)][0]
-        assert other.changes_the_answer is False
+        assert other.individually_changes_answer is False
 
     def test_the_headline_names_the_crossing_and_both_numbers(self):
         h = headline(self.s)
@@ -157,7 +157,7 @@ class TestTwoCrossingsJointlyRequired:
     def test_neither_single_assumption_changes_it(self):
         singles = [c for c in self.s.counterfactuals if len(c.assumed) == 1]
         assert len(singles) == 2
-        assert not any(c.changes_the_answer for c in singles)
+        assert not any(c.individually_changes_answer for c in singles)
 
     def test_the_pair_does(self):
         assert self.s.jointly_required
@@ -185,41 +185,72 @@ class TestTwoCrossingsJointlyRequired:
         assert max(len(a) for a in run.calls) <= 2
 
 
-class TestAnEqualCostAlternativeMakesACrossingNonDecisive:
-    """Required behaviour 5.
+class TestTwoSufficientExplanationsAreBothStillMaterial:
+    """Required behaviour 5, corrected.
 
-    Two crossings each produce the same improved answer. Removing either still
-    leaves the other, so neither is individually required - and calling one
-    "decisive" was a P0 in the provenance code once already.
+    Two different unresolved crossings each, ALONE, shorten the route from
+    8 km to 5 km. An earlier version called neither of them decisive and
+    dropped both from the review queue. That does not follow: each is an
+    individually sufficient explanation, so each is material and each is worth
+    a reviewer's time. They are non-unique, not immaterial.
+
+    Three separate facts are modelled, and only the first governs priority:
+
+        individuallyChangesAnswer   - is this crossing material?
+        uniqueExplanation           - does anything else do the same job?
+        equivalentAlternatives      - which ones?
+
+    The genuinely non-decisive case is different and is not this: a crossing
+    the route USES where an equal-cost way round exists, so removing it
+    changes nothing. Here that shows up as individuallyChangesAnswer=False,
+    and `TestACrossingThatChangesNothingIsNotMaterial` covers it.
     """
 
     def setup_method(self):
-        better = Answer(status="OK", distance_m=4000.0, is_bridge=False,
+        better = Answer(status="OK", distance_m=5000.0, is_bridge=False,
                         isolated_link_count=0)
         self.run = runner({frozenset({1}): better, frozenset({2}): better},
                           CANON)
         self.s = analyse([cand(1), cand(2)], self.run)
 
     def test_both_change_the_answer(self):
-        assert len(self.s.changing) == 2
+        assert len(self.s.material) == 2
 
-    def test_neither_is_decisive(self):
-        assert self.s.decisive == []
+    def test_BOTH_stay_material(self):
+        """The correction. Neither may be dropped for being non-unique."""
+        assert {c.assumed[0] for c in self.s.material} == {1, 2}
+        assert as_dict(self.s)["materialCrossingIds"] == [1, 2]
 
-    def test_both_are_marked_as_having_an_alternative(self):
-        assert all(c.has_equal_alternative for c in self.s.changing)
+    def test_neither_is_a_unique_explanation(self):
+        assert self.s.unique_explanations == []
+        assert as_dict(self.s)["uniqueExplanationCrossingIds"] == []
 
-    def test_the_serialised_decisive_list_is_empty(self):
-        assert as_dict(self.s)["decisiveCrossingIds"] == []
+    def test_each_names_the_other_as_an_equivalent_alternative(self):
+        by_id = {c.assumed[0]: c for c in self.s.material}
+        assert by_id[1].equivalent_alternatives == (2,)
+        assert by_id[2].equivalent_alternatives == (1,)
 
-    def test_a_crossing_with_no_alternative_IS_decisive(self):
+    def test_the_serialised_kind_says_an_alternative_exists(self):
+        kinds = {c["assumptionKind"] for c in as_dict(self.s)["counterfactuals"]
+                 if c["individuallyChangesAnswer"]}
+        assert kinds == {"equivalentAlternativeExists"}
+
+    def test_neither_is_demoted_in_the_review_queue(self):
+        """The consequence that matters: both are still queued, and above a
+        crossing that changes nothing."""
+        cands = [cand(1), cand(2), cand(3)]
+        s = analyse(cands, self.run)
+        assert [c.crossing_id for c in rank(cands, s)][:2] == [1, 2]
+
+    def test_a_sole_explanation_is_marked_unique(self):
         run = runner(
-            {frozenset({1}): Answer(status="OK", distance_m=4000.0,
+            {frozenset({1}): Answer(status="OK", distance_m=5000.0,
                                     is_bridge=False, isolated_link_count=0)},
             CANON)
         s = analyse([cand(1), cand(2)], run)
-        assert [c.assumed for c in s.decisive] == [(1,)]
-        assert as_dict(s)["decisiveCrossingIds"] == [1]
+        assert [c.assumed for c in s.unique_explanations] == [(1,)]
+        assert as_dict(s)["materialCrossingIds"] == [1]
+        assert as_dict(s)["uniqueExplanationCrossingIds"] == [1]
 
     def test_a_different_improvement_is_not_an_alternative(self):
         run = runner(
@@ -229,7 +260,27 @@ class TestAnEqualCostAlternativeMakesACrossingNonDecisive:
                                     is_bridge=False, isolated_link_count=0)},
             CANON)
         s = analyse([cand(1), cand(2)], run)
-        assert len(s.decisive) == 2
+        assert len(s.unique_explanations) == 2
+        assert all(not c.equivalent_alternatives for c in s.material)
+
+
+class TestACrossingThatChangesNothingIsNotMaterial:
+    """The genuinely non-decisive case, kept because it is correct.
+
+    Assuming this crossing is a junction leaves the answer exactly where it
+    was - there is an equal-cost way round, so the crossing never mattered.
+    """
+
+    def test_it_is_not_material_and_not_queued_first(self):
+        run = runner(
+            {frozenset({2}): Answer(status="OK", distance_m=4000.0,
+                                    is_bridge=False, isolated_link_count=0)},
+            CANON)
+        cands = [cand(1), cand(2)]
+        s = analyse(cands, run)
+        assert [c.assumed[0] for c in s.material] == [2]
+        assert 1 not in as_dict(s)["materialCrossingIds"]
+        assert [c.crossing_id for c in rank(cands, s)] == [2, 1]
 
 
 class TestACounterfactualNeverAppearsAsCanonical:
@@ -441,14 +492,50 @@ class TestTheSeparationGuardActuallyFails:
             with pytest.raises(AssertionError):
                 assert banned not in mutated
 
-    def test_an_equal_alternative_wrongly_called_decisive_is_caught(self):
-        better = Answer(status="OK", distance_m=4000.0, is_bridge=False,
+    def test_dropping_a_non_unique_candidate_from_the_queue_is_caught(self):
+        """Mutation: the regression this correction fixed.
+
+        Two crossings each alone explain the change. A version that filters
+        the review queue by uniqueness drops BOTH real candidates. The
+        assertions that guard against it must fail against that behaviour.
+        """
+        better = Answer(status="OK", distance_m=5000.0, is_bridge=False,
                         isolated_link_count=0)
-        s = analyse([cand(1), cand(2)],
-                    runner({frozenset({1}): better, frozenset({2}): better},
-                           CANON))
-        assert s.decisive == []
-        # Mutation: `decisive` stops discounting the alternative.
-        pretend = list(s.changing)
+        cands = [cand(1), cand(2)]
+        s = analyse(cands, runner({frozenset({1}): better,
+                                   frozenset({2}): better}, CANON))
+        assert as_dict(s)["materialCrossingIds"] == [1, 2]
+
+        # The mutation: material is filtered by uniqueness, as it once was.
+        mutated_material = [c for c in s.material if c.unique_explanation]
+        mutated_ids = sorted({cid for c in mutated_material
+                              for cid in c.assumed})
+        assert mutated_ids == [], "the mutation must actually lose them"
         with pytest.raises(AssertionError):
-            assert pretend == []
+            assert mutated_ids == [1, 2]
+
+    def test_uniqueness_used_as_a_rank_multiplier_is_caught(self):
+        """Mutation: uniqueness doubles the score, as an earlier version did.
+
+        Crossings 1 and 2 each remove 2,944 m and duplicate each other.
+        Crossing 3 removes 1,600 m and is the only thing that does. Ranked on
+        impact, 1 and 2 come first. Doubling the unique one gives it 3,200 and
+        floats it above both - a smaller real improvement outranking a bigger
+        one because of a property that has nothing to do with impact.
+        """
+        pair = Answer(status="OK", distance_m=5000.0, is_bridge=False,
+                      isolated_link_count=0)
+        sole = Answer(status="OK", distance_m=6344.4, is_bridge=False,
+                      isolated_link_count=0)
+        cands = [cand(1), cand(2), cand(3)]
+        s = analyse(cands, runner({frozenset({1}): pair, frozenset({2}): pair,
+                                   frozenset({3}): sole}, CANON))
+        assert [c.crossing_id for c in rank(cands, s)] == [1, 2, 3]
+
+        unique = {cid for c in s.unique_explanations for cid in c.assumed}
+        mutated_score = {
+            cid: (CANON.distance_m - a.distance_m) * (2.0 if cid in unique else 1.0)
+            for cid, a in ((1, pair), (2, pair), (3, sole))}
+        mutated = sorted(cands, key=lambda c: -mutated_score[c.crossing_id])
+        with pytest.raises(AssertionError):
+            assert [c.crossing_id for c in mutated] == [1, 2, 3]

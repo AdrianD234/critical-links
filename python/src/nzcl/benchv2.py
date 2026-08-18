@@ -242,7 +242,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     mode = argv[0]
     snapshot = argv[1] if len(argv) > 1 else db.query_one(
-        "SELECT snapshot_id FROM network_snapshots WHERE coverage_kind='national'"
+        "SELECT snapshot_id FROM network_snapshots "
+        "WHERE coverage_kind='national' AND NOT is_transient"
         " ORDER BY retrieved_at_utc DESC LIMIT 1")["snapshot_id"]
     n = int(argv[2]) if len(argv) > 2 else 40
 

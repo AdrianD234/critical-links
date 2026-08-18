@@ -40,11 +40,24 @@ able to say "I do not know", and saying it has to be cheaper than guessing.
 
 from __future__ import annotations
 
+import contextlib
+import datetime as _dt
 import time
 import uuid
 from dataclasses import dataclass, field
 
 from . import db, whatif
+
+#: Prefix on every transient counterfactual snapshot id. Used by the orphan
+#: sweep, and deliberately not used to DECIDE whether something is transient -
+#: that is `is_transient`, which is a fact rather than a naming convention.
+TRANSIENT_PREFIX = "cf-"
+
+#: A transient copy older than this cannot belong to a live analysis: the
+#: whole point of the bounded copy is that an extraction takes under a second
+#: and a full sensitivity run is bounded. Anything this old was orphaned by a
+#: crashed or killed process.
+ORPHAN_AFTER_SECONDS = 3600.0
 
 #: Radii tried in order, in metres. The first is generous for an urban
 #: closure; the last is far larger than any replacement path this tool has
@@ -160,6 +173,17 @@ def extract(src: str, link_id: int, *, radius_m: float,
             row = dict(cur.fetchone())
             cols = list(row)
             row["snapshot_id"] = dst
+            # TRANSIENT, twice over, and this is not fussiness. Without it the
+            # copy inherits status='complete' and coverage_kind='national'
+            # from its source, and `api.snapshot_id()` selects the newest
+            # complete national snapshot - so an 800-link fragment covering
+            # 5 km of one district would become the application's network for
+            # as long as it existed, and every closure outside the fragment
+            # would report DISCONNECTED.
+            row["is_transient"] = True
+            row["transient_created_at"] = _dt.datetime.now(_dt.timezone.utc)
+            if "coverage_kind" in row:
+                row["coverage_kind"] = "counterfactual"
             row["notes"] = list(row.get("notes") or []) + [
                 f"BOUNDED COUNTERFACTUAL COPY of {src}: links within "
                 f"{radius_m:.0f} m of link {link_id}. NOT a published "
@@ -276,3 +300,67 @@ def extract_validated(src: str, link_id: int, *, canonical, answer_of,
             if not ex.validated:
                 whatif.drop_snapshot(ex.snapshot_id)
     raise NeighbourhoodTooSmall(tried, counts, last or "no radius was admissible")
+
+
+@contextlib.contextmanager
+def borrowed(src: str, link_id: int, *, canonical, answer_of,
+             radii=DEFAULT_RADII_M):
+    """A validated neighbourhood that is ALWAYS dropped.
+
+    The only supported way to obtain one in production. `extract` and
+    `extract_validated` leave a snapshot behind by design - they are the
+    mechanism - and a caller that forgets a `finally`, or is cancelled between
+    the extract and the drop, leaves a transient network in the database until
+    somebody notices.
+
+    A cancelled request is not an exotic case here: the sensitivity endpoint is
+    meant to be cancellable, so the interesting path and the abandoning path
+    are the same path.
+
+        with neighbourhood.borrowed(snap, link_id,
+                                    canonical=answer, answer_of=run) as nb:
+            ...                       # nb.snapshot_id is valid in here
+        # ...and gone out here, whether the block returned, raised, or was
+        # cancelled.
+    """
+    ex = extract_validated(src, link_id, canonical=canonical,
+                           answer_of=answer_of, radii=radii)
+    try:
+        yield ex
+    finally:
+        whatif.drop_snapshot(ex.snapshot_id)
+
+
+def sweep_orphans(*, older_than_seconds: float = ORPHAN_AFTER_SECONDS,
+                  now: _dt.datetime | None = None) -> list[str]:
+    """Drop transient copies a crashed process left behind.
+
+    A process killed between extracting and dropping leaves a row nothing will
+    ever clean up. It cannot be served - `is_transient` and the
+    `coverage_kind` guard see to that - but it holds links, arcs and nodes,
+    and it accumulates.
+
+    Age is the only safe discriminator: there is no session to ask. The cutoff
+    is far longer than any bounded analysis, so a copy this old is not one
+    somebody is still using. A copy with no `transient_created_at` predates
+    that column and is swept, since nothing running can have made it.
+    """
+    now = now or _dt.datetime.now(_dt.timezone.utc)
+    cutoff = now - _dt.timedelta(seconds=older_than_seconds)
+    rows = db.query(
+        "SELECT snapshot_id FROM network_snapshots "
+        " WHERE is_transient "
+        "   AND (transient_created_at IS NULL OR transient_created_at < %s)",
+        (cutoff,))
+    dropped = []
+    for r in rows:
+        whatif.drop_snapshot(r["snapshot_id"])
+        dropped.append(r["snapshot_id"])
+    return dropped
+
+
+def transient_snapshots() -> list[str]:
+    """Every transient copy currently in the database. For tests and ops."""
+    return [r["snapshot_id"] for r in db.query(
+        "SELECT snapshot_id FROM network_snapshots WHERE is_transient "
+        " ORDER BY snapshot_id")]

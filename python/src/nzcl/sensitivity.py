@@ -152,11 +152,35 @@ class Counterfactual:
 
     assumed: tuple[int, ...]
     answer: Answer
-    changes_the_answer: bool
+    #: Assuming THIS, and nothing else, moves the published answer. It is the
+    #: fact that decides whether a crossing is worth a reviewer's time.
+    individually_changes_answer: bool
     changed: tuple[str, ...] = ()
-    #: True when some OTHER assumption produces the same changed answer, so
-    #: this one is not individually required. The equal-cost-way-round case.
-    has_equal_alternative: bool = False
+    #: Other crossings whose assumption, alone, produces an EQUIVALENT changed
+    #: answer. Recorded because "either of these explains it" is useful, and
+    #: deliberately NOT used to demote anything.
+    #:
+    #: An earlier version treated this as making neither crossing decisive.
+    #: That does not follow. If assuming A alone, or B alone, shortens the
+    #: route from 8 km to 5 km, each is individually SUFFICIENT: they are
+    #: non-unique, not immaterial, and dropping both from the queue would hide
+    #: two real candidates. Non-uniqueness is a property of the explanation,
+    #: not a reason to stop looking at the crossing.
+    #:
+    #: The genuinely non-decisive case is a different one: a crossing the
+    #: route USES where an equal-cost way round exists, so removing it changes
+    #: nothing. Here that shows up as `individually_changes_answer` being
+    #: False, which is exactly right.
+    equivalent_alternatives: tuple[int, ...] = ()
+
+    @property
+    def unique_explanation(self) -> bool:
+        """Changes the answer, and nothing else does the same job.
+
+        Reported ALONGSIDE the other two facts, never instead of them.
+        """
+        return (self.individually_changes_answer
+                and not self.equivalent_alternatives)
 
     @property
     def is_counterfactual(self) -> bool:
@@ -176,27 +200,39 @@ class Sensitivity:
     truncated: bool = False
 
     @property
+    def material(self) -> list[Counterfactual]:
+        """Assumptions that, alone, move the published answer.
+
+        Every one of these is worth reviewing, whether or not some other
+        assumption would have done the same job.
+        """
+        return [c for c in self.counterfactuals
+                if c.individually_changes_answer]
+
+    @property
     def changing(self) -> list[Counterfactual]:
-        return [c for c in self.counterfactuals if c.changes_the_answer]
+        """The older name for `material`, kept so callers do not break."""
+        return self.material
 
     @property
     def topology_sensitive(self) -> bool:
         """Would ANY single tested assumption change the published answer?"""
-        return bool(self.changing)
+        return bool(self.material)
 
     @property
-    def decisive(self) -> list[Counterfactual]:
-        """Changing assumptions with no equal alternative.
+    def unique_explanations(self) -> list[Counterfactual]:
+        """Material assumptions nothing else replicates.
 
-        A crossing that changes the answer, where nothing else does the same
-        job, is the one worth a reviewer's time. One where an equal-cost way
-        round exists is not decisive, and saying so was a P0 once already.
+        A narrower list than `material`, and NOT a filter on review priority.
+        A crossing with an equivalent alternative is still material and still
+        queued; this says only that the explanation is unique, which matters
+        when deciding what to tell a user, not whether to look at the road.
         """
-        return [c for c in self.changing if not c.has_equal_alternative]
+        return [c for c in self.material if c.unique_explanation]
 
     @property
     def jointly_required(self) -> list[Counterfactual]:
-        return [c for c in self.changing if len(c.assumed) > 1]
+        return [c for c in self.material if len(c.assumed) > 1]
 
     def candidate(self, crossing_id: int) -> Candidate | None:
         for c in self.candidates:
@@ -226,18 +262,21 @@ def analyse(candidates: Sequence[Candidate], run: Runner, *,
         differs = answer.differs_from(canonical)
         singles.append(Counterfactual(
             assumed=(cand.crossing_id,), answer=answer,
-            changes_the_answer=differs,
+            individually_changes_answer=differs,
             changed=tuple(answer.what_changed(canonical)) if differs else ()))
 
-    # An equal alternative means another single assumption lands on the SAME
-    # changed answer. Neither is then individually required, and calling
-    # either "decisive" would be the defect this project already fixed once.
-    changed_singles = [c for c in singles if c.changes_the_answer]
-    for i, c in enumerate(changed_singles):
-        for j, other in enumerate(changed_singles):
-            if i != j and not c.answer.differs_from(other.answer):
-                singles[singles.index(c)] = replace(c, has_equal_alternative=True)
-                break
+    # Which material assumptions land on an EQUIVALENT changed answer. Each is
+    # then a sufficient explanation on its own, and they are recorded as
+    # alternatives to one another. Nothing is demoted by this - see the note
+    # on `Counterfactual.equivalent_alternatives`.
+    changed_singles = [c for c in singles if c.individually_changes_answer]
+    for c in changed_singles:
+        others = tuple(sorted(
+            o.assumed[0] for o in changed_singles
+            if o is not c and not c.answer.differs_from(o.answer)))
+        if others:
+            singles[singles.index(c)] = replace(
+                c, equivalent_alternatives=others)
     out.counterfactuals.extend(singles)
 
     # Pairs, only where nothing single moved it. A junction that needs three
@@ -253,7 +292,7 @@ def analyse(candidates: Sequence[Candidate], run: Runner, *,
             if answer.differs_from(canonical):
                 out.counterfactuals.append(Counterfactual(
                     assumed=tuple(sorted(assumed)), answer=answer,
-                    changes_the_answer=True,
+                    individually_changes_answer=True,
                     changed=tuple(answer.what_changed(canonical))))
     return out
 
@@ -262,7 +301,7 @@ def headline(s: Sensitivity, *, unit: str = "m") -> str:
     """The sentence a user should read. Canonical first, always."""
     if not s.topology_sensitive:
         return ""
-    best = min(s.changing,
+    best = min(s.material,
                key=lambda c: (c.answer.distance_m
                               if c.answer.distance_m is not None else float("inf")))
     names = " and ".join(
@@ -315,13 +354,25 @@ def as_dict(s: Sensitivity) -> dict:
                 "distanceM": c.answer.distance_m,
                 "isBridge": c.answer.is_bridge,
                 "isolatedLinkCount": c.answer.isolated_link_count,
-                "changesTheAnswer": c.changes_the_answer,
+                # THREE distinct facts, not one collapsed into a verdict.
+                "individuallyChangesAnswer": c.individually_changes_answer,
+                "uniqueExplanation": c.unique_explanation,
+                "equivalentAlternativeExplanations":
+                    list(c.equivalent_alternatives),
                 "whatChanged": list(c.changed),
-                "hasEqualAlternative": c.has_equal_alternative,
+                "assumptionKind": (
+                    "jointlyRequired" if len(c.assumed) > 1
+                    else "equivalentAlternativeExists"
+                    if c.equivalent_alternatives else "individual"),
             }
             for c in s.counterfactuals],
-        "decisiveCrossingIds": sorted(
-            {cid for c in s.decisive for cid in c.assumed}),
+        # Every crossing that ALONE moves the answer. Non-uniqueness does not
+        # remove one from here: two sufficient explanations are two real
+        # candidates, and dropping both would hide them.
+        "materialCrossingIds": sorted(
+            {cid for c in s.material for cid in c.assumed}),
+        "uniqueExplanationCrossingIds": sorted(
+            {cid for c in s.unique_explanations for cid in c.assumed}),
         "candidatesConsidered": len(s.candidates),
         "counterfactualRuns": s.runs,
         "truncated": s.truncated,
@@ -347,7 +398,7 @@ def rank(candidates: Iterable[Candidate], s: Sensitivity) -> list[Candidate]:
     """
     by_id = {c.crossing_id: c for c in candidates}
     score: dict[int, float] = {cid: 0.0 for cid in by_id}
-    for cf in s.changing:
+    for cf in s.material:
         # A status change outranks any distance change: a DISCONNECTED that
         # becomes OK, or a bridge that stops being one, is a different finding
         # rather than a smaller number.
@@ -356,10 +407,13 @@ def rank(candidates: Iterable[Candidate], s: Sensitivity) -> list[Candidate]:
         if s.canonical.distance_m is not None \
                 and cf.answer.distance_m is not None:
             weight += max(0.0, s.canonical.distance_m - cf.answer.distance_m)
-        if not cf.has_equal_alternative:
-            weight *= 2.0     # nothing else does this job
         for cid in cf.assumed:
             score[cid] = max(score.get(cid, 0.0), weight)
+    # Uniqueness is the LAST tiebreak - never a filter, never a multiplier. A
+    # crossing with an equivalent alternative is exactly as material as the
+    # one it duplicates, and both belong in the queue at the same priority.
+    unique = {cid for c in s.unique_explanations for cid in c.assumed}
     return sorted(by_id.values(),
                   key=lambda c: (-score.get(c.crossing_id, 0.0),
+                                 c.crossing_id not in unique,
                                  c.crossing_id))

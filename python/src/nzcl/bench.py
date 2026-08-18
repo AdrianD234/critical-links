@@ -16,7 +16,8 @@ from .routing import route
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
     snapshot = argv[0] if argv else db.query_one(
-        "SELECT snapshot_id FROM network_snapshots ORDER BY retrieved_at_utc DESC LIMIT 1"
+        "SELECT snapshot_id FROM network_snapshots WHERE NOT is_transient "
+        "ORDER BY retrieved_at_utc DESC LIMIT 1"
     )["snapshot_id"]
     n = int(argv[1]) if len(argv) > 1 else 50
 

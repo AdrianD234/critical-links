@@ -92,7 +92,10 @@ def _default_snapshot() -> tuple[str | None, str]:
       3. a regional snapshot, only when no national one exists, and only as a
          clearly labelled fallback.
 
-    A partial or failed snapshot is never chosen automatically, and a synthetic
+    A partial or failed snapshot is never chosen automatically, a TRANSIENT
+    counterfactual copy never is on any path - it is an 800-link fragment that
+    would otherwise win on recency and report DISCONNECTED for most of the
+    country - and a synthetic
     fixture never is at all - it exists for tests, and serving it to a person
     would present a seven-link toy as the road network.
     """
@@ -100,6 +103,7 @@ def _default_snapshot() -> tuple[str | None, str]:
         """
         SELECT snapshot_id FROM network_snapshots
          WHERE status = 'complete' AND coverage_kind = 'national'
+           AND NOT is_transient
          ORDER BY retrieved_at_utc DESC LIMIT 1
         """
     )
@@ -110,6 +114,7 @@ def _default_snapshot() -> tuple[str | None, str]:
         """
         SELECT snapshot_id FROM network_snapshots
          WHERE status = 'complete' AND coverage_kind = 'regional'
+           AND NOT is_transient
          ORDER BY retrieved_at_utc DESC LIMIT 1
         """
     )
@@ -121,7 +126,8 @@ def _default_snapshot() -> tuple[str | None, str]:
     # Nothing complete. Say so rather than quietly serving a partial ingest.
     any_snapshot = db.query_one(
         "SELECT snapshot_id, status, coverage_kind FROM network_snapshots "
-        "WHERE status <> 'failed' ORDER BY retrieved_at_utc DESC LIMIT 1"
+        "WHERE status <> 'failed' AND NOT is_transient "
+        "ORDER BY retrieved_at_utc DESC LIMIT 1"
     )
     if any_snapshot:
         return any_snapshot["snapshot_id"], (
@@ -379,7 +385,8 @@ def health() -> dict[str, Any]:
 def snapshots() -> dict[str, Any]:
     rows = db.query(
         "SELECT snapshot_id, status, retrieved_at_utc, routable_link_count "
-        "FROM network_snapshots ORDER BY retrieved_at_utc DESC"
+        "FROM network_snapshots WHERE NOT is_transient "
+        "ORDER BY retrieved_at_utc DESC"
     )
     return {
         "available": [r["snapshot_id"] for r in rows],
