@@ -1,0 +1,31 @@
+{
+  "what": "Cost of a bounded neighbourhood extraction on the national snapshot, against the 5 s interactive ceiling. This is the measurement that decides whether per-analysis topology sensitivity can reach a request at all.",
+  "producedBy": "scratch/bench_neighbourhood.py",
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "nationalLinks": 375696,
+  "sample": "25 vehicle links drawn with seed 'bench-neighbourhood'",
+  "radiusM": 5000,
+  "neighbourhoodSize": {
+    "p50Links": 823,
+    "p95Links": 4163,
+    "maxLinks": 4187,
+    "p50ShareOfNationalPercent": 0.22,
+    "overTheCeiling": 0,
+    "ceiling": 30000
+  },
+  "countQueryMs": { "p50": 2, "p95": 10 },
+  "extractionSeconds": { "p50": 0.21, "p95": 0.66, "max": 1.04 },
+  "interactiveCeilingSeconds": 5,
+  "verdict": "OK at p95 - 0.66 s against a 5 s ceiling.",
+  "theOldMechanism": {
+    "what": "whatif.copy_snapshot, which duplicates whole tables",
+    "secondsForOneCounterfactual": 31.9,
+    "ratioVsBoundedP50": 155,
+    "consequence": "A 24-candidate sensitivity analysis would have cost roughly 13 minutes of copying alone. That is not a slow request, it is a request that never returns, which is why the sensitivity engine could not reach a user before this."
+  },
+  "safety": {
+    "nationalSnapshotLinksAfterwards": 375696,
+    "note": "Every copy made by this benchmark was dropped. The source snapshot is only ever read."
+  },
+  "whatThisDoesNotMeasure": "Routing time on the extracted copy, and the validation pass that makes the copy reproduce the canonical answer before any counterfactual is believed. Both are additional, and both are bounded by the same neighbourhood. The end-to-end request figure is not claimed here and must be measured once impactv2 is wired."
+}
