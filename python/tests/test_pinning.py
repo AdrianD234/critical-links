@@ -56,6 +56,8 @@ class TestTheOldComparisonPassesThingsItShouldNot:
     """Each of these is a copy that would have been trusted."""
 
     def test_a_different_principal_movement_at_the_same_cost(self):
+        # Structural identity: different entry/exit nodes, not a different
+        # surrogate id - see MovementPin on why ids cannot be compared.
         """The headline case. Two ways out of a closure costing the same is
         not rare on a grid, and the copy is then answering a different
         question while looking validated."""
@@ -66,7 +68,7 @@ class TestTheOldComparisonPassesThingsItShouldNot:
         assert old_style_compare(CANON, copy) is True
         assert CANON.agrees_with(copy) is False
         diffs = " ".join(CANON.differences(copy))
-        assert "movement id" in diffs and "entry node" in diffs
+        assert "movement entry node" in diffs and "movement exit node" in diffs
 
     def test_a_different_route_of_identical_length(self):
         copy = pin(route_arcs=(11, 12, 13, 14, 15))
@@ -203,3 +205,32 @@ class TestAPinAgreesWithItself:
     ])
     def test_every_pinned_field_changes_the_fingerprint(self, field_kw):
         assert CANON.fingerprint() != pin(**field_kw).fingerprint()
+
+
+class TestSurrogateIdsAreNotComparedBecauseTheyCannotAgree:
+    """`movements.movement_id` hashes the SNAPSHOT ID into itself, and port
+    ids do the same. Comparing them made every bounded copy fail validation on
+    two opaque hashes while agreeing on the nodes, all seventeen arcs and the
+    distance to the last digit. It failed safe - it declined rather than
+    accepting - and it made the mechanism unusable."""
+
+    def test_the_same_movement_under_a_different_surrogate_id_agrees(self):
+        same_place = pin(movement=MovementPin(
+            "a-completely-different-hash", entry_node=10, exit_node=20,
+            entry_port_link="other", exit_port_link="other"))
+        assert CANON.agrees_with(same_place) is True
+
+    def test_a_genuinely_different_movement_still_disagrees(self):
+        elsewhere = pin(movement=MovementPin("m-1", entry_node=11,
+                                             exit_node=21))
+        assert CANON.agrees_with(elsewhere) is False
+
+    def test_the_route_still_catches_a_divergence_the_nodes_would_not(self):
+        same_ends = pin(route_arcs=(90, 91, 92))
+        assert CANON.agrees_with(same_ends) is False
+
+    def test_the_fingerprint_ignores_the_surrogate_but_not_the_nodes(self):
+        assert CANON.fingerprint() == pin(movement=MovementPin(
+            "different", entry_node=10, exit_node=20)).fingerprint()
+        assert CANON.fingerprint() != pin(movement=MovementPin(
+            "m-1", entry_node=99, exit_node=20)).fingerprint()

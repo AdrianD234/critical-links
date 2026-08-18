@@ -30,7 +30,6 @@ from nzcl import crossings as crossings_mod
 from nzcl import db, impactv2, neighbourhood, pinning, sensitivityrun
 from nzcl import topology, whatif
 
-import classify_national_v2 as base
 
 SNAP = "amds-national-2026-07-28-5b359d84"
 LINK = 234872
@@ -41,10 +40,60 @@ CAUSAL = (1525969.0, 5182907.6)      # Clintons Road x McLaughlins Road
 DECOY = (1526312.0, 5181822.6)       # Clintons Road x Greendale Road
 
 
+
+def load_sources():
+    """Every vehicle source feature, reassembled from its link pieces.
+
+    Inlined rather than imported: this branch is a clean extraction from main
+    and does not carry the research branch scratch scripts. Same calls, same
+    order as the ingest.
+    """
+    from shapely import wkb
+    from shapely.ops import linemerge
+    rows = db.query(
+        "SELECT l.link_id, l.closure_group_id, l.rca_code, l.rca_name,"
+        "       l.model_asset_type, l.oneway, l.surface_type, l.urban_rural,"
+        "       l.quality_flags, l.road_number,"
+        "       n.display_name, COALESCE(n.is_ramp, false) AS is_ramp,"
+        "       ST_AsBinary(l.geom_2193) AS g"
+        "  FROM links l"
+        "  LEFT JOIN link_names n ON n.snapshot_id = l.snapshot_id"
+        "                        AND n.closure_group_id = l.closure_group_id"
+        " WHERE l.snapshot_id = %s AND l.mode_vehicle", (SNAP,))
+    by_group = {}
+    for r in rows:
+        by_group.setdefault(r["closure_group_id"], []).append(r)
+    sources = []
+    for grp, rs in by_group.items():
+        geoms = [wkb.loads(bytes(r["g"])) for r in rs]
+        merged = linemerge(geoms) if len(geoms) > 1 else geoms[0]
+        parts = ([merged] if merged.geom_type == "LineString"
+                 else list(merged.geoms))
+        r0 = rs[0]
+        for part in parts:
+            sources.append(topology.SourceLink(
+                amds_id=grp,
+                coords=[(c[0], c[1]) for c in part.coords],
+                attrs={"road_name": r0["display_name"],
+                       "rca_code": r0["rca_code"],
+                       "model_asset_type": r0["model_asset_type"],
+                       "oneway": r0["oneway"],
+                       "is_ramp": bool(r0["is_ramp"]),
+                       "quality_flags": list(r0["quality_flags"] or [])}))
+    return sources
+
+
+def load_structures():
+    from shapely import wkb
+    rows = db.query(
+        "SELECT kind, ST_AsBinary(geom_2193) AS g FROM ext_structures")
+    return [(wkb.loads(bytes(r["g"])), r["kind"]) for r in rows]
+
+
 def populate_crossings(snapshot_id: str) -> int:
     """Detect and record crossings on the copy, as the ingest would."""
-    sources, unmerged, meta = base.load_sources()
-    structures = base.load_structures()
+    sources = load_sources()
+    structures = load_structures()
     geoms = [LineString(s.coords) for s in sources]
     endpoints, owner = [], []
     for i, s in enumerate(sources):

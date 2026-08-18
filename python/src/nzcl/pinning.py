@@ -63,16 +63,28 @@ class MovementPin:
     that is told which movement to answer cannot answer a different one.
     """
 
+    #: SURROGATE, and deliberately NOT compared. `movements.movement_id`
+    #: hashes the SNAPSHOT ID into itself, and port ids do the same, so they
+    #: can never match across a copy however identical the movement is. An
+    #: earlier version compared them and every bounded copy failed validation
+    #: on two opaque hashes while agreeing on the nodes, all seventeen arcs
+    #: and the distance to the last digit. It failed in the safe direction -
+    #: it declined rather than accepting - but it made the mechanism unusable.
     movement_id: str
+    #: STRUCTURAL IDENTITY. What actually says which movement this is: where
+    #: it enters the network and where it leaves. Node ids ARE stable across a
+    #: copy, because nodes are copied with their ids. A copy that selected a
+    #: different principal movement would differ here, and if somehow it did
+    #: not, `AnalysisPin.route_arcs` would.
     entry_node: int
     exit_node: int
-    entry_port_link: int | None = None
-    exit_port_link: int | None = None
+    #: Surrogate too. Recorded for a reader, not compared.
+    entry_port_link: object = None
+    exit_port_link: object = None
 
     @property
     def key(self) -> str:
-        return _digest([self.movement_id, self.entry_node, self.exit_node,
-                        self.entry_port_link, self.exit_port_link])
+        return _digest([self.entry_node, self.exit_node])
 
 
 @dataclass(frozen=True)
@@ -141,15 +153,12 @@ class AnalysisPin:
             out.append(f"movement: canonical {self.movement} vs copy "
                        f"{other.movement}")
         elif self.movement is not None:
-            cmp("movement id", self.movement.movement_id,
-                other.movement.movement_id)
-            cmp("entry node", self.movement.entry_node,
+            # Structural identity only. The surrogate ids hash the
+            # snapshot id and cannot agree across a copy - see MovementPin.
+            cmp("movement entry node", self.movement.entry_node,
                 other.movement.entry_node)
-            cmp("exit node", self.movement.exit_node, other.movement.exit_node)
-            cmp("entry port link", self.movement.entry_port_link,
-                other.movement.entry_port_link)
-            cmp("exit port link", self.movement.exit_port_link,
-                other.movement.exit_port_link)
+            cmp("movement exit node", self.movement.exit_node,
+                other.movement.exit_node)
         cmp("status", self.status, other.status)
         cmp("unresolved reason", self.unresolved_reason,
             other.unresolved_reason)

@@ -1,0 +1,87 @@
+{
+  "copy": "cf-greendale-acceptance",
+  "source": "amds-national-2026-07-28-5b359d84",
+  "linkId": 234872,
+  "copySeconds": 28.1,
+  "copyIsTransient": true,
+  "copyCoverageKind": "counterfactual",
+  "crossingsDetected": 22062,
+  "detectSeconds": 31.3,
+  "canonical": {
+    "status": "OK",
+    "distanceM": 7944.412441731978,
+    "arcs": 17,
+    "movementId": "32f21aeaca999a9e8e5417b9",
+    "seconds": 2.5
+  },
+  "sensitivity": {
+    "available": false,
+    "unavailableReason": "no bounded neighbourhood reproduced the canonical answer: no bounded neighbourhood reproduced the canonical answer (radii [5000.0, 12000.0, 30000.0] m, [335, 1001, 6824] links): at 30000 m the copy answered AnalysisPin(closure_links=(234872,), profile='car', metric='distance', movement=MovementPin(movement_id='9742d54e5f645b1cd0cd6567', entry_node=215061, exit_node=217297, entry_port_link='fef44fcaa40d3e7d6025081a', exit_port_link='8bb0887b0e82b9ad852b5d08'), route_arcs=(455719, 455721, 452222, 451408, 451410, 451412, 498617, 498619, 498621, 498623, 498625, 454108, 454106, 455709, 455711, 455713, 455715), status='OK', unresolved_reason=None, restrictions_checked=True, restrictions_applicable=0, restriction_violations=0, isolated_link_count=None, isolated_length_m=None, is_bridge=False, distance_m=7944.412441731978), not AnalysisPin(closure_links=(234872,), profile='car', metric='distance', movement=MovementPin(movement_id='32f21aeaca999a9e8e5417b9', entry_node=215061, exit_node=217297, entry_port_link='55e7908230397df4f2a61533', exit_port_link='6d31a4dab839bfb1ce0c9fca'), route_arcs=(455719, 455721, 452222, 451408, 451410, 451412, 498617, 498619, 498621, 498623, 498625, 454108, 454106, 455709, 455711, 455713, 455715), status='OK', unresolved_reason=None, restrictions_checked=True, restrictions_applicable=0, restriction_violations=0, isolated_link_count=None, isolated_length_m=None, is_bridge=False, distance_m=7944.412441731978). Reporting UNRESOLVED rather than a number the boundary shaped.",
+    "candidateSearch": {
+      "candidates": 2,
+      "consideredBeforeBound": 3,
+      "bound": 60,
+      "truncated": false,
+      "bySource": {
+        "closure": 0,
+        "corridor": 2,
+        "ports": 0,
+        "inside_circuit": 0
+      },
+      "sourcesUsed": [
+        "closure",
+        "corridor",
+        "ports",
+        "inside_circuit"
+      ],
+      "radii": {
+        "closureM": 600.0,
+        "corridorM": 250.0,
+        "portM": 600.0
+      },
+      "notes": [],
+      "why": "Candidates are derived from the closure, its ports, the canonical detour corridor and the interior of the circuit that detour encloses - not from a buffer around the clicked link. The crossing that causes the Greendale result is 2.8 km away and ON the canonical route, while the one beside the closure changes nothing.",
+      "ifTruncated": "When truncated is true the search was bounded before it finished, so 'no sensitivity found' does NOT mean the answer is robust."
+    },
+    "canonicalPin": {
+      "fingerprint": "931f28399bf1a5a3",
+      "closureLinks": [
+        234872
+      ],
+      "profile": "car",
+      "metric": "distance",
+      "movementId": "32f21aeaca999a9e8e5417b9",
+      "entryNode": 215061,
+      "exitNode": 217297,
+      "routeArcCount": 17,
+      "status": "OK",
+      "unresolvedReason": null,
+      "restrictionsChecked": true,
+      "restrictionsApplicable": 0,
+      "restrictionViolations": 0,
+      "isolatedLinkCount": null,
+      "isolatedLengthM": null,
+      "isBridge": false,
+      "distanceM": 7944.412441731978
+    },
+    "validation": null,
+    "timing": {
+      "canonicalMs": 1428,
+      "candidateSearchMs": 59,
+      "neighbourhoodExtractAndValidateMs": 1860,
+      "singleCounterfactualMs": {
+        "runs": 0,
+        "p50": 0,
+        "max": 0,
+        "total": 0
+      },
+      "cleanupMs": 0,
+      "totalMs": 3347,
+      "note": "Stage timings. The canonical analysis is the only one a user waits for when sensitivity runs on its own endpoint."
+    },
+    "why": "Topology sensitivity could not be established for this analysis. That is NOT the same as the answer being robust, and a high-consequence result must not be presented as definitive on the strength of it."
+  },
+  "totalSeconds": 65.2,
+  "transientLeftBehind": [],
+  "nationalLinksAfter": 375696
+}
