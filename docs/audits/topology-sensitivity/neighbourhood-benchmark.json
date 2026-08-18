@@ -1,31 +1,47 @@
 {
-  "what": "Cost of a bounded neighbourhood extraction on the national snapshot, against the 5 s interactive ceiling. This is the measurement that decides whether per-analysis topology sensitivity can reach a request at all.",
+  "what": "Cost of a bounded neighbourhood extraction on the national snapshot, against the 5 s interactive ceiling.",
+  "supersedes": "An earlier run of this file measured a copy that carried NO arc_transitions, NO physical_access_* and national component_id labels. That copy answered from a different model rather than a smaller one, so its timings were not comparable and are withdrawn rather than carried forward. The figures below are for a copy with every derived structure rebuilt.",
   "producedBy": "scratch/bench_neighbourhood.py",
   "snapshot": "amds-national-2026-07-28-5b359d84",
   "nationalLinks": 375696,
   "sample": "25 vehicle links drawn with seed 'bench-neighbourhood'",
   "radiusM": 5000,
   "neighbourhoodSize": {
-    "p50Links": 823,
-    "p95Links": 4163,
-    "maxLinks": 4187,
+    "p50Links": 823, "p95Links": 4163, "maxLinks": 4187,
     "p50ShareOfNationalPercent": 0.22,
-    "overTheCeiling": 0,
-    "ceiling": 30000
+    "overTheCeiling": 0, "ceiling": 30000
   },
-  "countQueryMs": { "p50": 2, "p95": 10 },
-  "extractionSeconds": { "p50": 0.21, "p95": 0.66, "max": 1.04 },
+  "countQueryMs": { "p50": 3, "p95": 16 },
+  "extractionSecondsWithDerivedStructuresRebuilt": {
+    "p50": 0.21, "p95": 0.65, "max": 1.04
+  },
+  "derivedRebuildIsIncluded": {
+    "arcTransitionsPerCopy": { "p50": 2650, "p95": 10563 },
+    "componentsPerCopy": { "p50": 10, "p95": 46 },
+    "spotCheck": {
+      "neighbourhoodLinks": 2310,
+      "withDerivedSeconds": 0.575,
+      "withoutDerivedSeconds": 0.278,
+      "note": "Rebuilding roughly doubles a copy of this size, and it is still an order of magnitude inside the budget."
+    },
+    "howNotWhether": "arc_transitions are REBUILT by build_arc_transitions over the arcs present; nodes.component_id is RECOMPUTED over the copy's own links; physical_access_* is REBUILT. None is copied. A derived structure copied from a larger network describes that larger network."
+  },
+  "evidenceThatCopyingComponentsWasWrong": {
+    "sameNeighbourhood": 2310,
+    "componentsWhenCopiedFromNational": 9,
+    "componentsWhenRecomputedForTheFragment": 10,
+    "note": "The labels genuinely differ. routing._same_component uses component_id to decide whether to search at all, so the copied labels were describing connectivity the fragment does not contain."
+  },
   "interactiveCeilingSeconds": 5,
-  "verdict": "OK at p95 - 0.66 s against a 5 s ceiling.",
+  "verdict": "OK at p95 - 0.65 s against a 5 s ceiling, with derived structures rebuilt.",
   "theOldMechanism": {
     "what": "whatif.copy_snapshot, which duplicates whole tables",
-    "secondsForOneCounterfactual": 31.9,
-    "ratioVsBoundedP50": 155,
-    "consequence": "A 24-candidate sensitivity analysis would have cost roughly 13 minutes of copying alone. That is not a slow request, it is a request that never returns, which is why the sensitivity engine could not reach a user before this."
+    "secondsForOneCounterfactual": 29.0,
+    "ratioVsBoundedP50": 138
   },
   "safety": {
     "nationalSnapshotLinksAfterwards": 375696,
-    "note": "Every copy made by this benchmark was dropped. The source snapshot is only ever read."
+    "transientCopiesLeftBehind": 0
   },
-  "whatThisDoesNotMeasure": "Routing time on the extracted copy, and the validation pass that makes the copy reproduce the canonical answer before any counterfactual is believed. Both are additional, and both are bounded by the same neighbourhood. The end-to-end request figure is not claimed here and must be measured once impactv2 is wired."
+  "whatThisStillDoesNotMeasure": "This is EXTRACTION ONLY and must not be quoted as user-facing response time. Not measured here: the canonical analysis, candidate retrieval and ranking, the validation pass, a single counterfactual route, the total across all candidates, cleanup, or the full API request. Those are separate figures and none of them exists yet."
 }

@@ -107,6 +107,13 @@ class Extraction:
     #: assumed. Nothing may be believed from it before that.
     validated: bool = False
     notes: list[str] = field(default_factory=list)
+    #: Derived structures REBUILT for the neighbourhood, not copied from the
+    #: national tables. A copied derived structure describes the network it
+    #: came from, which is the larger one.
+    derived_built: bool = False
+    transition_count: int = 0
+    component_count: int = 0
+    physical_profiles: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -115,6 +122,10 @@ class Extraction:
             "nodeCount": self.node_count,
             "extractionSeconds": round(self.seconds, 3),
             "validatedAgainstCanonical": self.validated,
+            "derivedStructuresRebuilt": self.derived_built,
+            "arcTransitions": self.transition_count,
+            "components": self.component_count,
+            "physicalAccessProfiles": list(self.physical_profiles),
             "maxLinks": MAX_LINKS,
             "why": ("A counterfactual is routed on a bounded copy of the "
                     "network around the closure, not on the national tables. "
@@ -141,7 +152,8 @@ def count_links_within(snapshot_id: str, link_id: int,
 
 
 def extract(src: str, link_id: int, *, radius_m: float,
-            dst: str | None = None) -> Extraction:
+            dst: str | None = None,
+            include_derived: bool = True) -> Extraction:
     """Copy the network within `radius_m` of one link into a new snapshot.
 
     Links are selected by distance from the closed link's geometry, and nodes
@@ -252,10 +264,20 @@ def extract(src: str, link_id: int, *, radius_m: float,
                     f"SELECT {sel} FROM {table} t {where}", params)
         conn.commit()
 
-    return Extraction(snapshot_id=dst, source_snapshot_id=src,
-                      radius_m=radius_m, link_count=link_count,
-                      node_count=node_count,
-                      seconds=time.perf_counter() - t0)
+    ex = Extraction(snapshot_id=dst, source_snapshot_id=src,
+                    radius_m=radius_m, link_count=link_count,
+                    node_count=node_count,
+                    seconds=time.perf_counter() - t0)
+    if include_derived:
+        rebuild_derived(ex)
+        ex.seconds = time.perf_counter() - t0
+    else:
+        ex.notes.append(
+            "DERIVED STRUCTURES NOT BUILT. This copy answers from a different "
+            "model, not a smaller one, and must never be used for a real "
+            "counterfactual. It exists so the validation can be tested "
+            "against the failure it is supposed to catch.")
+    return ex
 
 
 def extract_validated(src: str, link_id: int, *, canonical, answer_of,
@@ -300,6 +322,123 @@ def extract_validated(src: str, link_id: int, *, canonical, answer_of,
             if not ex.validated:
                 whatif.drop_snapshot(ex.snapshot_id)
     raise NeighbourhoodTooSmall(tried, counts, last or "no radius was admissible")
+
+
+# --------------------------------------------------------------------------
+def rebuild_derived(ex: "Extraction", profiles=("car",)) -> None:
+    """Recompute every derived structure FOR THE NEIGHBOURHOOD.
+
+    The bug this exists for is worth stating exactly, because it is the
+    difference between a smaller model and a different one.
+
+    `arc_transitions` is the edge-expanded graph the router actually searches.
+    Copying the national rows would import transitions onto arcs that are not
+    in the copy; not copying them at all leaves the router with no movements
+    and every route DISCONNECTED. Neither is the fragment's transition set.
+    So it is REBUILT by the same `build_arc_transitions` function the ingest
+    calls, over the arcs that are here - which also re-applies the two-link
+    turn restrictions that survived the subset.
+
+    `nodes.component_id` was copied verbatim, and that is not a smaller model,
+    it is a wrong one. National component ids say two nodes are connected
+    because a path exists SOMEWHERE IN NEW ZEALAND, and `routing._same_component`
+    uses exactly that to decide whether to search at all. In a 5 km fragment
+    the same two nodes may have no path between them, so the router either
+    searches and fails, or short-circuits on a label that describes a network
+    the copy does not contain. It is RECOMPUTED over the copy's own links.
+
+    `physical_access_*` carries the bridge, articulation and isolation
+    findings. Absent, `is_bridge` reads as False and `isolated_link_count` as
+    zero - the shape of an answer, with none of the meaning, and indisting-
+    uishable from a genuine "not a bridge". It is REBUILT.
+
+    Rebuilt rather than copied, in every case. A derived structure copied from
+    a larger network describes that larger network.
+    """
+    from . import physical
+
+    with db.direct_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT build_arc_transitions(%s)", (ex.snapshot_id,))
+            ex.transition_count = int(list(cur.fetchone().values())[0])
+
+    whatif._recompute_components(ex.snapshot_id)
+    row = db.query_one(
+        "SELECT count(DISTINCT component_id) AS n FROM nodes WHERE snapshot_id=%s",
+        (ex.snapshot_id,))
+    ex.component_count = int(row["n"]) if row else 0
+
+    ex.physical_profiles = []
+    for profile in profiles:
+        physical.persist(physical.build(ex.snapshot_id, profile=profile))
+        ex.physical_profiles.append(profile)
+
+    ex.derived_built = True
+    ex.notes.append(
+        f"derived structures rebuilt for the neighbourhood: "
+        f"{ex.transition_count} arc transitions, {ex.component_count} "
+        f"components, physical access for {', '.join(ex.physical_profiles)}")
+
+
+def derived_inventory(snapshot_id: str) -> dict:
+    """What a snapshot actually holds, for validation to compare.
+
+    Counts rather than contents: the question is whether the copy carries the
+    same KINDS of structure, and a zero where the source has millions is the
+    signal that matters.
+    """
+    def one(sql, params):
+        row = db.query_one(sql, params)
+        return int(row["n"]) if row and row["n"] is not None else 0
+
+    return {
+        "links": one("SELECT count(*) AS n FROM links WHERE snapshot_id=%s",
+                     (snapshot_id,)),
+        "arcs": one("SELECT count(*) AS n FROM arcs WHERE snapshot_id=%s",
+                    (snapshot_id,)),
+        "arcTransitions": one(
+            "SELECT count(*) AS n FROM arc_transitions WHERE snapshot_id=%s",
+            (snapshot_id,)),
+        "components": one(
+            "SELECT count(DISTINCT component_id) AS n FROM nodes "
+            " WHERE snapshot_id=%s", (snapshot_id,)),
+        "physicalAccessRuns": one(
+            "SELECT count(*) AS n FROM physical_access_runs "
+            " WHERE snapshot_id=%s", (snapshot_id,)),
+        "turnRestrictions": one(
+            "SELECT count(*) AS n FROM turn_restrictions WHERE snapshot_id=%s",
+            (snapshot_id,)),
+    }
+
+
+#: Derived structures whose ABSENCE makes a copy answer from a different model.
+#: Checked as a precondition of validation: a copy missing one of these cannot
+#: be trusted even if it happens to reproduce the canonical numbers, because
+#: reproducing them would then be a coincidence rather than evidence.
+REQUIRED_DERIVED = ("arcTransitions", "physicalAccessRuns")
+
+
+class DerivedStructuresMissing(Exception):
+    """A copy that would answer from a different model, not a smaller one."""
+
+    def __init__(self, snapshot_id: str, inventory: dict, missing) -> None:
+        self.snapshot_id = snapshot_id
+        self.inventory = inventory
+        self.missing = tuple(missing)
+        super().__init__(
+            f"{snapshot_id} is missing derived structures {list(self.missing)} "
+            f"(inventory {inventory}). It would answer from a different model "
+            f"rather than a smaller one, so no counterfactual computed on it "
+            f"may be believed - including one that reproduces the canonical "
+            f"numbers, which would then be coincidence rather than evidence.")
+
+
+def assert_derived_present(snapshot_id: str) -> dict:
+    inv = derived_inventory(snapshot_id)
+    missing = [k for k in REQUIRED_DERIVED if inv.get(k, 0) == 0]
+    if missing:
+        raise DerivedStructuresMissing(snapshot_id, inv, missing)
+    return inv
 
 
 @contextlib.contextmanager

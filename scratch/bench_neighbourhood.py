@@ -46,9 +46,11 @@ print(f"  count query: p50 {pct(count_ms,50):.0f} ms  p95 {pct(count_ms,95):.0f}
 
 # --- the extraction itself ---
 ex_s = []
+derived = []
 for lid in sample:
     try:
         ex = neighbourhood.extract(SNAP, lid, radius_m=5000.0)
+        derived.append((ex.transition_count, ex.component_count))
     except neighbourhood.NeighbourhoodTooSmall as e:
         print(f"  link {lid}: {e.detail}")
         continue
@@ -74,3 +76,12 @@ finally:
     whatif.drop_snapshot(dst)
     print(f"  national snapshot intact: "
           f"{db.query('SELECT count(*) AS n FROM links WHERE snapshot_id=%s', (SNAP,))[0]['n']} links")
+
+if derived:
+    tr = [d[0] for d in derived]
+    co = [d[1] for d in derived]
+    print(f"\nderived structures rebuilt per copy:")
+    print(f"  arc transitions p50 {pct(tr,50)}  p95 {pct(tr,95)}")
+    print(f"  components       p50 {pct(co,50)}  p95 {pct(co,95)}")
+    print("  (transitions REBUILT by build_arc_transitions, components "
+          "RECOMPUTED, physical access REBUILT - none copied)")
