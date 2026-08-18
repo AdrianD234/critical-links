@@ -31,6 +31,12 @@ def load() -> list[dict]:
     return db.query(
         """
         SELECT f.*,
+               -- The Road Controlling Authority name is the closest thing the
+               -- snapshot has to a region: for local roads it is the district
+               -- or city council, and for state highways it is the agency.
+               -- Used to stratify the holdout geographically, never as a
+               -- classifier input.
+               a.rca_name AS rca_name_a, b.rca_name AS rca_name_b,
                -- a THIRD link ending at the crossing: exclude the four nodes
                -- belonging to the two links that cross.
                (SELECT count(*) FROM nodes n
@@ -191,6 +197,11 @@ def main() -> int:
                     "onewayA": r["oneway_a"], "onewayB": r["oneway_b"],
                     "matA": r["mat_a"], "matB": r["mat_b"],
                     "urA": r["ur_a"], "urB": r["ur_b"],
+                    # 1 = sealed. 2 and 3 are unsealed, which together with an
+                    # absent name is the best proxy the source offers for a
+                    # forestry, industrial or private-looking access road.
+                    "surfA": r["surf_a"], "surfB": r["surf_b"],
+                    "rcaNameA": r["rca_name_a"], "rcaNameB": r["rca_name_b"],
                     "duplicateCorridor": bool(r["duplicate_corridor"]),
                     "thirdLinkNodes": int(r["third_link_nodes"]),
                     "motorwayLinks300m": int(r["motorway_links_300m"]),

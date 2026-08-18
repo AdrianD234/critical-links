@@ -33,16 +33,26 @@ def main() -> int:
     raw = full.read_bytes()
     rows = [json.loads(l) for l in raw.decode("utf-8").splitlines() if l.strip()]
 
+    # The rows carry no snapshot id of their own; the summary written beside
+    # them does. Reading it from there is why the manifest said "snapshot":
+    # null - a provenance field that recorded nothing.
+    summary_path = d / "classification-summary.json"
+    snapshot = None
+    if summary_path.exists():
+        snapshot = json.loads(
+            summary_path.read_text(encoding="utf-8")).get("snapshot")
+
     manifest = {
         "file": "classified.jsonl",
         "why_not_committed":
-            "Derived data, 10.9 MB, reproducible exactly from committed code "
-            "plus the snapshot id below. Kept out of git so the topology "
-            "change is readable; kept verifiable by the sha256 here.",
+            f"Derived data, {len(raw)/1e6:.1f} MB, reproducible exactly from "
+            f"committed code plus the snapshot id below. Kept out of git so "
+            f"the topology change is readable; kept verifiable by the sha256 "
+            f"here.",
         "sha256": hashlib.sha256(raw).hexdigest(),
         "bytes": len(raw),
         "rows": len(rows),
-        "snapshot": rows[0].get("snapshot") if rows else None,
+        "snapshot": snapshot,
         "regenerate": (
             "cd python && PYTHONPATH=src python ../scratch/classify_national.py "
             "../docs/audits/at-grade-crossings"),
