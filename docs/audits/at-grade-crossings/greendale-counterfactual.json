@@ -1,0 +1,634 @@
+{
+  "baseline": {
+    "snapshot": "amds-national-2026-07-28-5b359d84",
+    "headline": "Through movement diverts",
+    "qualityFlags": [
+      "CORRIDOR_CONFIDENCE_LOW"
+    ],
+    "removedLinkIds": [
+      234872
+    ],
+    "removedArcIds": [
+      455717,
+      455718
+    ],
+    "boundaryNodes": [
+      215061,
+      217297
+    ],
+    "selectedSegmentLengthM": 675.2687902429254,
+    "principal": {
+      "status": "OK",
+      "resolved": true,
+      "intactDistanceM": 675.2687902429254,
+      "replacementDistanceM": 7944.412441731978,
+      "networkPenaltyM": 7269.143651489053,
+      "ratio": 11.76481507293415,
+      "arcIds": [
+        455719,
+        455721,
+        452222,
+        451408,
+        451410,
+        451412,
+        498617,
+        498619,
+        498621,
+        498623,
+        498625,
+        454108,
+        454106,
+        455709,
+        455711,
+        455713,
+        455715
+      ],
+      "linkIds": [
+        234873,
+        234874,
+        233119,
+        232709,
+        232710,
+        232711,
+        256935,
+        256936,
+        256937,
+        256938,
+        256939,
+        234063,
+        234062,
+        234868,
+        234869,
+        234870,
+        234871
+      ],
+      "turnCheck": {
+        "ok": true,
+        "checked": true,
+        "applicableRestrictions": 1,
+        "violations": []
+      },
+      "topologyConfidence": "medium"
+    },
+    "isolation": {
+      "physicallyIsolates": false,
+      "closureIsBridge": false,
+      "topologyConfidence": "medium",
+      "topologyConfidenceReason": "no unresolved near miss lies near this closure. Capped at medium because the represented graph is inferred throughout: AMDS publishes no node identifiers, junctions are inferred, and there is no z-level field to distinguish an overbridge from a missed junction."
+    },
+    "replacementCount": 8
+  },
+  "crossings": [
+    {
+      "link_a": 10017,
+      "link_b": 234991,
+      "x": 1530449.3042,
+      "y": 5184168.7482,
+      "name_a": "State Highway 73",
+      "name_b": "Creyke Road"
+    },
+    {
+      "link_a": 227364,
+      "link_b": 233672,
+      "x": 1523813.8393844888,
+      "y": 5183877.297818479,
+      "name_a": null,
+      "name_b": "Cullens Road"
+    },
+    {
+      "link_a": 227606,
+      "link_b": 236609,
+      "x": 1527640.9461668273,
+      "y": 5180337.610974893,
+      "name_a": null,
+      "name_b": "Essendon Road"
+    },
+    {
+      "link_a": 230168,
+      "link_b": 230433,
+      "x": 1523962.1142782902,
+      "y": 5181914.414321577,
+      "name_a": "Mclaughlins Road",
+      "name_b": "Elmhurst Road"
+    },
+    {
+      "link_a": 230462,
+      "link_b": 233189,
+      "x": 1528742.9211107434,
+      "y": 5183021.0466070175,
+      "name_a": "Creyke Road",
+      "name_b": null
+    },
+    {
+      "link_a": 230524,
+      "link_b": 230862,
+      "x": 1524600.2665538879,
+      "y": 5187157.623906974,
+      "name_a": "Clintons Road",
+      "name_b": "Homebush Road"
+    },
+    {
+      "link_a": 231050,
+      "link_b": 233078,
+      "x": 1528315.132250326,
+      "y": 5184624.546256996,
+      "name_a": "Longden Street",
+      "name_b": "North Terrace"
+    },
+    {
+      "link_a": 232652,
+      "link_b": 233078,
+      "x": 1527869.045774419,
+      "y": 5184778.138730856,
+      "name_a": "Kimberley Road",
+      "name_b": "North Terrace"
+    },
+    {
+      "link_a": 232708,
+      "link_b": 234875,
+      "x": 1526312.043495837,
+      "y": 5181822.622474743,
+      "name_a": "Clintons Road",
+      "name_b": "Greendale Road"
+    },
+    {
+      "link_a": 232709,
+      "link_b": 234053,
+      "x": 1525968.9950117653,
+      "y": 5182907.627272354,
+      "name_a": "Clintons Road",
+      "name_b": "McLaughlins Road"
+    },
+    {
+      "link_a": 233073,
+      "link_b": 233194,
+      "x": 1527800.224471063,
+      "y": 5184741.5771937035,
+      "name_a": "North Terrace",
+      "name_b": "Perrin Place"
+    },
+    {
+      "link_a": 233073,
+      "link_b": 234746,
+      "x": 1527997.1712983784,
+      "y": 5184641.938047377,
+      "name_a": "North Terrace",
+      "name_b": "McMillan Street"
+    },
+    {
+      "link_a": 233078,
+      "link_b": 234219,
+      "x": 1528116.1934405807,
+      "y": 5184693.04307451,
+      "name_a": "North Terrace",
+      "name_b": "Le Fleming Street"
+    },
+    {
+      "link_a": 233078,
+      "link_b": 235278,
+      "x": 1528192.4295355205,
+      "y": 5184666.794149578,
+      "name_a": "North Terrace",
+      "name_b": "Jackson Street"
+    },
+    {
+      "link_a": 233078,
+      "link_b": 235998,
+      "x": 1528691.9014,
+      "y": 5184494.8205,
+      "name_a": "North Terrace",
+      "name_b": null
+    },
+    {
+      "link_a": 233078,
+      "link_b": 236117,
+      "x": 1528439.5088866432,
+      "y": 5184581.72201485,
+      "name_a": "North Terrace",
+      "name_b": "Currie Street"
+    },
+    {
+      "link_a": 233078,
+      "link_b": 236252,
+      "x": 1527993.838135643,
+      "y": 5184735.171350057,
+      "name_a": "North Terrace",
+      "name_b": "Holmes Street"
+    },
+    {
+      "link_a": 233078,
+      "link_b": 236409,
+      "x": 1528123.2158471001,
+      "y": 5184690.625182805,
+      "name_a": "North Terrace",
+      "name_b": "Halkett Street"
+    },
+    {
+      "link_a": 233118,
+      "link_b": 236609,
+      "x": 1528836.4649680497,
+      "y": 5180724.736921449,
+      "name_a": "Wards Road",
+      "name_b": "Essendon Road"
+    },
+    {
+      "link_a": 233187,
+      "link_b": 236610,
+      "x": 1530028.420684437,
+      "y": 5181112.684990643,
+      "name_a": null,
+      "name_b": "Essendon Road"
+    },
+    {
+      "link_a": 233606,
+      "link_b": 235459,
+      "x": 1528629.5745372707,
+      "y": 5183713.389729491,
+      "name_a": "Rosalind Avenue",
+      "name_b": "Cooney Avenue"
+    },
+    {
+      "link_a": 234219,
+      "link_b": 236409,
+      "x": 1528118.8221876496,
+      "y": 5184697.574622838,
+      "name_a": "Le Fleming Street",
+      "name_b": "Halkett Street"
+    },
+    {
+      "link_a": 234876,
+      "link_b": 234975,
+      "x": 1525164.7179443245,
+      "y": 5179873.176598233,
+      "name_a": "Greendale Road",
+      "name_b": "Essendon Road"
+    },
+    {
+      "link_a": 235556,
+      "link_b": 236404,
+      "x": 1527952.1614084933,
+      "y": 5184937.453061459,
+      "name_a": "Kimberley Road",
+      "name_b": null
+    }
+  ],
+  "control": {
+    "snapshot": "whatif-greendale",
+    "headline": "Through movement diverts",
+    "qualityFlags": [
+      "CORRIDOR_CONFIDENCE_LOW"
+    ],
+    "removedLinkIds": [
+      234872
+    ],
+    "removedArcIds": [
+      455717,
+      455718
+    ],
+    "boundaryNodes": [
+      215061,
+      217297
+    ],
+    "selectedSegmentLengthM": 675.2687902429254,
+    "principal": {
+      "status": "OK",
+      "resolved": true,
+      "intactDistanceM": 675.2687902429254,
+      "replacementDistanceM": 7944.412441731978,
+      "networkPenaltyM": 7269.143651489053,
+      "ratio": 11.76481507293415,
+      "arcIds": [
+        455719,
+        455721,
+        452222,
+        451408,
+        451410,
+        451412,
+        498617,
+        498619,
+        498621,
+        498623,
+        498625,
+        454108,
+        454106,
+        455709,
+        455711,
+        455713,
+        455715
+      ],
+      "linkIds": [
+        234873,
+        234874,
+        233119,
+        232709,
+        232710,
+        232711,
+        256935,
+        256936,
+        256937,
+        256938,
+        256939,
+        234063,
+        234062,
+        234868,
+        234869,
+        234870,
+        234871
+      ],
+      "turnCheck": {
+        "ok": true,
+        "checked": true,
+        "applicableRestrictions": 1,
+        "violations": []
+      },
+      "topologyConfidence": "medium"
+    },
+    "isolation": {
+      "physicallyIsolates": false,
+      "closureIsBridge": false,
+      "topologyConfidence": "medium",
+      "topologyConfidenceReason": "no unresolved near miss lies near this closure. Capped at medium because the represented graph is inferred throughout: AMDS publishes no node identifiers, junctions are inferred, and there is no z-level field to distinguish an overbridge from a missed junction."
+    },
+    "replacementCount": 8
+  },
+  "controlMatchesBaseline": true,
+  "noding": {
+    "requested": 24,
+    "applied": 24,
+    "skipped": [],
+    "linksSplit": 37,
+    "newLinks": 48,
+    "newNodes": 24,
+    "nodeOfCrossing": {
+      "10017x234991": 338182,
+      "227364x233672": 338183,
+      "227606x236609": 338184,
+      "230168x230433": 338185,
+      "230462x233189": 338186,
+      "230524x230862": 338187,
+      "231050x233078": 338188,
+      "232652x233078": 338189,
+      "232708x234875": 338190,
+      "232709x234053": 338191,
+      "233073x233194": 338192,
+      "233073x234746": 338193,
+      "233078x234219": 338194,
+      "233078x235278": 338195,
+      "233078x235998": 338196,
+      "233078x236117": 338197,
+      "233078x236252": 338198,
+      "233078x236409": 338199,
+      "233118x236609": 338200,
+      "233187x236610": 338201,
+      "233606x235459": 338202,
+      "234219x236409": 338203,
+      "234876x234975": 338204,
+      "235556x236404": 338205
+    },
+    "piecesOfLink": {
+      "10017": [
+        10017,
+        375696
+      ],
+      "227364": [
+        227364,
+        375697
+      ],
+      "227606": [
+        227606,
+        375698
+      ],
+      "230168": [
+        230168,
+        375699
+      ],
+      "230433": [
+        230433,
+        375700
+      ],
+      "230462": [
+        230462,
+        375701
+      ],
+      "230524": [
+        230524,
+        375702
+      ],
+      "230862": [
+        230862,
+        375703
+      ],
+      "231050": [
+        231050,
+        375704
+      ],
+      "232652": [
+        232652,
+        375705
+      ],
+      "232708": [
+        232708,
+        375706
+      ],
+      "232709": [
+        232709,
+        375707
+      ],
+      "233073": [
+        233073,
+        375708,
+        375709
+      ],
+      "233078": [
+        233078,
+        375710,
+        375711,
+        375712,
+        375713,
+        375714,
+        375715,
+        375716,
+        375717
+      ],
+      "233118": [
+        233118,
+        375718
+      ],
+      "233187": [
+        233187,
+        375719
+      ],
+      "233189": [
+        233189,
+        375720
+      ],
+      "233194": [
+        233194,
+        375721
+      ],
+      "233606": [
+        233606,
+        375722
+      ],
+      "233672": [
+        233672,
+        375723
+      ],
+      "234053": [
+        234053,
+        375724
+      ],
+      "234219": [
+        234219,
+        375725,
+        375726
+      ],
+      "234746": [
+        234746,
+        375727
+      ],
+      "234875": [
+        234875,
+        375728
+      ],
+      "234876": [
+        234876,
+        375729
+      ],
+      "234975": [
+        234975,
+        375730
+      ],
+      "234991": [
+        234991,
+        375731
+      ],
+      "235278": [
+        235278,
+        375732
+      ],
+      "235459": [
+        235459,
+        375733
+      ],
+      "235556": [
+        235556,
+        375734
+      ],
+      "235998": [
+        235998,
+        375735
+      ],
+      "236117": [
+        236117,
+        375736
+      ],
+      "236252": [
+        236252,
+        375737
+      ],
+      "236404": [
+        236404,
+        375738
+      ],
+      "236409": [
+        236409,
+        375739,
+        375740
+      ],
+      "236609": [
+        236609,
+        375741,
+        375742
+      ],
+      "236610": [
+        236610,
+        375743
+      ]
+    }
+  },
+  "treatment": {
+    "snapshot": "whatif-greendale",
+    "headline": "Through movement diverts",
+    "qualityFlags": [
+      "CORRIDOR_CONFIDENCE_LOW"
+    ],
+    "removedLinkIds": [
+      234872
+    ],
+    "removedArcIds": [
+      455717,
+      455718
+    ],
+    "boundaryNodes": [
+      215061,
+      217297
+    ],
+    "selectedSegmentLengthM": 675.2687902429254,
+    "principal": {
+      "status": "OK",
+      "resolved": true,
+      "intactDistanceM": 675.2687902429254,
+      "replacementDistanceM": 4915.5332100612995,
+      "networkPenaltyM": 4240.264419818374,
+      "ratio": 7.27937271955506,
+      "arcIds": [
+        455716,
+        447192,
+        447190,
+        454638,
+        454636,
+        454098,
+        454096,
+        454094,
+        454092,
+        454090,
+        731417,
+        731309,
+        452223,
+        455722,
+        455720
+      ],
+      "linkIds": [
+        234871,
+        230515,
+        230514,
+        234329,
+        234328,
+        234058,
+        234057,
+        234056,
+        234055,
+        234054,
+        375724,
+        232709,
+        233119,
+        234874,
+        234873
+      ],
+      "turnCheck": {
+        "ok": true,
+        "checked": true,
+        "applicableRestrictions": 1,
+        "violations": []
+      },
+      "topologyConfidence": "medium"
+    },
+    "isolation": {
+      "physicallyIsolates": false,
+      "closureIsBridge": false,
+      "topologyConfidence": "medium",
+      "topologyConfidenceReason": "no unresolved near miss lies near this closure. Capped at medium because the represented graph is inferred throughout: AMDS publishes no node identifiers, junctions are inferred, and there is no z-level field to distinguish an overbridge from a missed junction."
+    },
+    "replacementCount": 8
+  },
+  "crossingsUsedByCorrectedRoute": [
+    {
+      "key": [
+        232709,
+        234053
+      ],
+      "node": 338191
+    }
+  ]
+}
