@@ -541,3 +541,52 @@ public deployment or before this repository is made public**, and unexplained
 
 The branch history has **not** been rewritten again. Two force-pushes are
 enough, and nothing here justified a third.
+
+---
+
+## 9. May a 2.1.0 rebuild proceed?
+
+The gates that block a national rebuild are now in this state:
+
+| | |
+| --- | --- |
+| credential item closed | **yes** — pages carry no key, CI guards it, rotation deferred on accepted risk and recorded as mandatory before public deployment |
+| first review labelled development data | **yes** — section 6, and it is not re-scored |
+| fresh holdout passes | **yes** on the hard condition: **0** confirmed grade-separated false positives, lower bound 92.8% / 95.5% |
+| double-review complete | **yes**, with its limits stated: kappa 0.847, intra-rater, upper bound |
+| mixed places safely handled | **yes** — withdrawn under every policy, invariant asserted in code and ingest |
+| possible-route provenance | see gate 8 |
+| mandatory tests pass | see the CI run recorded on the PR |
+
+### The recommendation
+
+**A 2.1.0 rebuild may proceed on the AT_GRADE noding, and should not also
+adopt the current GRADE_SEPARATED rules without a further look.**
+
+The reasoning, separated so it can be argued with:
+
+- **The gate's hard condition is met and it is met on evidence that was not
+  used to build the classifier.** That is the thing the first pack could not
+  give, and it is why this is a different answer from last time rather than
+  the same answer said louder.
+- **The residual AT_GRADE error is bounded and is not the dangerous kind.**
+  Three misses in 196, all of them one road recorded twice. They fabricate a
+  turn from a road onto itself. That is a defect worth fixing and it is not
+  the "confident wrong answer" failure — no invented motorway movement, and
+  the mixed-place refusal and `audit_no_invented_movements()` still stand
+  between the classifier and that outcome.
+- **`MOTORWAY_CARRIAGEWAY` at 2 of 8 is the real open problem**, and it is an
+  argument for *more* connectivity, not less: it severs real urban junctions.
+  Shipping it unchanged preserves today's behaviour in those places rather
+  than making anything worse, which is why it does not block the rebuild — but
+  it should not be described as validated, because it is not.
+- **The measurement is a floor.** The pack over-weights the hard cells, so the
+  true national AT_GRADE precision is very likely better than 92.8%. It is
+  quoted as a bound and not dressed up as an estimate.
+
+### What must not happen next
+
+Do not fix `MOTORWAY_CARRIAGEWAY` or widen `DUPLICATE_GEOMETRY` against this
+holdout and then re-score it. That is precisely how the 208-card pack stopped
+being evidence. A third pack, drawn independently of both, is the price of
+changing the classifier again.
