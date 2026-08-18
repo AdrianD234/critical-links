@@ -39,3 +39,7 @@ venv/
 /test-results/
 /tests/e2e/.output/
 /playwright-report/
+
+# Review sheets embed the LINZ Basemaps API key in every tile URL.
+# Generate them locally with scratch/review_sheets.py; never commit them.
+scratch/review/

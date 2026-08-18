@@ -45,6 +45,11 @@ def context_of(r: dict) -> crossings.CrossingContext:
         motorway_links_near=int(r["motorway_links_300m"]),
         ramp_links_near=int(r["ramp_links_300m"]),
         same_source_feature=r["group_a"] == r["group_b"],
+        structure_dist_m=(None if r["struct_dist_m"] is None
+                          else float(r["struct_dist_m"])),
+        structure_align_deg=(None if r["struct_align_deg"] is None
+                             else float(r["struct_align_deg"])),
+        structure_kind=r["struct_kind"],
     )
 
 
@@ -116,6 +121,11 @@ def main() -> int:
                     "rampLinks300m": int(r["ramp_links_300m"]),
                     "vdistA": round(float(r["vdist_a"]), 4),
                     "vdistB": round(float(r["vdist_b"]), 4),
+                    "structDistM": (None if r["struct_dist_m"] is None
+                                    else round(float(r["struct_dist_m"]), 1)),
+                    "structAlignDeg": (None if r["struct_align_deg"] is None
+                                       else round(float(r["struct_align_deg"]), 1)),
+                    "structKind": r["struct_kind"],
                 }) + "\n")
         summary = {
             "snapshot": SNAP,

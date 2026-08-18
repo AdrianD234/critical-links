@@ -49,6 +49,16 @@ pairs. See `docs/audits/at-grade-crossings/evidence.md`.
                      Connector, Railway-Yard Track, Railway-Crossover.
                      `Connector` is useful: it marks ramps and link roads.
 
+  Topo50 bridges     THE BEST AVAILABLE, and the only AUTHORITATIVE evidence
+  and tunnels        of a structure anywhere in reach. LINZ layer-50244 and
+                     layer-50366, 18,007 centrelines nationally. Fires on 599
+                     crossings (4.6%). It CONFIRMS a structure; its absence
+                     confirms nothing, because Topo50 is 1:50k cartography and
+                     a short urban overbridge is generalised away. Measured
+                     against grade-separation candidates on the SH1 Southern
+                     Motorway it recovers about 45%, so it is never read as
+                     evidence of an at-grade crossing.
+
   height limits      STRONG, RARE. A height restriction on a link means
                      something passes over it. 115 crossing pairs nationally.
 
@@ -74,6 +84,43 @@ pairs. See `docs/audits/at-grade-crossings/evidence.md`.
                      vertex on both lines, and the proved Darfield case has a
                      vertex on neither (1.51 m and 0.10 m away). It does not
                      separate the classes.
+
+Measured precision, and what changed because of it
+---------------------------------------------------
+81 crossings were drawn as a disproportionate stratified sample - every
+deciding rule, including the rare ones - and judged against LINZ aerial
+photography with both centrelines drawn on it. Verdicts, screenshots and
+intervals are in `docs/audits/at-grade-crossings/`.
+
+    AT_GRADE            35/35 = 100% [90-100], one further case unclear
+    GRADE_SEPARATED     17/23 =  74% [54- 87]
+    UNRESOLVED          16/16 = 100% [81-100], four further cases unclear
+
+The AT_GRADE figure is the one that governs the graph, because AT_GRADE is the
+only disposition that creates a node. It was measured on the rules as they
+stand and NONE of those rules was changed afterwards, so it describes what
+actually ships.
+
+Three GRADE_SEPARATED rules were changed, and every change moves crossings to
+UNRESOLVED - which cannot make the graph wrong, only more cautious, because
+GRADE_SEPARATED and UNRESOLVED leave the crossing disconnected either way. The
+whole difference between them is confidence.
+
+    RAMP_CONTEXT    0/3   demoted to UNRESOLVED. "A ramp within 300 m" is true
+                          of ordinary signalised corners all over Auckland.
+    HEIGHT_LIMIT    2/3   demoted to UNRESOLVED, on a reason rather than on
+                          three samples: AMDS publishes startMeasure and
+                          endMeasure with each restriction and the ingest keeps
+                          neither, so a height limit cannot be placed on the
+                          link it belongs to.
+    NAMED_STRUCTURE 1/2   kept, with "roundabout" now vetoing the match. NZTA
+                          names at-grade rural roundabouts "... Interchange 45
+                          Roundabout".
+
+MOTORWAY_CARRIAGEWAY measured 4/5 excluding one unclear case. Its single
+failure was SH76 Brougham Street crossing Opawa Road, a signalised at-grade
+intersection on a one-way-coded urban arterial. It is kept, and that is the
+weakest surviving GRADE_SEPARATED rule.
 
 Everything here is a pure function of source-link attributes and geometry, so
 it can run inside the ingest, before any graph exists, and be tested without a
@@ -108,6 +155,14 @@ JUNCTION_WITNESS_M = 1.0
 #: Motorway / ramp context is looked for within this radius.
 STRUCTURE_CONTEXT_M = 300.0
 
+#: A LINZ Topo50 bridge or tunnel centreline this close to the crossing, and
+#: this closely aligned with one of the two roads, means that road is on a
+#: structure. Both halves are load-bearing: within 15 m nationally there are
+#: 1,056 structures, but only 599 line up with a road - the other 420 cross
+#: both roads, which is what a river bridge beside a junction looks like.
+STRUCTURE_MATCH_M = 15.0
+STRUCTURE_ALIGN_DEG = 20.0
+
 #: `modelAssetType` values. Only 1 and 6 matter here.
 MAT_ROADWAY = 1
 MAT_CONNECTOR = 6
@@ -120,6 +175,13 @@ ONEWAY_BOTH = 2
 _STRUCTURE_WORDS = ("interchange", "overbridge", "over bridge", "flyover",
                     "fly over", "underpass", "viaduct", "off ramp", "on ramp",
                     "offramp", "onramp")
+
+#: ...except that "interchange" is also how NZTA names AT-GRADE roundabouts on
+#: rural state highways. "State Highway 5 Interchange 45 Roundabout" is a
+#: roundabout, and the manual review caught the classifier calling it a
+#: structure. A name that says roundabout is describing an at-grade junction,
+#: whatever else it says.
+_NOT_A_STRUCTURE_WORDS = ("roundabout",)
 
 
 @dataclass(frozen=True)
@@ -149,6 +211,13 @@ class CrossingContext:
     #: crossing itself. A different question, and not one this answers.
     same_source_feature: bool = False
 
+    #: Metres to the nearest LINZ Topo50 bridge or tunnel centreline, and the
+    #: angle between that centreline and whichever of the two roads it lines up
+    #: with better. `None` when no structure layer was loaded.
+    structure_dist_m: float | None = None
+    structure_align_deg: float | None = None
+    structure_kind: str | None = None
+
 
 @dataclass
 class Classification:
@@ -169,6 +238,8 @@ def _named_structure(name: str | None) -> bool:
     if not name:
         return False
     low = name.casefold()
+    if any(w in low for w in _NOT_A_STRUCTURE_WORDS):
+        return False
     return any(w in low for w in _STRUCTURE_WORDS)
 
 
@@ -206,18 +277,26 @@ def classify(ctx: CrossingContext) -> Classification:
             f"junction. Noding it would fabricate a turn.", ev)
 
     # --- positive evidence of a structure ---------------------------------
-    if _has_height_limit(flags_a) or _has_height_limit(flags_b):
-        ev.append("HEIGHT_LIMIT")
+    if (ctx.structure_dist_m is not None
+            and ctx.structure_dist_m <= STRUCTURE_MATCH_M
+            and ctx.structure_align_deg is not None
+            and ctx.structure_align_deg <= STRUCTURE_ALIGN_DEG):
+        ev.append("STRUCTURE_MAPPED")
         return Classification(
-            GRADE_SEPARATED, "HEIGHT_LIMIT",
-            "A height restriction is recorded on one of these links. A height "
-            "limit exists because something passes over it.", ev)
+            GRADE_SEPARATED, "STRUCTURE_MAPPED",
+            f"LINZ Topo50 maps a {ctx.structure_kind or 'structure'} centreline "
+            f"{ctx.structure_dist_m:.0f} m away, running within "
+            f"{ctx.structure_align_deg:.0f} degrees of one of these two roads. "
+            f"That road is on a structure here. Alignment is required: a "
+            f"centreline that crosses BOTH roads is a river bridge that happens "
+            f"to be nearby, and 420 of the 1,056 structures within "
+            f"{STRUCTURE_MATCH_M:.0f} m nationally are exactly that.", ev)
 
     if _named_structure(name_a) or _named_structure(name_b):
         ev.append("NAMED_STRUCTURE")
         return Classification(
             GRADE_SEPARATED, "NAMED_STRUCTURE",
-            "One of these roads is named as a structure or an interchange.", ev)
+            "One of these roads is named as a structure or a ramp.", ev)
 
     if ramp_a or ramp_b:
         ev.append("RAMP")
@@ -245,13 +324,29 @@ def classify(ctx: CrossingContext) -> Classification:
             "state highway' - an ordinary two-way state highway is not "
             "treated as separated by this.", ev)
 
+    if _has_height_limit(flags_a) or _has_height_limit(flags_b):
+        ev.append("HEIGHT_LIMIT")
+        return Classification(
+            UNRESOLVED, "HEIGHT_LIMIT",
+            "A height restriction is recorded on one of these links, which "
+            "usually means something passes over it - but the ingest stores "
+            "the restriction against the WHOLE source link, discarding the "
+            "startMeasure and endMeasure AMDS publishes with it. So the limit "
+            "may belong to a structure somewhere else on the same road. "
+            "Reviewed at 2 of 3 in the manual sample, and one of those failures "
+            "was exactly this: a rail overbridge on Railway Road being read as "
+            "a structure at a plain T-junction 400 m away.", ev)
+
     if ctx.ramp_links_near > 0:
         ev.append("RAMP_CONTEXT")
         return Classification(
-            GRADE_SEPARATED, "RAMP_CONTEXT",
+            UNRESOLVED, "RAMP_CONTEXT",
             f"{ctx.ramp_links_near} ramp link(s) lie within "
-            f"{STRUCTURE_CONTEXT_M:.0f} m. This crossing is inside an "
-            f"interchange.", ev)
+            f"{STRUCTURE_CONTEXT_M:.0f} m. In a city that is true of ordinary "
+            f"signalised corners near a motorway, and the manual review found "
+            f"it 0 correct out of 3 - Wakefield x Symonds, Khyber Pass x "
+            f"Nugent and a suburban cul-de-sac were all called structures and "
+            f"all meet at grade. Proximity to a ramp is not a structure.", ev)
 
     if ctx.motorway_links_near > 0:
         ev.append("MOTORWAY_CONTEXT")
