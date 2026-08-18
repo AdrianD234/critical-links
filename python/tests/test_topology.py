@@ -18,6 +18,27 @@ def src(amds_id: str, coords, **attrs) -> SourceLink:
                       attrs=attrs)
 
 
+def split_research(sources, **kw):
+    """`split_at_junctions` with the REJECTED classifier policies unlocked.
+
+    Every test in this file and in test_crossings.py that measures what the
+    CLASSIFIER does to a graph is now a test of a research policy. Letting
+    `classify()` create canonical nodes was measured against the gate in
+    `nzcl.promotion` and rejected - 32 of 350 of its AT_GRADE crossings are
+    not junctions, and 11 of 25 sampled withdrawals are junctions it severed.
+    See docs/audits/at-grade-crossings/README.md sections 13 and 14.
+
+    So `split_at_junctions` refuses those policies unless the caller says it
+    means it. These tests are kept and still pass, because evidence that
+    rejected a strategy is only reproducible while the strategy still runs.
+    What changed is that reaching it takes a deliberate flag, and the
+    canonical default is now `evidence`, which cuts only where a reviewed,
+    evidence-backed override says a junction exists.
+    """
+    kw.setdefault("crossing_policy", "confirmed")
+    return split_at_junctions(sources, research=True, **kw)
+
+
 def components(links) -> int:
     """Count weakly connected components over the split links."""
     pairs, coords = assign_nodes(links)
@@ -52,29 +73,29 @@ class TestTJunction:
         assert len(coords) == 4  # no shared node
 
     def test_splits_the_through_road(self):
-        res = split_at_junctions(T_JUNCTION)
+        res = split_research(T_JUNCTION)
         assert res.parents_split == 1
         assert res.cuts_made == 1
         assert len(res.links) == 3  # two halves of THROUGH, plus SIDE
 
     def test_produces_one_connected_component(self):
-        res = split_at_junctions(T_JUNCTION)
+        res = split_research(T_JUNCTION)
         assert components(res.links) == 1
 
     def test_preserves_total_length_exactly(self):
-        res = split_at_junctions(T_JUNCTION)
+        res = split_research(T_JUNCTION)
         through = [l for l in res.links if l.closure_group_id == "THROUGH"]
         assert sum(l.length_m for l in through) == pytest.approx(200.0, abs=1e-9)
         assert sorted(l.length_m for l in through) == pytest.approx([100.0, 100.0])
 
     def test_keeps_both_halves_in_one_closure_group(self):
-        res = split_at_junctions(T_JUNCTION)
+        res = split_research(T_JUNCTION)
         through = [l for l in res.links if l.closure_group_id == "THROUGH"]
         assert len(through) == 2
         assert sorted(l.amds_id for l in through) == ["THROUGH#0", "THROUGH#1"]
 
     def test_reports_no_near_misses_for_an_exact_junction(self):
-        assert split_at_junctions(T_JUNCTION).near_misses == []
+        assert split_research(T_JUNCTION).near_misses == []
 
 
 class TestGradeSeparation:
@@ -86,13 +107,13 @@ class TestGradeSeparation:
     ]
 
     def test_makes_no_cut(self):
-        res = split_at_junctions(self.X)
+        res = split_research(self.X)
         assert res.cuts_made == 0
         assert res.parents_split == 0
         assert len(res.links) == 2
 
     def test_leaves_them_unconnected(self):
-        res = split_at_junctions(self.X)
+        res = split_research(self.X)
         assert components(res.links) == 2
         _, coords = assign_nodes(res.links)
         assert len(coords) == 4  # a crossing node would give five
@@ -100,7 +121,7 @@ class TestGradeSeparation:
 
 class TestInterchange:
     def test_ramp_cuts_the_motorway_but_an_overbridge_does_not(self):
-        res = split_at_junctions([
+        res = split_research([
             src("MOTORWAY", [(0, 0), (1000, 0)]),
             src("RAMP", [(400, 0), (500, 120)]),
             src("OVERBRIDGE", [(800, -60), (800, 60)]),
@@ -120,21 +141,21 @@ class TestNearMisses:
     ]
 
     def test_does_not_join_an_endpoint_one_metre_away(self):
-        res = split_at_junctions(self.GAP)
+        res = split_research(self.GAP)
         assert res.cuts_made == 0
         assert components(res.links) == 2
         assert len(res.near_misses) > 0
         assert res.near_misses[0].distance_m == pytest.approx(1.0, abs=1e-6)
 
     def test_joins_it_when_the_tolerance_is_widened_deliberately(self):
-        res = split_at_junctions(self.GAP, split_tolerance_m=1.5)
+        res = split_research(self.GAP, split_tolerance_m=1.5)
         assert res.cuts_made == 1
         assert components(res.links) == 1
 
 
 class TestMultipleJunctions:
     def test_cuts_once_per_distinct_junction(self):
-        res = split_at_junctions([
+        res = split_research([
             src("MAIN", [(0, 0), (300, 0)]),
             src("S1", [(100, 0), (100, 50)]),
             src("S2", [(200, 0), (200, 50)]),
@@ -145,7 +166,7 @@ class TestMultipleJunctions:
         assert [p.length_m for p in pieces] == pytest.approx([100.0, 100.0, 100.0])
 
     def test_does_not_cut_twice_at_the_same_point(self):
-        res = split_at_junctions([
+        res = split_research([
             src("MAIN", [(0, 0), (300, 0)]),
             src("S1", [(150, 0), (150, 50)]),
             src("S2", [(150, 0), (150, -50)]),
@@ -156,7 +177,7 @@ class TestMultipleJunctions:
 
 class TestJunctionAtExistingVertex:
     def test_splits_at_an_interior_vertex_without_duplicating_it(self):
-        res = split_at_junctions([
+        res = split_research([
             src("MAIN", [(0, 0), (100, 0), (200, 0)]),
             src("SIDE", [(100, 0), (100, 80)]),
         ])
@@ -166,7 +187,7 @@ class TestJunctionAtExistingVertex:
         assert components(res.links) == 1
 
     def test_no_cut_when_roads_meet_end_to_end(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (100, 0)]),
             src("B", [(100, 0), (200, 0)]),
         ])
@@ -176,7 +197,7 @@ class TestJunctionAtExistingVertex:
 
 class TestNodeAssignment:
     def test_shares_a_node_between_links_meeting_end_to_end(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (100, 0)]),
             src("B", [(100, 0), (200, 0)]),
         ])
@@ -185,7 +206,7 @@ class TestNodeAssignment:
         assert pairs[0][1] == pairs[1][0]
 
     def test_absorbs_sub_millimetre_float_noise(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (100, 0)]),
             src("B", [(100.000001, 0), (200, 0)]),
         ])
@@ -209,7 +230,7 @@ class TestGridBoundarySnapping:
         b = 1000.0101
         assert abs(b - a) < 0.001
         assert int(a // 0.01) != int(b // 0.01)  # different cells
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (a, 0)]),
             src("B", [(b, 0), (2000, 0)]),
         ])
@@ -218,7 +239,7 @@ class TestGridBoundarySnapping:
         assert components(res.links) == 1
 
     def test_still_refuses_to_merge_endpoints_beyond_the_tolerance(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (100, 0)]),
             src("B", [(100.5, 0), (200, 0)]),
         ])
@@ -227,7 +248,7 @@ class TestGridBoundarySnapping:
         assert components(res.links) == 2
 
     def test_picks_the_nearest_candidate_when_several_are_in_range(self):
-        res = split_at_junctions([
+        res = split_research([
             src("A", [(0, 0), (100, 0)]),
             src("B", [(100.004, 0), (200, 0)]),
             src("C", [(100.008, 0), (300, 0)]),

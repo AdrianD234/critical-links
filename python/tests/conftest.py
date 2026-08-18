@@ -47,8 +47,10 @@ def _migrated():
 def synthetic() -> Callable[..., SyntheticNetwork]:
     created: list[str] = []
 
-    def build(spec, restrictions=()) -> SyntheticNetwork:
-        net = load_synthetic(spec, restrictions)
+    def build(spec, restrictions=(), **kw) -> SyntheticNetwork:
+        # `**kw` reaches `crossing_policy`, which is what lets a test build the
+        # POSSIBLE graph the provenance module exists to describe.
+        net = load_synthetic(spec, restrictions, **kw)
         created.append(net.snapshot_id)
         return net
 
