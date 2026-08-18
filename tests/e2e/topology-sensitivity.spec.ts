@@ -108,7 +108,11 @@ test.describe('Topology sensitivity', () => {
       });
     });
 
-    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'segment' }));
+    /* Default scope: V1 renders the headline this waits on, and V1 does not
+     * support segment scope. Switching engine resets the scenario to the V2
+     * default anyway, so forcing a V2-only scope in the URL only breaks the
+     * V1 render that has to happen first. */
+    await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
     await selectV2Engine(page);
 
@@ -173,7 +177,7 @@ test.describe('Topology sensitivity', () => {
       });
     });
 
-    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'segment' }));
+    await page.goto(exploreUrl(twoWayLink.amdsId));
     await waitForResult(page);
     await selectV2Engine(page);
 
