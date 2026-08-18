@@ -152,6 +152,28 @@ def linz_key() -> str:
     raise SystemExit("no VITE_LINZ_API_KEY in .env")
 
 
+def write_key_sidecar(outdir: Path) -> None:
+    """Put the API key in a sidecar the pages load at runtime.
+
+    The pages themselves must contain NO key. The previous generators baked it
+    into every tile URL, and those pages were committed twice and purged by
+    force-push twice - and a force-push does not remove a blob from the remote,
+    it only makes it unreachable. The fix is not to be more careful; it is for
+    the artefact to have nothing in it to leak.
+
+    So the tile URL is emitted without a query string, and `_TILE_JS` appends
+    the key at load time from this sidecar. Commit a page by accident now and
+    it discloses nothing.
+    """
+    (outdir / "linz-key.js").write_text(
+        f'window.LINZ_API_KEY = "{linz_key()}";\n', encoding="utf-8")
+    (outdir / ".gitignore").write_text(
+        "# Belt and braces: this whole directory is ignored by the repo root\n"
+        "# .gitignore already. This file means the key sidecar stays ignored\n"
+        "# even if the pack is generated somewhere else.\n"
+        "*\n", encoding="utf-8")
+
+
 def load_rows() -> list[dict]:
     src = AUDIT / "classified.jsonl"
     if not src.exists():
@@ -363,13 +385,13 @@ def build(outdir: Path, per_page: int = 9) -> int:
         " WHERE snapshot_id=%s AND link_id = ANY(%s)", (SNAP, ids))}
 
     outdir.mkdir(parents=True, exist_ok=True)
-    key = linz_key()
+    write_key_sidecar(outdir)
     pages = [sample[i:i + per_page] for i in range(0, len(sample), per_page)]
     for pi, page in enumerate(pages, 1):
         html = [_HEAD.replace("{PAGE}", f"{pi} of {len(pages)}")]
         for r in page:
-            html.append(_card(r, geo, key))
-        html.append("</div></body>")
+            html.append(_card(r, geo))
+        html.append("</div>" + _TILE_JS + "</body>")
         (outdir / f"holdout-page-{pi:02d}.html").write_text(
             "\n".join(html), encoding="utf-8")
 
@@ -416,22 +438,27 @@ def _report_spread(sample: list[dict]) -> None:
                                       key=lambda kv: (kv[0] is None, kv[0]))))
 
 
-def _card(r: dict, geo: dict, key: str) -> str:
-    from pyproj import Transformer
-    t = Transformer.from_crs(2193, 4326, always_xy=True)
-    lon, lat = t.transform(r["x"], r["y"])
-    cx, cy = lonlat_to_px(lon, lat, ZOOM)
-    left, top = cx - CARD / 2, cy - CARD / 2
-
+def _tiles(left: float, top: float) -> list[str]:
+    """Tile <img> tags with NO key in them. See `write_key_sidecar`."""
     tiles = []
     tx0, ty0 = int(left // TILE), int(top // TILE)
     tx1, ty1 = int((left + CARD) // TILE), int((top + CARD) // TILE)
     for tx in range(tx0, tx1 + 1):
         for ty in range(ty0, ty1 + 1):
             tiles.append(
-                f'<img class="t" src="https://basemaps.linz.govt.nz/v1/tiles/'
-                f'aerial/WebMercatorQuad/{ZOOM}/{tx}/{ty}.webp?api={key}" '
+                f'<img class="t" data-tile="https://basemaps.linz.govt.nz/v1/'
+                f'tiles/aerial/WebMercatorQuad/{ZOOM}/{tx}/{ty}.webp" '
                 f'style="left:{tx*TILE-left:.1f}px;top:{ty*TILE-top:.1f}px">')
+    return tiles
+
+
+def _card(r: dict, geo: dict, key: str | None = None) -> str:
+    from pyproj import Transformer
+    t = Transformer.from_crs(2193, 4326, always_xy=True)
+    lon, lat = t.transform(r["x"], r["y"])
+    cx, cy = lonlat_to_px(lon, lat, ZOOM)
+    left, top = cx - CARD / 2, cy - CARD / 2
+    tiles = _tiles(left, top)
 
     def path(link_id: int) -> str:
         g = geo.get(link_id)
@@ -476,11 +503,38 @@ _HEAD = """<meta charset="utf-8"><title>holdout crossing review {PAGE}</title>
  code{color:#9fb2c8}
  .n{color:#8ea3ba}
 </style>
+<script src="linz-key.js"></script>
 <body><h1>HOLDOUT &mdash; BLINDED &mdash; page {PAGE} &mdash;
  <span style="color:#ff3b6b">link A</span> /
  <span style="color:#22d3ee">link B</span>, crossing in yellow.
  Verdict: at grade / grade separated / not a junction / unclear</h1>
 <div class="g">
+"""
+
+#: Appended to every page. The key never appears in the page source; it is
+#: read from the gitignored sidecar at load time and attached to each tile
+#: request here. If the sidecar is missing the page renders black tiles and
+#: says so, rather than silently showing an empty grid that a reviewer might
+#: mistake for "no imagery available" and code as unclear.
+_TILE_JS = """
+<script>
+(function () {
+  var key = window.LINZ_API_KEY;
+  if (!key) {
+    document.title = "NO LINZ KEY - tiles will not load";
+    var w = document.createElement("h1");
+    w.style.color = "#ff3b6b";
+    w.textContent = "linz-key.js is missing. Regenerate the pack; do not "
+      + "review these cards, the imagery is absent rather than unclear.";
+    document.body.insertBefore(w, document.body.firstChild);
+    return;
+  }
+  var imgs = document.querySelectorAll("img.t[data-tile]");
+  for (var i = 0; i < imgs.length; i++) {
+    imgs[i].src = imgs[i].dataset.tile + "?api=" + encodeURIComponent(key);
+  }
+})();
+</script>
 """
 
 
@@ -662,13 +716,13 @@ def recode(outdir: Path, n: int, per_page: int = 9) -> int:
         "SELECT link_id, ST_AsGeoJSON(geom_4326, 7) AS gj FROM links "
         " WHERE snapshot_id=%s AND link_id = ANY(%s)", (SNAP, ids))}
 
-    linz = linz_key()
+    write_key_sidecar(outdir)
     pages = [chosen[i:i + per_page] for i in range(0, len(chosen), per_page)]
     for pi, page in enumerate(pages, 1):
         html = [_HEAD.replace("{PAGE}", f"R{pi} of {len(pages)}")]
         for c in page:
-            html.append(_card_anon(c, geo, linz))
-        html.append("</div></body>")
+            html.append(_card_anon(c, geo))
+        html.append("</div>" + _TILE_JS + "</body>")
         (outdir / f"recode-page-{pi:02d}.html").write_text(
             "\n".join(html), encoding="utf-8")
 
@@ -680,21 +734,13 @@ def recode(outdir: Path, n: int, per_page: int = 9) -> int:
     return 0
 
 
-def _card_anon(real: dict, geo: dict, key: str) -> str:
+def _card_anon(real: dict, geo: dict, key: str | None = None) -> str:
     from pyproj import Transformer
     t = Transformer.from_crs(2193, 4326, always_xy=True)
     lon, lat = t.transform(real["x"], real["y"])
     cx, cy = lonlat_to_px(lon, lat, ZOOM)
     left, top = cx - CARD / 2, cy - CARD / 2
-    tiles = []
-    tx0, ty0 = int(left // TILE), int(top // TILE)
-    tx1, ty1 = int((left + CARD) // TILE), int((top + CARD) // TILE)
-    for tx in range(tx0, tx1 + 1):
-        for ty in range(ty0, ty1 + 1):
-            tiles.append(
-                f'<img class="t" src="https://basemaps.linz.govt.nz/v1/tiles/'
-                f'aerial/WebMercatorQuad/{ZOOM}/{tx}/{ty}.webp?api={key}" '
-                f'style="left:{tx*TILE-left:.1f}px;top:{ty*TILE-top:.1f}px">')
+    tiles = _tiles(left, top)
 
     def path(link_id: int) -> str:
         g = geo.get(link_id)
@@ -809,11 +855,11 @@ def zoom(outdir: Path, codes: list[str], z: int = 20, size: int = 720) -> int:
         " WHERE snapshot_id=%s AND link_id = ANY(%s)", (SNAP, ids))}
 
     ZOOM, CARD = z, size
-    linz = linz_key()
+    write_key_sidecar(outdir)
     html = [_HEAD.replace("{PAGE}", f"zoom z{z}")]
     for c in want:
-        html.append(_card(c, geo, linz))
-    html.append("</div></body>")
+        html.append(_card(c, geo))
+    html.append("</div>" + _TILE_JS + "</body>")
     name = f"zoom-{'-'.join(codes)[:60]}.html"
     (outdir / name).write_text("\n".join(html), encoding="utf-8")
     print(f"wrote {outdir / name} ({len(want)} cards at z{z}, {size}px)")

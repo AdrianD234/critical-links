@@ -45,9 +45,9 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Callable, Sequence
 
-from . import db, routegeom, turns
+from . import db, provenance as provenance_mod, routegeom, turns
 from .movements import Movement, MovementSet
 from .routegeom import RouteGeometry
 from .routing import Metric, Profile, Status, route_many_paths
@@ -115,6 +115,16 @@ class ReplacementPath:
     quality_flags: list[str] = field(default_factory=list)
     runtime_ms: int = 0
 
+    #: Which unresolved crossings this route drove through, when it was found
+    #: on a POSSIBLE graph. See `nzcl.provenance`.
+    #:
+    #: None for every canonical-graph route, and that is the default so nothing
+    #: about an ordinary answer changes: the question was not asked, which is a
+    #: different fact from "asked and the answer was none". Never set by hand -
+    #: `provenance.annotate` sets it together with the quality flag, so a
+    #: caveat cannot exist without the evidence for it.
+    possible_provenance: dict | None = None
+
     @property
     def resolved(self) -> bool:
         return self.status not in UNRESOLVED_STATUSES
@@ -167,6 +177,7 @@ def compute(
     statement_timeout_ms: int = 20_000,
     with_geometry: bool = False,
     topology_confidence: str = "high",
+    provenance_lookup: "Callable[[Sequence[int]], object] | None" = None,
 ) -> ReplacementSet:
     """Replacement paths for every INCLUDED movement, from one edge-set load.
 
@@ -174,6 +185,12 @@ def compute(
     against `removed_arc_ids` rather than assumed equal, because "a closure
     removes an arc outside the declared closure" is a stop condition and an
     assertion inside the engine is cheaper than finding it in a shadow sample.
+
+    `provenance_lookup` is supplied ONLY when the snapshot is a POSSIBLE graph -
+    see `nzcl.provenance.lookup_for`. Absent, every path's `possible_provenance`
+    stays None and canonical answers are untouched. It is a parameter rather
+    than a snapshot inspection because this module has no business deciding
+    which graph it is routing on; whoever chose the snapshot already knows.
     """
     t0 = time.perf_counter()
     snap = movement_set.snapshot_id
@@ -253,7 +270,8 @@ def compute(
     for m in included:
         p, gms = _one(snap, m, routed, removed, arc_meta,
                       selected_segment_length_m, with_geometry,
-                      topology_confidence, profile, restrictions)
+                      topology_confidence, profile, restrictions,
+                      provenance_lookup)
         geometry_ms += gms
         paths.append(p)
 
@@ -301,7 +319,8 @@ def compute(
 def _one(snap: str, m: Movement, routed, removed: frozenset[int],
          arc_meta: dict[int, dict], segment_length_m: float,
          with_geometry: bool, confidence: str, profile: Profile,
-         restrictions: list[list[int]]) -> tuple[ReplacementPath, int]:
+         restrictions: list[list[int]],
+         provenance_lookup=None) -> tuple[ReplacementPath, int]:
     t0 = time.perf_counter()
     p = ReplacementPath(
         movement_id=m.movement_id, entry_port_id=m.entry_port_id,
@@ -382,6 +401,13 @@ def _one(snap: str, m: Movement, routed, removed: frozenset[int],
         p.quality_flags.append("CLOSURE_NOT_NECESSARY_EQUAL_COST_ALTERNATIVE")
     if m.confidence != "high":
         p.quality_flags.append(f"MOVEMENT_CONFIDENCE_{m.confidence.upper()}")
+
+    # --- what this route assumed about topology ----------------------------
+    # Only asked on a POSSIBLE graph, and asked per path rather than per set:
+    # two movements around the same closure can take different roads, and one
+    # of them relying on an unresolved crossing says nothing about the other.
+    if provenance_lookup is not None:
+        provenance_mod.annotate(p, provenance_lookup(p.link_ids))
 
     # --- banned manoeuvres -------------------------------------------------
     # The multi-target search runs on the plain arc graph, which knows nothing
@@ -480,6 +506,11 @@ def path_dict(p: ReplacementPath) -> dict:
         "qualityFlags": p.quality_flags,
         "runtimeMs": p.runtime_ms,
     }
+    # Omitted entirely on a canonical route rather than emitted as null. A key
+    # that is simply absent cannot be read as "the possible graph was consulted
+    # and found nothing", which is what a null here would come to mean.
+    if p.possible_provenance is not None:
+        d["possibleProvenance"] = p.possible_provenance
     if p.geometry is not None:
         d["route"] = routegeom.as_dict(p.geometry)
     return d
