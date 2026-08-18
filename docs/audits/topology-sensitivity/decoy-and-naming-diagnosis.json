@@ -13,7 +13,7 @@
     "answer": "It failed EVERY evidence source on distance. 1,685.9 m against a 600 m closure radius, 654.0 m against a 250 m corridor radius, and outside the circuit hull. It was NOT excluded by the noded filter, by safe_to_node, by ranking or by truncation - the search was not truncated.",
     "isTheExclusionDefensible": "The relevance rule is: a candidate must lie on the canonical corridor, near the closure or its ports, or inside the circuit the detour encloses. The decoy fails all three, and the audit independently establishes that connecting it alone leaves the route unchanged at 7,944.4 m - so the selector excluded a genuinely non-material crossing. The rule is defensible AS A RULE.",
     "butTheAcceptanceIsStillIncomplete": "decoyIsMaterial=false remains VACUOUS. The requirement is that the decoy be tested as non-material or defensibly excluded by a stated rule that is itself TESTED. The rule is now stated and measured; it is not yet covered by a test that would fail if the rule changed, and the decoy has not been pushed through the counterfactual machinery to demonstrate non-materiality directly.",
-    "status": "RULE STATED AND MEASURED. TEST OUTSTANDING."
+    "status": "RULE STATED, MEASURED, AND NOW TESTED. The decoy has also been forced through the counterfactual machinery and measured non-material."
   },
   "gap2_theNamesDidNotResolve": {
     "question": "Why did the headline read 'unnamed road x unnamed road'?",
@@ -23,15 +23,57 @@
       "mclaughlinsRoadGroup": "{96bc74b0-...}",
       "greendaleRoadGroup": "{4a6995c0-...}",
       "display_name": null,
-      "external_name": ["Clintons Road", "McLaughlins Road", "Greendale Road"],
+      "external_name": [
+        "Clintons Road",
+        "McLaughlins Road",
+        "Greendale Road"
+      ],
       "name_status": "externally_enriched",
       "name_source": "linz_road_sections",
       "match_confidence": "HIGH",
-      "match_score": [0.8923, 0.8984, 0.8966]
+      "match_score": [
+        0.8923,
+        0.8984,
+        0.8966
+      ]
     },
     "whyWithheld": "`link_display_names` - the governed canonical naming layer - applies a LICENCE GATE: an externally matched name is withheld from display until `display_cleared` is set for its source. linz_road_sections is not cleared on this snapshot, so the view returns display_name NULL and sets withheld_name_source.",
     "fixApplied": "candidates.find now joins link_display_names rather than link_names, and distinguishes THREE states instead of two: named, genuinely unnamed, and named-but-withheld. A withheld road is labelled '(name withheld: linz_road_sections not cleared for display)' rather than 'unnamed road', because telling a user a road has no name when the system knows one and may not show it is a different and worse statement.",
     "whatThisMeansForTheAcceptance": "The requirement that the final sentence name 'Clintons Road x McLaughlins Road' CANNOT be met by an engineering change. It requires clearing the linz_road_sections licence for display, which is a governance decision. Reading link_names directly would bypass a deliberate control to make a sentence read better, and that is not a fix.",
-    "status": "DECISION NEEDED - licence clearance for linz_road_sections display, or the sentence names a withheld road."
+    "status": "RESOLVED - it was a query bug in candidates.find, not a licence gate.",
+    "RETRACTED": "See CORRECTION above. This entry is kept rather than deleted so the wrong diagnosis stays visible alongside its correction."
+  },
+  "CORRECTION": {
+    "what": "The gap2 entry below was WRONG and is retracted. It claimed linz_road_sections was uncleared and that naming Clintons Road needed a governance decision.",
+    "theActualState": {
+      "name_source_licences": {
+        "linz_road_sections": {
+          "display_cleared": true,
+          "licence": "CC BY 4.0",
+          "reviewed_at_utc": "2026-08-18"
+        },
+        "amds_routename": {
+          "display_cleared": true
+        },
+        "nzta_street_names": {
+          "display_cleared": false
+        },
+        "nzta_ramm_carriageway": {
+          "display_cleared": false
+        }
+      },
+      "link_display_names": {
+        "232708": "Clintons Road",
+        "232709": "Clintons Road",
+        "234053": "McLaughlins Road",
+        "234872": "Greendale Road",
+        "234875": "Greendale Road"
+      },
+      "withheld_name_source": null
+    },
+    "myError": "I read the VIEW DEFINITION, saw a licence gate in its CASE expression, and concluded the gate was closed without querying name_source_licences. Then I diagnosed from a stale link_names query rather than re-running against the governed view - on top of a fix that was already correct. link_names.display_name holds only the higher tier and is not the governed answer.",
+    "lesson": "Check the gate STATE, not the gate MECHANISM.",
+    "confirmed": "The acceptance headline now reads 'Clintons Road x McLaughlins Road'.",
+    "whatSurvives": "The three-state naming distinction is right and kept - nzta_street_names and nzta_ramm_carriageway genuinely are uncleared. Six tests pin the layer in both directions."
   }
 }

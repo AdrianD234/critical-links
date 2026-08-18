@@ -284,3 +284,127 @@ class TestTheAssumptionIsNamedInTheOutput:
         assert cf["whatChanged"]
         assert out["headline"].startswith("Topology-sensitive.")
         assert out["candidateSearch"]["bySource"]["corridor"] == 1
+
+
+class TestAnUntestedCandidateIsNeverReportedAsNonMaterial:
+    """The fail-closed bug, from every angle.
+
+    `_crossing_links` returning None used to make the runner return the
+    canonical answer, so the candidate came out individuallyChangesAnswer
+    False and was reported non-material - having never been assumed and never
+    routed. Three outcomes must stay distinguishable:
+
+        tested and unchanged                 -> genuinely non-material
+        excluded by a tested relevance rule  -> explicitly excluded
+        could not be represented or run      -> UNTESTED, never False
+    """
+
+    def _wire_missing(self, monkeypatch, missing_side):
+        state, analyse_fn, pin_fn = wire(monkeypatch,
+                                         candidates=[cand(1), cand(2)])
+
+        def _links(sid, c):
+            if c.crossing_id == 1:
+                return (None, 11) if missing_side == "a" else (10, None)
+            return (c.crossing_id * 10, c.crossing_id * 10 + 1)
+
+        monkeypatch.setattr(sensitivityrun, "_crossing_links", _links)
+        return state, analyse_fn, pin_fn
+
+    def test_both_links_found_runs_normally(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["analysisComplete"] is True
+        assert out["untestedCrossingIds"] == []
+        assert out["counterfactuals"][0]["tested"] is True
+
+    @pytest.mark.parametrize("side", ["a", "b"])
+    def test_a_missing_source_link_is_untested_not_no_effect(self, monkeypatch,
+                                                             side):
+        state, analyse_fn, pin_fn = self._wire_missing(monkeypatch, side)
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert 1 in out["untestedCrossingIds"]
+        assert 1 not in out["materialCrossingIds"]
+        cf = [c for c in out["counterfactuals"] if c["assumedJunctionCrossingIds"] == [1]][0]
+        assert cf["tested"] is False
+        # The critical assertion: it must NOT read as a tested negative.
+        assert cf["individuallyChangesAnswer"] is not False
+        assert cf["individuallyChangesAnswer"] is None
+
+    @pytest.mark.parametrize("side", ["a", "b"])
+    def test_the_reason_names_which_side_was_missing(self, monkeypatch, side):
+        state, analyse_fn, pin_fn = self._wire_missing(monkeypatch, side)
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        cf = [c for c in out["counterfactuals"] if c["assumedJunctionCrossingIds"] == [1]][0]
+        want = "source A" if side == "a" else "source B"
+        assert want in cf["untestedReason"]
+        d = cf["untestedDetail"]
+        assert d["crossingId"] == 1 and d["boundedSnapshotId"]
+        assert d["sourceA"] and d["sourceB"] and "x" in d
+
+    def test_the_analysis_is_marked_partial(self, monkeypatch):
+        state, analyse_fn, pin_fn = self._wire_missing(monkeypatch, "a")
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["analysisComplete"] is False
+        assert out["analysisPartial"] is True
+        assert "not non-material" in out["ifPartial"].lower()
+
+    def test_the_other_candidates_are_still_tested(self, monkeypatch):
+        """One unrepresentable candidate must not cost the whole analysis."""
+        state, analyse_fn, pin_fn = self._wire_missing(monkeypatch, "a")
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        other = [c for c in out["counterfactuals"]
+                 if c["assumedJunctionCrossingIds"] == [2]][0]
+        assert other["tested"] is True
+
+    def test_every_transient_copy_is_still_dropped(self, monkeypatch):
+        """The failing path must not leak a snapshot."""
+        state, analyse_fn, pin_fn = self._wire_missing(monkeypatch, "a")
+        sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                           pin_fn=pin_fn)
+        assert set(state["copies"]) <= set(state["dropped"])
+        assert "cf-nb" in state["dropped"]
+
+    def test_a_candidate_the_extraction_omitted_is_untested(self, monkeypatch):
+        """Both sides missing - the bounded copy simply does not hold it."""
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        monkeypatch.setattr(sensitivityrun, "_crossing_links",
+                            lambda sid, c: (None, None))
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["untestedCrossingIds"] == [1]
+        assert out["materialCrossingIds"] == []
+        assert out["analysisComplete"] is False
+
+    def test_untested_does_not_make_the_answer_look_robust(self, monkeypatch):
+        """topologySensitive False with an untested candidate is not a
+        statement that the answer is robust."""
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        monkeypatch.setattr(sensitivityrun, "_crossing_links",
+                            lambda sid, c: (None, None))
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        assert out["topologySensitive"] is False
+        assert out["analysisComplete"] is False, (
+            "a False sensitivity verdict alongside an untested candidate must "
+            "be qualified, or it reads as robust")
+
+
+class TestATestedUnchangedCandidateIsGenuinelyNonMaterial:
+    """The other side of the same distinction - the Greendale decoy case."""
+
+    def test_it_is_tested_and_not_material(self, monkeypatch):
+        state, analyse_fn, pin_fn = wire(monkeypatch, candidates=[cand(1)])
+        out = sensitivityrun.run("snap", 234872, analyse_fn=analyse_fn,
+                                 pin_fn=pin_fn).as_dict()
+        cf = out["counterfactuals"][0]
+        assert cf["tested"] is True
+        assert cf["individuallyChangesAnswer"] is False
+        assert out["materialCrossingIds"] == []
+        assert out["untestedCrossingIds"] == []
+        assert out["analysisComplete"] is True

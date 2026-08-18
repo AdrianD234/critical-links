@@ -107,6 +107,7 @@ class SensitivityRun:
         out = sensitivity.as_dict(self.sensitivity)
         out.update({
             "available": True,
+            "analysisPartial": self.sensitivity.partial,
             "candidateSearch": self.search.as_dict(),
             "canonicalPin": self.canonical_pin.as_dict(),
             "validation": self.validation.as_dict() if self.validation else None,
@@ -224,8 +225,11 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
                     c = next(x for x in search.candidates
                              if x.crossing_id == cid)
                     a, b = _crossing_links(sid, c)
-                    if a is None or b is None:
-                        return canonical_answer   # nothing to assume
+                    missing = ([] if a is not None else ["source A"]) +                               ([] if b is not None else ["source B"])
+                    if missing:
+                        # NOT `return canonical_answer`. See
+                        # CandidateMaterialisationError.
+                        raise CandidateMaterialisationError(c, sid, missing)
                     edits.append(whatif.CrossingEdit(a, b, c.x, c.y))
                 whatif.node_crossings(sid, edits)
                 got = pin_fn(analyse_fn(sid, link_id,
@@ -251,6 +255,36 @@ def run(snapshot_id: str, link_id: int, *, analyse_fn, pin_fn,
 
     return SensitivityRun(s, search, timing, canonical_pin,
                           validation=validation, extraction=ex)
+
+
+class CandidateMaterialisationError(sensitivity.Untestable):
+    """A candidate crossing could not be turned into an edit on the copy.
+
+    Raised instead of returning the canonical answer. Returning it would make
+    the crossing come out `individuallyChangesAnswer: False` and be reported
+    non-material - on no evidence, because nothing was assumed and nothing was
+    routed. An untested thing must never surface as a tested negative.
+
+    Every cause is real: the bounded extraction omitted one of the two source
+    features, a feature split differently in the copy, a stale crossing to
+    source mapping, a failed local geometry lookup, or a candidate catalogue
+    that does not match the snapshot. The detail says which side was missing
+    so it can be told which.
+    """
+
+    def __init__(self, candidate, snapshot_id, missing) -> None:
+        detail = {
+            "crossingId": candidate.crossing_id,
+            "sourceA": candidate.source_a,
+            "sourceB": candidate.source_b,
+            "x": candidate.x, "y": candidate.y,
+            "boundedSnapshotId": snapshot_id,
+            "missingSourceLinks": list(missing),
+        }
+        super().__init__(
+            f"crossing {candidate.crossing_id} could not be materialised on "
+            f"{snapshot_id}: no link found for {', '.join(missing)}. NOT "
+            f"tested, and NOT non-material.", detail)
 
 
 class _Cancelled(Exception):

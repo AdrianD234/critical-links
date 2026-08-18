@@ -141,6 +141,28 @@ class Answer:
         return out
 
 
+class Untestable(Exception):
+    """A Runner could not test this assumption at all.
+
+    Raised INSTEAD of returning an answer. The distinction it protects is the
+    one this project keeps having to relearn: an untested thing must never
+    surface as a tested negative. If a candidate cannot be materialised - the
+    bounded copy omitted a source feature, a feature split differently, a
+    catalogue does not match the snapshot - then returning the canonical
+    answer would make `individually_changes_answer` come out False and the
+    crossing would be reported non-material on no evidence whatever.
+
+    Same shape as a promotion gate that tested one condition and reported
+    four, and as a copy missing physical_access where absent read identically
+    to measured-and-zero.
+    """
+
+    def __init__(self, reason: str, detail: dict | None = None) -> None:
+        self.reason = reason
+        self.detail = detail or {}
+        super().__init__(reason)
+
+
 #: Given a set of crossing ids to ASSUME are junctions, what is the answer?
 #: The empty set must return the canonical answer.
 Runner = Callable[[frozenset[int]], Answer]
@@ -172,6 +194,13 @@ class Counterfactual:
     #: nothing. Here that shows up as `individually_changes_answer` being
     #: False, which is exactly right.
     equivalent_alternatives: tuple[int, ...] = ()
+    #: The assumption could not be RUN. Not an answer, and never a
+    #: negative: `individually_changes_answer` is False here because
+    #: nothing was measured, which is a different fact and is reported as
+    #: one.
+    untested: bool = False
+    untested_reason: str = ""
+    untested_detail: dict = field(default_factory=dict)
 
     @property
     def unique_explanation(self) -> bool:
@@ -181,6 +210,10 @@ class Counterfactual:
         """
         return (self.individually_changes_answer
                 and not self.equivalent_alternatives)
+
+    @property
+    def tested(self) -> bool:
+        return not self.untested
 
     @property
     def is_counterfactual(self) -> bool:
@@ -198,6 +231,17 @@ class Sensitivity:
     counterfactuals: list[Counterfactual] = field(default_factory=list)
     runs: int = 0
     truncated: bool = False
+
+    @property
+    def untested(self) -> list[Counterfactual]:
+        """Candidates that could not be run. NOT non-material."""
+        return [c for c in self.counterfactuals if c.untested]
+
+    @property
+    def partial(self) -> bool:
+        """At least one candidate could not be tested, so 'nothing else
+        changes this answer' is not a claim this analysis can make."""
+        return bool(self.untested)
 
     @property
     def material(self) -> list[Counterfactual]:
@@ -257,7 +301,18 @@ def analyse(candidates: Sequence[Candidate], run: Runner, *,
 
     singles: list[Counterfactual] = []
     for cand in tested:
-        answer = run(frozenset({cand.crossing_id}))
+        try:
+            answer = run(frozenset({cand.crossing_id}))
+        except Untestable as e:
+            # NOT an answer. Recorded as untested so it cannot be read as
+            # "assumed, and it made no difference".
+            out.runs += 1
+            singles.append(Counterfactual(
+                assumed=(cand.crossing_id,), answer=canonical,
+                individually_changes_answer=False,
+                untested=True, untested_reason=e.reason,
+                untested_detail=dict(e.detail)))
+            continue
         out.runs += 1
         differs = answer.differs_from(canonical)
         singles.append(Counterfactual(
@@ -269,7 +324,8 @@ def analyse(candidates: Sequence[Candidate], run: Runner, *,
     # then a sufficient explanation on its own, and they are recorded as
     # alternatives to one another. Nothing is demoted by this - see the note
     # on `Counterfactual.equivalent_alternatives`.
-    changed_singles = [c for c in singles if c.individually_changes_answer]
+    changed_singles = [c for c in singles
+                       if c.individually_changes_answer and c.tested]
     for c in changed_singles:
         others = tuple(sorted(
             o.assumed[0] for o in changed_singles
@@ -287,7 +343,11 @@ def analyse(candidates: Sequence[Candidate], run: Runner, *,
                 out.truncated = True
                 break
             assumed = frozenset({a.crossing_id, b.crossing_id})
-            answer = run(assumed)
+            try:
+                answer = run(assumed)
+            except Untestable:
+                out.runs += 1
+                continue
             out.runs += 1
             if answer.differs_from(canonical):
                 out.counterfactuals.append(Counterfactual(
@@ -355,7 +415,11 @@ def as_dict(s: Sensitivity) -> dict:
                 "isBridge": c.answer.is_bridge,
                 "isolatedLinkCount": c.answer.isolated_link_count,
                 # THREE distinct facts, not one collapsed into a verdict.
-                "individuallyChangesAnswer": c.individually_changes_answer,
+                "tested": c.tested,
+                "untestedReason": c.untested_reason or None,
+                "untestedDetail": dict(c.untested_detail) or None,
+                "individuallyChangesAnswer": (
+                    c.individually_changes_answer if c.tested else None),
                 "uniqueExplanation": c.unique_explanation,
                 "equivalentAlternativeExplanations":
                     list(c.equivalent_alternatives),
@@ -373,11 +437,20 @@ def as_dict(s: Sensitivity) -> dict:
             {cid for c in s.material for cid in c.assumed}),
         "uniqueExplanationCrossingIds": sorted(
             {cid for c in s.unique_explanations for cid in c.assumed}),
+        "analysisComplete": not s.partial,
+        "untestedCrossingIds": sorted(
+            {cid for c in s.untested for cid in c.assumed}),
         "candidatesConsidered": len(s.candidates),
         "counterfactualRuns": s.runs,
         "truncated": s.truncated,
         "headline": headline(s),
         "graph": "canonical",
+        "ifPartial": (
+            "analysisComplete false means at least one candidate could NOT be "
+            "tested. Those crossings are listed in untestedCrossingIds and are "
+            "NOT non-material - nothing was measured about them. A partial "
+            "analysis cannot support the claim that nothing else changes this "
+            "answer."),
         "why": (
             "Every figure under counterfactuals assumes one or two unresolved "
             "crossings are junctions, and is NOT the answer. The answer is "
