@@ -121,6 +121,68 @@ class TestAmbiguityIsReportedNotGuessed:
         assert not r.ambiguous
         assert r.ambiguity_reason is None
 
+
+#: A crossroads. Four links meet at (100, 100) and a click there snaps to the
+#: identical coordinate on every one of them.
+CROSSROADS = [
+    {"id": "EW", "pts": [(0, 100), (200, 100)], "road_name": "Church Street"},
+    {"id": "NS", "pts": [(100, 0), (100, 200)], "road_name": "Queen Street"},
+]
+
+
+class TestEquivalentHostsSurviveTheSnap:
+    """Same place is not the same road, and the difference decides a corridor."""
+
+    def test_a_crossroads_click_keeps_every_host(self, synthetic):
+        net = synthetic(CROSSROADS)
+        r = snap.snap(net.snapshot_id, 100.0, 100.0)
+
+        assert r.found
+        assert r.equivalent, "the rival hosts were collapsed away"
+        # Every equivalent really is at the same coordinate.
+        for c in r.equivalent:
+            assert abs(c.x - r.chosen.x) < 1e-6
+            assert abs(c.y - r.chosen.y) < 1e-6
+
+    def test_both_roads_are_offered_as_hosts(self, synthetic):
+        """Church Street and Queen Street both pass through the point. Which
+        one the handle is on decides which road the outage runs along, so the
+        choice must not be made here by a floating-point margin."""
+        net = synthetic(CROSSROADS)
+        r = snap.snap(net.snapshot_id, 100.0, 100.0)
+
+        names = {c.road_name for c in ([r.chosen] + r.equivalent)}
+        assert names == {"Church Street", "Queen Street"}
+        assert len(r.host_link_ids) >= 2
+
+    def test_it_is_not_reported_as_ambiguous(self, synthetic):
+        """There is nothing to ask: the point is the point."""
+        net = synthetic(CROSSROADS)
+        r = snap.snap(net.snapshot_id, 100.0, 100.0)
+
+        assert not r.ambiguous
+        assert r.alternatives == []
+
+    def test_a_click_along_one_arm_has_a_single_host(self, synthetic):
+        """Away from the junction there is no equivalence to preserve."""
+        net = synthetic(CROSSROADS)
+        r = snap.snap(net.snapshot_id, 40.0, 100.0)
+
+        assert r.chosen.road_name == "Church Street"
+        assert r.equivalent == []
+        assert r.host_link_ids == [r.chosen.link_id]
+
+    def test_parallel_carriageways_are_alternatives_not_equivalents(
+            self, synthetic):
+        """The two partitions must not be confused: these land 20 m apart, so
+        they are a question for the user rather than joint hosts."""
+        net = synthetic(DIVIDED)
+        r = snap.snap(net.snapshot_id, 10.0, 150.0)
+
+        assert r.alternatives
+        assert r.equivalent == []
+        assert r.ambiguous
+
     def test_parallel_carriageways_are_ambiguous(self, synthetic):
         """A click midway between two carriageways is genuinely two answers."""
         net = synthetic(DIVIDED)

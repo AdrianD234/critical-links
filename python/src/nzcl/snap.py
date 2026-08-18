@@ -36,10 +36,36 @@ interface can ask instead of silently closing the wrong carriageway.
 The test for ambiguity is deliberately NOT "two candidates have similar
 offsets". Near a junction every click has several near-equidistant candidates -
 the links that meet there - but they all snap to the SAME PLACE, so which one
-hosts the handle does not change what the user sees or what gets closed. What
-matters is two candidates that are equally plausible and land somewhere
+hosts the handle does not change what the user SEES. What matters for
+interrupting is two candidates that are equally plausible and land somewhere
 DIFFERENT. That is the divided-carriageway case, and it is the only one worth
-interrupting for.
+asking about.
+
+TWO KINDS OF RIVAL, AND ONLY ONE IS A QUESTION
+----------------------------------------------
+"Same place" settles where the handle is drawn. It does NOT settle which road
+the handle is ON, and those come apart at a crossroads:
+
+                        road B
+                          |
+        road A -----------+-----------
+                          |
+
+A click at the junction snaps to the identical coordinate on both roads. There
+is nothing to ask the user - the point is the point - but the corridor that
+grows from it depends entirely on whether the handle is held to be on A or on
+B. Collapsing to the nearest link here would silently decide the outage's road
+by a floating-point margin.
+
+So the result keeps them apart:
+
+    chosen        the best candidate, and where the handle is drawn
+    equivalent    candidates at the SAME coordinate on DIFFERENT links.
+                  Not a question for the user; every one of them is a
+                  legitimate host and corridor selection must consider all
+                  of them before committing to a road.
+    alternatives  candidates at a DIFFERENT coordinate. These are what
+                  `ambiguous` is computed from.
 
 STABILITY
 ---------
@@ -146,6 +172,13 @@ class SnapResult:
     chosen: SnapCandidate | None
     candidates: list[SnapCandidate]
 
+    #: Same coordinate, different link. Every one is a legitimate host for this
+    #: handle and corridor selection must consider them all - see the module
+    #: docstring's crossroads. Never a question for the user.
+    equivalent: list[SnapCandidate]
+    #: Different coordinate. These are what `ambiguous` is computed from.
+    alternatives: list[SnapCandidate]
+
     #: True when a rival is equally plausible AND lands somewhere else.
     ambiguous: bool
     ambiguity_reason: str | None = None
@@ -153,6 +186,20 @@ class SnapResult:
     @property
     def found(self) -> bool:
         return self.chosen is not None
+
+    @property
+    def host_link_ids(self) -> list[int]:
+        """Every link this handle could legitimately be held to sit on.
+
+        Corridor selection reads this rather than `chosen.link_id`. At a
+        crossroads the chosen link is one of several occupying the same point,
+        and picking it by a floating-point margin would decide which road the
+        outage is on before any evidence about the corridor was considered.
+        """
+        if self.chosen is None:
+            return []
+        return sorted({self.chosen.link_id}
+                      | {c.link_id for c in self.equivalent})
 
 
 def handle_key(amds_id: str, distance_along_m: float) -> str:
@@ -232,7 +279,8 @@ def snap(
 
     candidates = [_candidate(r) for r in rows][:limit]
     chosen = candidates[0] if candidates else None
-    ambiguous, reason = _ambiguity(candidates)
+    equivalent, alternatives = _partition(candidates)
+    ambiguous, reason = _ambiguity(chosen, alternatives)
 
     return SnapResult(
         snapshot_id=snapshot_id,
@@ -242,6 +290,8 @@ def snap(
         profile=profile,
         chosen=chosen,
         candidates=candidates,
+        equivalent=equivalent,
+        alternatives=alternatives,
         ambiguous=ambiguous,
         ambiguity_reason=reason,
     )
@@ -328,39 +378,61 @@ def _candidate(row: dict) -> SnapCandidate:
     )
 
 
-def _ambiguity(candidates: Sequence[SnapCandidate]) -> tuple[bool, str | None]:
-    """Is the best candidate a real choice, or the only sensible reading?
+def _separation(a: SnapCandidate, b: SnapCandidate) -> float:
+    """Distance between two snapped points, in metres."""
+    return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2) ** 0.5
 
-    Both conditions must hold, and the second is the one that stops junctions
-    being reported as ambiguous:
 
-      - a rival is within `AMBIGUITY_TOLERANCE_M` of the best offset, so the
-        click cannot separate them; and
-      - that rival snaps more than `COINCIDENT_TOLERANCE_M` away, so choosing
-        wrongly puts the handle somewhere the user did not point.
+def _partition(candidates: Sequence[SnapCandidate]
+               ) -> tuple[list[SnapCandidate], list[SnapCandidate]]:
+    """Split the rivals into same-place and elsewhere.
+
+    Same-place rivals are alternative HOSTS for one handle - a crossroads,
+    where several links legitimately occupy the point that was clicked. They
+    are not a question for the user, but they must survive to corridor
+    selection, because which of them the handle belongs to decides which road
+    the outage runs along.
     """
-    if len(candidates) < 2:
-        return False, None
+    if not candidates:
+        return [], []
     best = candidates[0]
+    equivalent, alternatives = [], []
     for rival in candidates[1:]:
+        if _separation(best, rival) <= COINCIDENT_TOLERANCE_M:
+            equivalent.append(rival)
+        else:
+            alternatives.append(rival)
+    return equivalent, alternatives
+
+
+def _ambiguity(best: SnapCandidate | None,
+               alternatives: Sequence[SnapCandidate]) -> tuple[bool, str | None]:
+    """Is the chosen POSITION a real choice, or the only sensible reading?
+
+    Only candidates that land somewhere else can make it one; rivals at the
+    same coordinate are handled as equivalent hosts instead. Of those, a rival
+    is a genuine question when it is within `AMBIGUITY_TOLERANCE_M` of the best
+    offset - close enough that the user's pointing cannot separate them.
+    """
+    if best is None:
+        return False, None
+    for rival in alternatives:
         if rival.offset_m - best.offset_m > AMBIGUITY_TOLERANCE_M:
-            break
-        separation = ((rival.x - best.x) ** 2 + (rival.y - best.y) ** 2) ** 0.5
-        if separation > COINCIDENT_TOLERANCE_M:
-            best_name = best.road_name or best.amds_id
-            rival_name = rival.road_name or rival.amds_id
-            same_name = (best.road_name is not None
-                         and best.road_name == rival.road_name)
-            detail = (
-                f"two carriageways of {best_name} are"
-                if same_name else
-                f"{best_name} and {rival_name} are"
-            )
-            return True, (
-                f"{detail} within {AMBIGUITY_TOLERANCE_M:.0f} m of this click "
-                f"but {separation:.0f} m apart. Choose which one the outage is "
-                f"on."
-            )
+            continue
+        separation = _separation(best, rival)
+        best_name = best.road_name or best.amds_id
+        rival_name = rival.road_name or rival.amds_id
+        same_name = (best.road_name is not None
+                     and best.road_name == rival.road_name)
+        detail = (
+            f"two carriageways of {best_name} are"
+            if same_name else
+            f"{best_name} and {rival_name} are"
+        )
+        return True, (
+            f"{detail} within {AMBIGUITY_TOLERANCE_M:.0f} m of this click "
+            f"but {separation:.0f} m apart. Choose which one the outage is on."
+        )
     return False, None
 
 
@@ -401,6 +473,12 @@ def as_dict(r: SnapResult) -> dict:
         "found": r.found,
         "handle": candidate_as_dict(r.chosen) if r.chosen else None,
         "candidates": [candidate_as_dict(c) for c in r.candidates],
+        # Same coordinate, different road identity. Carried so the client can
+        # hand them back with the corridor request rather than losing them.
+        "equivalentHosts": [candidate_as_dict(c) for c in r.equivalent],
+        "hostLinkIds": r.host_link_ids,
+        # Somewhere else. These are the ones a user may be asked about.
+        "alternatives": [candidate_as_dict(c) for c in r.alternatives],
         "ambiguous": r.ambiguous,
         "ambiguityReason": r.ambiguity_reason,
         "snapModelVersion": SNAP_MODEL_VERSION,
