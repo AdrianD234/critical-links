@@ -465,6 +465,8 @@ export default function ExploreScreen() {
         onScenarioChange={setScenario}
         scenarioOpen={scenarioOpen}
         onScenarioToggle={() => setScenarioOpen((o) => !o)}
+        direction={focus}
+        onDirectionChange={setFocus}
         onClear={clear}
         snapshotMismatch={snapshotMismatch}
         geometryWarning={geometryWarning}

@@ -127,6 +127,58 @@ test.describe('Explore', () => {
   });
 });
 
+test.describe('direction scope', () => {
+  /*
+   * A directed closure withdraws ONE direction of travel and has to name which.
+   *
+   * The direction tabs went away with the measure that needed them — they
+   * switched between two already-computed halves of an endpoint result, and
+   * this engine measures a crossing, where the other direction is a different
+   * crossing rather than the same one reversed. But `direction` scope still
+   * needs a control saying which traversal to withdraw, and without one a
+   * reader who selects that scope is stuck on whichever traversal the URL
+   * happened to carry.
+   */
+  test('offers a direction to withdraw, and only under that scope', async ({
+    page,
+    twoWayLink,
+  }) => {
+    await page.goto(exploreUrl(twoWayLink.amdsId));
+    await waitForResult(page);
+    await page.locator('.scenario-summary-btn').click();
+
+    /* Not under the default scope: a control that changes nothing implies a
+     * choice that matters. */
+    await expect(page.getByRole('group', { name: 'Direction' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Direction', exact: true }).click();
+    await waitForResult(page);
+
+    const group = page.getByRole('group', { name: 'Direction' });
+    await expect(group).toBeVisible();
+    await expect(group.getByRole('button', { name: 'Forward' })).toBeVisible();
+    await expect(group.getByRole('button', { name: 'Reverse' })).toBeVisible();
+  });
+
+  test('the chosen direction reaches the URL', async ({ page, twoWayLink }) => {
+    /* It is part of what was analysed, so a permalink that omitted it would
+     * restore a different closure from the one on screen. */
+    await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'direction' }));
+    await waitForResult(page);
+    await page.locator('.scenario-summary-btn').click();
+
+    await page
+      .getByRole('group', { name: 'Direction' })
+      .getByRole('button', { name: 'Forward' })
+      .click();
+    await waitForResult(page);
+
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('focus'))
+      .toBe('forward');
+  });
+});
+
 test.describe('links made before the promotion', () => {
   /*
    * The migration policy, in the browser.

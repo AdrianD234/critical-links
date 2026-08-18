@@ -42,6 +42,7 @@ import {
   scopeOfResponse,
   summariseScenario,
   type ClosureScope,
+  type DirectionKey,
   type Scenario,
 } from '../api/scenario.js';
 import type { LegacyMigration } from '../state/url.js';
@@ -78,6 +79,9 @@ export interface ClosureResultViewProps {
   onScenarioChange: (s: Scenario) => void;
   scenarioOpen: boolean;
   onScenarioToggle: () => void;
+  /** Which traversal `direction` scope withdraws. Ignored under other scopes. */
+  direction: DirectionKey;
+  onDirectionChange: (d: DirectionKey) => void;
   onClear: () => void;
   /** Set when the permalink names a snapshot other than the active one. */
   snapshotMismatch: { requested: string; active: string } | null;
@@ -102,6 +106,8 @@ export default function ClosureResultView({
   onScenarioChange,
   scenarioOpen,
   onScenarioToggle,
+  direction,
+  onDirectionChange,
   onClear,
   snapshotMismatch,
   geometryWarning,
@@ -254,6 +260,8 @@ export default function ClosureResultView({
           onChange={onScenarioChange}
           meta={meta}
           v2Capabilities={capabilities}
+          direction={direction}
+          onDirectionChange={onDirectionChange}
         />
       )}
 
