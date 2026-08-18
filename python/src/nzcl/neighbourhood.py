@@ -309,9 +309,17 @@ def extract_validated(src: str, link_id: int, *, canonical, answer_of,
         counts.append(ex.link_count)
         try:
             got = answer_of(ex.snapshot_id)
-            if got == canonical or (
-                    hasattr(got, "differs_from")
-                    and not got.differs_from(canonical)):
+            # `agrees_with` FIRST. An AnalysisPin carries surrogate ids that
+            # hash the snapshot into themselves, so dataclass equality can
+            # never hold across a copy - falling through to `==` made every
+            # neighbourhood fail validation on fields that are not identity.
+            if hasattr(got, "agrees_with"):
+                same = got.agrees_with(canonical)
+            elif hasattr(got, "differs_from"):
+                same = not got.differs_from(canonical)
+            else:
+                same = got == canonical
+            if same:
                 ex.validated = True
                 ex.notes.append(
                     f"reproduced the canonical answer at {radius:.0f} m")
