@@ -1,0 +1,52 @@
+{
+  "snapshot": "amds-national-2026-07-28-5b359d84",
+  "producedBy": "scratch/classify_national_v2.py",
+  "method": "source features reassembled from the links table, then crossings.detect + build_context + classify + demote_mixed_places - the same calls, in the same order, that topology.split_at_junctions makes",
+  "sourceFeatures": 272426,
+  "featuresThatDidNotMergeToOneLine": 0,
+  "crossingPoints": 22062,
+  "placesAt25m": 13422,
+  "byDispositionPoints": {
+    "GRADE_SEPARATED": 1010,
+    "UNRESOLVED": 16138,
+    "AT_GRADE": 4914
+  },
+  "byReasonPoints": {
+    "GRADE_SEPARATED/STRUCTURE_MAPPED": 1010,
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY": 452,
+    "UNRESOLVED/CONNECTOR": 35,
+    "UNRESOLVED/MIXED_PLACE": 946,
+    "UNRESOLVED/DUPLICATE_GEOMETRY": 9830,
+    "UNRESOLVED/TANGENTIAL": 404,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY": 3838,
+    "UNRESOLVED/MOTORWAY_CONTEXT": 441,
+    "UNRESOLVED/RAMP": 69,
+    "AT_GRADE/ORDINARY_CROSSROADS": 3897,
+    "AT_GRADE/JUNCTION_WITNESS": 1017,
+    "UNRESOLVED/RAMP_CONTEXT": 105,
+    "UNRESOLVED/HEIGHT_LIMIT": 15,
+    "UNRESOLVED/NAMED_ROAD_CLASS": 3
+  },
+  "byReasonBeforeMixedPlaceRule": {
+    "GRADE_SEPARATED/STRUCTURE_MAPPED": 1048,
+    "UNRESOLVED/MOTORWAY_CARRIAGEWAY": 455,
+    "UNRESOLVED/CONNECTOR": 35,
+    "UNRESOLVED/DUPLICATE_GEOMETRY": 10158,
+    "UNRESOLVED/TANGENTIAL": 429,
+    "UNRESOLVED/NO_EVIDENCE_EITHER_WAY": 4096,
+    "UNRESOLVED/MOTORWAY_CONTEXT": 441,
+    "UNRESOLVED/RAMP": 71,
+    "AT_GRADE/ORDINARY_CROSSROADS": 4039,
+    "AT_GRADE/JUNCTION_WITNESS": 1164,
+    "UNRESOLVED/RAMP_CONTEXT": 108,
+    "UNRESOLVED/HEIGHT_LIMIT": 15,
+    "UNRESOLVED/NAMED_ROAD_CLASS": 3
+  },
+  "mixedPlaceDemotions": 946,
+  "nodedByConfirmedPolicy": 4914,
+  "byDispositionPlaces": {
+    "GRADE_SEPARATED": 537,
+    "UNRESOLVED": 8056,
+    "AT_GRADE": 4829
+  }
+}
