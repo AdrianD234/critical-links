@@ -24,7 +24,30 @@
  * tests them honestly rather than weakening the claim.
  */
 
-import { exploreUrl, expect, test, watchConsole } from './fixtures.js';
+import { exploreUrl, expect, test, waitForResult, watchConsole } from './fixtures.js';
+
+/**
+ * Select the V2 engine.
+ *
+ * V1 is the default and stays the default - `useState<Engine>('v1')` in
+ * ExploreScreen - and the engine is component state, not a URL parameter.
+ * So navigating alone leaves V1 mounted and the V2 panel simply does not
+ * exist in the tree. An earlier version of this spec asserted on the panel
+ * without clicking, and failed for that reason rather than for a defect.
+ *
+ * The switch is dev-only by design, and Playwright's webServer runs `vite
+ * dev`, so it is present. Its ABSENCE is asserted rather than skipped: a
+ * spec that quietly skips when the control is missing would go green in
+ * exactly the situation it is meant to catch.
+ */
+async function selectV2Engine(page: import('@playwright/test').Page) {
+  const v2 = page.getByRole('button', { name: 'V2 closure analysis' });
+  await expect(
+    v2,
+    'the dev engine switch must be present - Playwright runs a vite dev server',
+  ).toHaveCount(1);
+  await v2.click();
+}
 
 const CAUSAL = 'Clintons Road x McLaughlins Road';
 
@@ -86,13 +109,18 @@ test.describe('Topology sensitivity', () => {
     });
 
     await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'segment' }));
+    await waitForResult(page);
+    await selectV2Engine(page);
 
+    /* Sensitivity is gated on the canonical boundary result having arrived -
+     * it is a qualification of that answer, so that answer is on screen
+     * first. */
     const panel = page.getByTestId('topology-sensitivity');
-    await expect(panel).toBeVisible({ timeout: 60_000 });
+    await expect(panel).toBeVisible({ timeout: 90_000 });
 
     const state = page.getByTestId('ts-state');
     await expect(state).toHaveAttribute('data-state', 'TOPOLOGY_SENSITIVE', {
-      timeout: 60_000,
+      timeout: 90_000,
     });
     await expect(state).toHaveText('Topology-sensitive');
 
@@ -146,9 +174,11 @@ test.describe('Topology sensitivity', () => {
     });
 
     await page.goto(exploreUrl(twoWayLink.amdsId, { scope: 'segment' }));
+    await waitForResult(page);
+    await selectV2Engine(page);
 
     const panel = page.getByTestId('topology-sensitivity');
-    await expect(panel).toBeVisible({ timeout: 60_000 });
+    await expect(panel).toBeVisible({ timeout: 90_000 });
 
     /* The stale payload must never be rendered, and the panel must not claim
      * a finding it does not have. */
