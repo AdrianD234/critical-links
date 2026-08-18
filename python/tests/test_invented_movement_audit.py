@@ -164,6 +164,22 @@ class TestALegitimateJunctionNearACrossing:
         assert found, "fixture no longer reproduces the suspected false positive"
         assert "50.000" in found[0], found[0]
 
+    def test_the_message_carries_the_distance_that_settles_it(self):
+        """The number that separates a real violation from this one.
+
+        A shared node at 0.000 m is an invented movement. This one is half a
+        metre away, and saying so in the line the ingest already writes is what
+        makes the national cohort triageable without a bespoke framework.
+        """
+        found = violations(NEARBY)
+
+        assert "0.500 m away" in found[0], found[0]
+
+    def test_a_real_violation_reports_zero_distance(self):
+        found = violations(EXACT)
+
+        assert "0.000 m away" in found[0], found[0]
+
 
 # ---------------------------------------------------------------------------
 # 3. An endpoint-on-interior T-junction close to an interior crossing.
@@ -244,25 +260,23 @@ class TestRowOrderDeterminism:
     def test_the_control_case_stays_clean_whatever_the_row_order(self, order):
         assert violations([THIRD_ROAD_NEAR[i] for i in order]) == []
 
-    def test_the_message_names_the_pair_in_row_order(self):
-        """A separate finding, and it matters for triage rather than for
-        correctness.
+    def test_the_message_is_identical_whatever_the_row_order(self):
+        """The pair is named in canonical order.
 
-        The same crossing is reported either way, so no graph is accepted or
-        refused differently. But the TEXT flips between "A x B" and "B x A"
-        depending on which source was read first, and the violation list is the
-        only record of the cohort. Deduplicating 387 messages into unique
-        physical places - which is the first thing anyone investigating them
-        does - cannot key on that string without collapsing or double-counting
-        depending on ingest order.
+        It used to flip between "A x B" and "B x A" according to which source
+        arrived first. The verdict never depended on that, so no graph was
+        accepted or refused differently - but the violation list is the only
+        record of the cohort, and deduplicating it into unique physical places
+        cannot key on a string that changes with ingest order.
         """
         forward = violations(EXACT)
         reversed_rows = violations([EXACT[1], EXACT[0], EXACT[2]])
 
-        assert _pairs(forward) == _pairs(reversed_rows)
-        assert forward != reversed_rows, (
-            "the message is no longer order-sensitive; this finding is fixed "
-            "and the test should become a plain equality assertion")
+        assert forward == reversed_rows
+
+    @pytest.mark.parametrize("order", ORDERS)
+    def test_the_message_is_stable_across_every_permutation(self, order):
+        assert violations([EXACT[i] for i in order]) == violations(EXACT)
 
 
 # ---------------------------------------------------------------------------

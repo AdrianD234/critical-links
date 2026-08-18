@@ -484,10 +484,35 @@ def audit_no_invented_movements(result: SplitResult,
                     if both:
                         reason = (x.classification.reason
                                   if x.classification else "?")
+                        # Canonical pair order. The VERDICT never depended on
+                        # row order, but the message did: the same crossing
+                        # read as "A x B" or "B x A" according to which source
+                        # arrived first. Nothing was accepted or refused
+                        # differently, so this is not a correctness fix - but
+                        # the violation list is the only record of the cohort,
+                        # and deduplicating it into unique physical places
+                        # cannot key on a string that flips with ingest order.
+                        first, second = sorted((x.amds_a, x.amds_b))
+                        # The node's POSITION and its distance from the
+                        # crossing, not its id. `node_id` is positional -
+                        # handed out in ingest order - so the same violation
+                        # read "shares node 0" or "shares node 1" depending on
+                        # which source arrived first, and `stableid.py` records
+                        # what keying on that costs.
+                        #
+                        # The distance is the number this line exists to carry.
+                        # Nodes merge at `node_tolerance_m`; this scan accepts
+                        # anything within a metre, a hundred times further. A
+                        # violation at 0.000 m is a real invented movement; one
+                        # at 0.5 m may be a legitimate junction near an
+                        # unrelated crossing. Printing it means the cohort can
+                        # be triaged from the log the ingest already writes.
+                        away = ((px - x.x) ** 2 + (py - x.y) ** 2) ** 0.5
                         violations.append(
-                            f"{x.amds_a} x {x.amds_b} at "
+                            f"{first} x {second} at "
                             f"({x.x:.3f}, {x.y:.3f}) was {x.disposition} "
-                            f"({reason}) but shares node {nid}")
+                            f"({reason}) but shares a node at "
+                            f"({px:.3f}, {py:.3f}), {away:.3f} m away")
     return violations
 
 
