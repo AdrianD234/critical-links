@@ -17,6 +17,7 @@ import maplibregl, { type Map as MLMap, type MapGeoJSONFeature } from 'maplibre-
 
 import { shortDisplayName } from '../naming.js';
 import type { MapLayerState } from '../shell/LayerRail.js';
+import { mapViewLayerVisibility } from '../state/mapView.js';
 import {
   LABEL_LAYERS,
   LYR,
@@ -274,6 +275,7 @@ export default function NetworkMap({
       const err = e as unknown as { error?: { message?: string }; sourceId?: string };
       const fromBasemap =
         err.sourceId === SRC.linz ||
+        err.sourceId === SRC.aerial ||
         /basemaps\.linz|fonts\/.*\.pbf/.test(err.error?.message ?? '');
 
       if (fromBasemap) {
@@ -555,22 +557,17 @@ export default function NetworkMap({
         map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
       }
     };
-    vis(LYR.networkLine, layersVisible.network);
-    /* Presentation mode, not a boolean. `analysis` shows the quiet context;
-     * `topo` adds LINZ streets and their names; `off` hides the lot. The
-     * analytical layers are untouched by any of it - this changes only what
-     * sits underneath them. */
-    const basemapOn = layersVisible.basemap !== 'off';
-    const topo = layersVisible.basemap === 'topo';
-    for (const id of [LYR.linzWater, LYR.linzLandcover, LYR.linzBuilding]) {
-      vis(id, basemapOn);
-    }
-    vis(LYR.linzRoad, topo);
-    vis(LYR.linzRoadLabel, topo && layersVisible.labels);
-    /* The closure label is exempt: it names the thing under analysis, and
-     * turning off basemap labels should not hide what the user selected. */
-    for (const id of [LYR.linzPlaceLabel, LYR.networkLabel]) {
-      vis(id, layersVisible.labels);
+    /* Presentation mode, not a boolean. The mode→layer table lives in
+     * state/mapView.ts where it is unit-tested; this effect only applies it.
+     * The analytical layers are untouched by any of it — the map view changes
+     * what sits underneath them, never them. The closure label is exempt from
+     * the label toggle for the same reason: it names the thing under
+     * analysis, and turning off basemap labels should not hide what the user
+     * selected. */
+    for (const [id, on] of Object.entries(
+      mapViewLayerVisibility(layersVisible),
+    )) {
+      vis(id, on);
     }
   }, [layersVisible, mapReady]);
 

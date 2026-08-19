@@ -63,6 +63,27 @@ function fullStyle(withLinz: boolean): any {
       maxzoom: 15,
       attribution: 'LINZ Basemaps — CC BY 4.0',
     };
+    style.sources[SRC.aerial] ??= {
+      type: 'raster',
+      tiles: [
+        'https://basemaps.linz.govt.nz/v1/tiles/aerial/WebMercatorQuad/{z}/{x}/{y}.webp?api=KEY',
+      ],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 22,
+      attribution: 'LINZ Basemaps — CC BY 4.0',
+    };
+    /* The photography, exactly as baseStyle shapes it: hidden by default and
+     * directly over the background, beneath everything else. */
+    if (!has(LYR.aerial)) {
+      style.layers.splice(1, 0, {
+        id: LYR.aerial,
+        type: 'raster',
+        source: SRC.aerial,
+        layout: { visibility: 'none' },
+        paint: { 'raster-saturation': -0.25 },
+      });
+    }
     for (const [id, sourceLayer, colour] of [
       [LYR.linzLandcover, 'landcover', '#1a2127'],
       [LYR.linzWater, 'water', '#0f1418'],
@@ -106,7 +127,10 @@ function fullStyle(withLinz: boolean): any {
   } else {
     delete style.glyphs;
     delete style.sources[SRC.linz];
-    style.layers = style.layers.filter((l: any) => l.source !== SRC.linz);
+    delete style.sources[SRC.aerial];
+    style.layers = style.layers.filter(
+      (l: any) => l.source !== SRC.linz && l.source !== SRC.aerial,
+    );
   }
 
   for (const id of [
@@ -256,6 +280,71 @@ describe('MapLibre style specification', () => {
     for (const l of names as any[]) {
       expect(l.layout?.visibility, `${l.id} must default to hidden`).toBe('none');
     }
+  });
+
+  it('hides the aerial photography by default, and keeps it beneath everything', () => {
+    /* The photography is the deepest thing on the map: over the graphite
+     * background, under the vector context, and under every analytical layer
+     * by construction — it lives in the base style, which MapLibre draws
+     * entirely beneath the layers added on load. No map view can put it above
+     * an AMDS link, the closure, or the route. */
+    const style = fullStyle(true);
+    const aerial = style.layers.filter((l: any) => l.type === 'raster');
+    expect(aerial.length).toBe(1);
+    expect(aerial[0].id).toBe(LYR.aerial);
+    expect(aerial[0].layout?.visibility).toBe('none');
+
+    const ids = style.layers.map((l: any) => l.id);
+    expect(ids.indexOf(LYR.aerial)).toBe(ids.indexOf(LYR.background) + 1);
+    for (const above of [
+      LYR.linzWater,
+      LYR.linzRoad,
+      LYR.networkLine,
+      LYR.networkHit,
+      LYR.routeFocus,
+      LYR.closureLine,
+    ]) {
+      expect(
+        ids.indexOf(above),
+        `${above} must draw over the photography`,
+      ).toBeGreaterThan(ids.indexOf(LYR.aerial));
+    }
+  });
+
+  it('keeps every analytical layer above every contextual one', () => {
+    /* Context is anything sourced from LINZ — vector or raster. Analysis is
+     * the network, its labels and every overlay. The draw order IS the
+     * contract; a regression here puts a street or a paddock over the answer. */
+    const style = fullStyle(true);
+    const ids = style.layers.map((l: any) => l.id);
+    const contextual = style.layers
+      .filter((l: any) => l.source === SRC.linz || l.source === SRC.aerial)
+      .filter((l: any) => l.id !== LYR.linzPlaceLabel)
+      .map((l: any) => l.id);
+    for (const analytical of [
+      LYR.networkLine,
+      LYR.networkHit,
+      LYR.stranded,
+      LYR.corridor,
+      LYR.routeCompare,
+      LYR.routeFocus,
+      LYR.closureHalo,
+      LYR.closureLine,
+      LYR.closureLabel,
+    ]) {
+      for (const context of contextual) {
+        expect(
+          ids.indexOf(analytical),
+          `${analytical} must draw above ${context}`,
+        ).toBeGreaterThan(ids.indexOf(context));
+      }
+    }
+    /* The one deliberate exception: LINZ place names sit with the label stack
+     * so a town name can still be read over a route, but the closure label is
+     * placed before them and wins collisions. */
+    expect(ids.indexOf(LYR.linzPlaceLabel)).toBeGreaterThan(
+      ids.indexOf(LYR.closureLabel),
+    );
   });
 
   it('animates only a layer whose source has lineMetrics', () => {

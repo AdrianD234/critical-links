@@ -63,6 +63,18 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
+  test('the open map-view selector has no violations', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /^map view/i }).click();
+    await expect(page.getByRole('radio', { name: 'Analysis' })).toBeVisible();
+
+    const results = await scan(page);
+    expect(
+      results.violations.map((v) => `${v.id}: ${v.help}`),
+      JSON.stringify(results.violations, null, 2),
+    ).toEqual([]);
+  });
+
   test('the About dialog has no violations', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: /about this analysis/i }).click();
