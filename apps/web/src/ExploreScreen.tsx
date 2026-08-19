@@ -28,7 +28,8 @@ import ContextInspector, {
 } from './shell/ContextInspector.js';
 import AppShell from './shell/AppShell.js';
 import BottomSheet, { type SheetStop, sheetHeight } from './shell/BottomSheet.js';
-import LayerRail, { BASEMAP_MODES, type MapLayerState } from './shell/LayerRail.js';
+import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
+import { loadMapView, storeMapView } from './state/mapView.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
 import type { Map as MapLibreMap } from 'maplibre-gl';
@@ -131,11 +132,15 @@ export default function ExploreScreen() {
   const [sheetPx, setSheetPx] = useState(() =>
     sheetHeight('medium', window.innerHeight),
   );
-  const [layers, setLayers] = useState<MapLayerState>({
+  const [layers, setLayers] = useState<MapLayerState>(() => ({
     network: true,
-    basemap: 'analysis',
+    /* The last chosen map view, restored from localStorage rather than the
+     * URL: it is presentation state, and a permalink records an analysis, not
+     * the ground it was drawn on. Anything invalid — or a stored Streets or
+     * Aerial on a keyless build — falls back to Analysis. */
+    basemap: loadMapView(hasLinzKey()),
     labels: true,
-  });
+  }));
   /*
    * Which closure method owns map clicks. A RUNTIME choice: the feature flag
    * decides whether Draw outage is AVAILABLE, never which method is active.
@@ -733,19 +738,14 @@ export default function ExploreScreen() {
         <LayerRail
           layers={layers}
           onToggle={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
-          onBasemapMode={() =>
-            setLayers((l) => ({
-              ...l,
-              /* analysis -> topo -> off -> analysis. A cycle rather than a
-               * menu: three states do not earn a popover, and the title
-               * always says which state is next. */
-              basemap:
-                BASEMAP_MODES[
-                  (BASEMAP_MODES.indexOf(l.basemap) + 1) % BASEMAP_MODES.length
-                ],
-            }))
-          }
-          basemapAvailable={hasLinzKey()}
+          onMapView={(mode) => {
+            setLayers((l) => ({ ...l, basemap: mode }));
+            /* Presentation state only, remembered across sessions. Never in
+             * the analytical permalink, never in the closure fingerprint, and
+             * never the cause of a request. */
+            storeMapView(mode);
+          }}
+          linzAvailable={hasLinzKey()}
           onAbout={() => setAboutOpen(true)}
           onHome={() => {
             /* Clearing the selection as well, so Home means "show me

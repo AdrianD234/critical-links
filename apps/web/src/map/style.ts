@@ -20,27 +20,39 @@ export function hasLinzKey(): boolean {
 }
 
 /**
- * LINZ serves the topographic basemap as **vector** tiles, and that is what
- * this app uses rather than the aerial raster.
+ * LINZ provides both halves of the map's context: the topographic basemap as
+ * **vector** tiles, and orthophotography as a **raster**. Which of them shows
+ * — or neither — is the user's map-view choice; everything here is styled so
+ * that whichever ground is under the analysis, the analysis wins.
  *
- * Aerial imagery is the wrong basemap for this product. Direction C is a dark,
- * quiet, low-chroma canvas whose entire purpose is to make the road network the
- * brightest thing on screen; full-colour photography is the opposite, and
- * desaturating it to fit just produces grey mud that still competes with the
- * routes for attention. Vector tiles can be styled to the design instead of
- * fought with.
+ * The vector tiles are the primary treatment. Direction C is a dark, quiet,
+ * low-chroma canvas whose purpose is to make the road network the brightest
+ * thing on screen, and vector tiles can be styled to that design. They also
+ * bring the glyph endpoint, which is what makes map labels possible at all —
+ * MapLibre cannot render a single character of text without one.
  *
- * It also brings a glyph endpoint, which is what makes map labels possible at
- * all — MapLibre cannot render a single character of text without one.
+ * The aerial raster exists because photography answers questions the vector
+ * context cannot — what the land around a closure actually is. It is held
+ * slightly back (saturation, brightness) so the analytical layers stay
+ * dominant, but only slightly: imagery ground down to grey mud competes with
+ * the routes anyway while no longer being legible as photography.
  *
- * Only a handful of LINZ's 273 layers are drawn: water, land cover and
- * buildings for context. Their `transportation` layer is deliberately NOT
- * drawn — the AMDS network is the subject of the analysis, and a second road
- * network underneath it would be both visual noise and a lie about what is
- * being measured.
+ * Only a handful of LINZ's 273 vector layers are drawn: water, land cover and
+ * buildings for context, plus streets and names in the Streets view. The AMDS
+ * network is the subject of the analysis; every LINZ layer is context under
+ * it, never clickable, never routed over.
  */
 const LINZ_TILES =
   'https://basemaps.linz.govt.nz/v1/tiles/topographic/WebMercatorQuad/{z}/{x}/{y}.pbf';
+
+/**
+ * Verified against the live service: WebMercatorQuad `.webp` tiles return
+ * 200 from z0 through z22, and the endpoint's own TileJSON names exactly this
+ * template. The template is key-free by construction — the key is appended at
+ * runtime by `linzUrl`, so no literal key can be committed here.
+ */
+export const AERIAL_TILES =
+  'https://basemaps.linz.govt.nz/v1/tiles/aerial/WebMercatorQuad/{z}/{x}/{y}.webp';
 
 /** LINZ serves only Open Sans Regular and Noto Sans Regular. */
 export const LABEL_FONT = ['Open Sans Regular'];
@@ -60,10 +72,12 @@ export const SRC = {
   stranded: 'stranded',
   closureLabel: 'closure-label-anchor',
   linz: 'linz',
+  aerial: 'linz-aerial',
 } as const;
 
 export const LYR = {
   background: 'background',
+  aerial: 'linz-aerial',
   linzWater: 'linz-water',
   linzLandcover: 'linz-landcover',
   linzBuilding: 'linz-building',
@@ -169,6 +183,41 @@ export function baseStyle(tiles: string): StyleSpecification {
     style.glyphs = linzUrl(
       'https://basemaps.linz.govt.nz/v1/fonts/{fontstack}/{range}.pbf',
     );
+
+    sources[SRC.aerial] = {
+      type: 'raster',
+      tiles: [linzUrl(AERIAL_TILES)],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 22,
+      attribution:
+        '<a href="https://www.linz.govt.nz/">LINZ</a> Basemaps — CC BY 4.0',
+    };
+
+    layers.push({
+      /*
+       * The AERIAL presentation: LINZ orthophotography.
+       *
+       * Hidden by default and shown only in Aerial map view. First after the
+       * background so every other layer — the vector context, the labels and
+       * all the analytical work added on load — draws over it by construction.
+       *
+       * The tuning is deliberately modest. Pulling saturation and the bright
+       * end down keeps white farmland from washing out the teal route and
+       * lets the red closure read over paddocks and forest alike, while the
+       * photography stays unmistakably photography. Anything stronger turns
+       * the imagery into grey mud that competes with the routes anyway.
+       */
+      id: LYR.aerial,
+      type: 'raster',
+      source: SRC.aerial,
+      layout: { visibility: 'none' },
+      paint: {
+        'raster-saturation': -0.25,
+        'raster-brightness-max': 0.82,
+        'raster-contrast': -0.05,
+      },
+    });
 
     /*
      * Context, in three quiet layers. Every colour here is darker than the

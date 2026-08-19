@@ -12,163 +12,16 @@
  */
 
 import { expect, exploreUrl, test, watchConsole } from './fixtures.js';
+import {
+  enterSpanMode,
+  mapReady,
+  placeSpan,
+  pointOnRoad,
+  spanLayerCount,
+  zoomToRoad,
+} from './map-helpers.js';
 
 const SPAN_ENABLED = process.env.VITE_ENABLE_OUTAGE_SPAN_EDITOR === '1';
-
-/** Wait for MapLibre to have a style and drawn network. */
-async function mapReady(page: import('@playwright/test').Page) {
-  await page.waitForFunction(
-    () => {
-      const map = (window as unknown as { __map?: maplibregl.Map }).__map;
-      return Boolean(map?.isStyleLoaded?.() && map.getLayer('network-line'));
-    },
-    undefined,
-    { timeout: 60_000 },
-  );
-}
-
-/**
- * Zoom to a road before clicking on one.
- *
- * At the national home extent one pixel covers hundreds of metres, so two
- * points eight kilometres apart project to about four pixels and a click
- * back-projects to somewhere no road is within the snap radius. The snap then
- * correctly reports finding nothing, and the test looks like a broken editor.
- *
- * A person zooms in to draw a span for exactly the same reason.
- */
-async function zoomToRoad(page: import('@playwright/test').Page) {
-  await page.waitForFunction(
-    () => {
-      const map = (window as unknown as { __map: maplibregl.Map }).__map;
-      const feats = map.queryRenderedFeatures({ layers: ['network-line'] });
-      if (!feats.length) return false;
-      const g = feats[0].geometry;
-      const coords =
-        g.type === 'LineString'
-          ? (g.coordinates as GeoJSON.Position[])
-          : g.type === 'MultiLineString'
-            ? (g.coordinates[0] as GeoJSON.Position[])
-            : null;
-      if (!coords?.length) return false;
-      const mid = coords[Math.floor(coords.length / 2)] as [number, number];
-      map.jumpTo({ center: mid, zoom: 15 });
-      return true;
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
-  await page.waitForFunction(
-    () => {
-      const map = (window as unknown as { __map: maplibregl.Map }).__map;
-      return map.getZoom() > 13 && map.queryRenderedFeatures({ layers: ['network-line'] }).length > 0;
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
-  await page.waitForTimeout(600);
-}
-
-/**
- * A point on a rendered road, in screen pixels.
- *
- * `offset` walks along the same feature so two calls give two points on one
- * road rather than two points on the same spot.
- */
-async function pointOnRoad(
-  page: import('@playwright/test').Page,
-  offset: number,
-) {
-  return page.evaluate((frac) => {
-    const map = (window as unknown as { __map: maplibregl.Map }).__map;
-    const feats = map.queryRenderedFeatures({ layers: ['network-line'] });
-    // The longest rendered line gives the most room for two distinct handles.
-    let best: GeoJSON.Position[] | null = null;
-    for (const f of feats) {
-      const g = f.geometry;
-      const coords =
-        g.type === 'LineString'
-          ? (g.coordinates as GeoJSON.Position[])
-          : g.type === 'MultiLineString'
-            ? (g.coordinates[0] as GeoJSON.Position[])
-            : null;
-      if (coords && (!best || coords.length > best.length)) best = coords;
-    }
-    if (!best || best.length < 2) return null;
-    const rectFor = () => map.getCanvas().getBoundingClientRect();
-    /* Walk outward from the requested position until a vertex lands inside the
-     * visible canvas. A long road often runs off-screen, and the first choice
-     * being off-canvas is ordinary rather than exceptional. */
-    const order: number[] = [];
-    const start = Math.min(best.length - 1, Math.max(0, Math.round((best.length - 1) * frac)));
-    for (let d = 0; d < best.length; d += 1) {
-      if (start + d < best.length) order.push(start + d);
-      if (d > 0 && start - d >= 0) order.push(start - d);
-    }
-    for (const idx of order) {
-      const q = map.project(best[idx] as [number, number]);
-      const r = rectFor();
-      const x = Math.round(r.left + q.x);
-      const y = Math.round(r.top + q.y);
-      // Inset a little so a point never lands on the canvas edge.
-      if (x > r.left + 8 && x < r.right - 8 && y > r.top + 8 && y < r.bottom - 8) {
-        return { x, y };
-      }
-    }
-    return null;
-  }, offset);
-}
-
-/**
- * Place A and B and wait for the span to resolve.
- *
- * The B click retries once from a fresh projection. Between the two clicks the
- * map is still settling - tiles loading, glyphs arriving with a LINZ key - and
- * a projection taken a moment earlier can land a pixel or two off the road at
- * a zoom where that is further than the snap radius. A person just clicks
- * again; so does this.
- */
-/** Switch the closure method to Draw outage. */
-async function enterSpanMode(page: import('@playwright/test').Page) {
-  const radio = page.getByRole('radio', { name: /draw outage/i });
-  if (!(await radio.isChecked())) await radio.check();
-}
-
-async function placeSpan(page: import('@playwright/test').Page) {
-  /* The editor is a MODE now, defaulting to the ordinary link workflow, so
-   * every span interaction starts by choosing it - exactly as a person does. */
-  await enterSpanMode(page);
-  const panel = page.getByRole('region', { name: /outage span/i });
-
-  const a = await pointOnRoad(page, 0.2);
-  expect(a).not.toBeNull();
-  await page.mouse.click(a!.x, a!.y);
-  await expect(panel).toContainText(/place the second handle/i, { timeout: 15_000 });
-
-  const b = await pointOnRoad(page, 0.8);
-  expect(b).not.toBeNull();
-  await page.mouse.click(b!.x, b!.y);
-  try {
-    await expect(panel).toContainText(/road closed/i, { timeout: 10_000 });
-  } catch {
-    const again = await pointOnRoad(page, 0.75);
-    expect(again).not.toBeNull();
-    await page.mouse.click(again!.x, again!.y);
-    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
-  }
-  return { panel, a: a!, b: b! };
-}
-
-async function spanLayerCount(
-  page: import('@playwright/test').Page,
-  layer: string,
-) {
-  return page.evaluate((id) => {
-    const map = (window as unknown as { __map: maplibregl.Map }).__map;
-    if (!map.getLayer(id)) return -1;
-    return map.queryRenderedFeatures({ layers: [id] }).length;
-  }, layer);
-}
 
 test.describe('two-point outage editor', () => {
   test.skip(!SPAN_ENABLED, 'VITE_ENABLE_OUTAGE_SPAN_EDITOR is not set');
@@ -420,11 +273,15 @@ test.describe('two-point outage editor', () => {
       if (r.url().includes('/api/v2/outage/')) requests += 1;
     });
 
-    const basemap = page.getByRole('button', { name: /^basemap/i });
-    /* Without a LINZ key the button is disabled and says why; the mode cycle
-     * is only assertable where a basemap exists at all. */
-    if (await basemap.isEnabled()) {
-      await basemap.click(); // analysis -> topo
+    /* The map view is an explicit selector now, so the walk through the modes
+     * is by name rather than by counting clicks. */
+    await page.getByRole('button', { name: /^map view/i }).click();
+    const streets = page.getByRole('radio', { name: 'Streets' });
+    const withKey = await streets.isEnabled();
+    /* Without a LINZ key Streets and Aerial are disabled and say why; the
+     * mode walk is only assertable where a basemap exists at all. */
+    if (withKey) {
+      await streets.check(); // analysis -> streets
       await page.waitForTimeout(400);
       await page.screenshot({ path: 'docs/screenshots/outage-span/topographic.png' });
 
@@ -441,9 +298,14 @@ test.describe('two-point outage editor', () => {
         .poll(async () => spanLayerCount(page, 'span-closure-line'), { timeout: 10_000 })
         .toBeGreaterThan(0);
 
-      await basemap.click(); // topo -> off
-      await basemap.click(); // off -> analysis
+      await page.getByRole('radio', { name: 'Aerial' }).check();
+      await expect
+        .poll(async () => spanLayerCount(page, 'span-closure-line'), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await page.getByRole('radio', { name: 'Off' }).check();
+      await page.getByRole('radio', { name: 'Analysis' }).check();
     }
+    await page.keyboard.press('Escape');
 
     /* Whatever the mode did, it must not have touched the analysis: same
      * closed length, same URL (same corridor pin), and not one span request. */
@@ -452,10 +314,10 @@ test.describe('two-point outage editor', () => {
     expect(requests).toBe(0);
 
     /* And LINZ roads are context, not targets. With a key, the layer exists
-     * and - back in analysis mode - is hidden again; without one it never
-     * existed, which is the correct keyless state, and the disabled button
-     * said so rather than pretending to work. Nothing snaps or selects
-     * against it in either case: the span handlers query AMDS only. */
+     * and - back in Analysis - is hidden again; without one it never existed,
+     * which is the correct keyless state, and the disabled options said so
+     * rather than pretending to work. Nothing snaps or selects against it in
+     * either case: the span handlers query AMDS only. */
     const linz = await page.evaluate(() => {
       const map = (window as unknown as { __map: maplibregl.Map }).__map;
       const exists = Boolean(map.getLayer('linz-road'));
@@ -466,7 +328,7 @@ test.describe('two-point outage editor', () => {
           : null,
       };
     });
-    if (await basemap.isEnabled()) {
+    if (withKey) {
       expect(linz.exists).toBe(true);
       expect(linz.visibility).not.toBe('visible');
     } else {

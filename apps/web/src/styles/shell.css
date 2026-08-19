@@ -342,6 +342,88 @@
   margin-top: auto;
 }
 
+/* ------------------------------------------------- map-view selector */
+
+.mapview {
+  position: relative;
+}
+
+/*
+ * The choices, beside the rail. A shell surface rather than a panel one: this
+ * is workspace furniture, and it must read as the rail's flyout rather than a
+ * second inspector.
+ */
+.mapview-pop {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: -6px;
+  z-index: 40;
+  width: 236px;
+  margin: 0;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--shell-line);
+  border-radius: var(--radius);
+  background: var(--shell-raised);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.45);
+}
+
+/* Floated out of the fieldset's border notch into normal flow. */
+.mapview-pop legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--shell-fg-muted);
+}
+
+.mapview-opt {
+  clear: both;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 2px;
+  font-size: var(--text-body);
+  color: var(--shell-fg-muted);
+  cursor: pointer;
+}
+
+.mapview-opt:hover {
+  color: var(--shell-fg);
+}
+
+.mapview-opt:has(input:checked) {
+  color: var(--shell-fg);
+  font-weight: var(--weight-label);
+}
+
+.mapview-opt input {
+  accent-color: var(--shell-fg);
+  margin: 0;
+}
+
+.mapview-opt.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mapview-opt.is-disabled:hover {
+  color: var(--shell-fg-muted);
+}
+
+.mapview-note {
+  clear: both;
+  margin: 8px 0 0;
+  font-size: var(--text-label);
+  line-height: 1.45;
+  /* Muted, not faint: at this size the faint ink fails WCAG AA contrast on
+   * the raised shell surface, and the axe gate rightly rejects it. */
+  color: var(--shell-fg-muted);
+}
+
 /* -------------------------------------------------------- workspace */
 
 .workspace {

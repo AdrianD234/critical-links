@@ -449,17 +449,19 @@ test.describe('controls', () => {
     await expect(page.locator('dialog.about')).toBeHidden();
   });
 
-  test('the basemap control is named for what it shows', async ({ page }) => {
+  test('the map view control names the current mode', async ({ page }) => {
     await page.goto('/');
-    /* The control is now a presentation-mode cycle, and its accessible name
-     * states the CURRENT mode - "Basemap: analysis", "Basemap: topographic",
-     * "Basemap: off" - or, with no LINZ key, why it is disabled. What it must
-     * never say is "imagery": every mode is styled vector data, and calling it
-     * imagery would promise photography nothing here provides. */
-    const basemap = page.getByRole('button', { name: /^basemap/i });
-    await expect(basemap).toBeVisible();
-    await expect(basemap).toHaveAccessibleName(
-      /basemap: (analysis|topographic|off)|basemap unavailable/i,
+    /* The control is an explicit selector, and the trigger's accessible name
+     * states the CURRENT mode - "Map view: Analysis", "Map view: Streets",
+     * "Map view: Aerial", "Map view: Off". It stays enabled without a LINZ
+     * key, because Analysis and Off need none; only the LINZ-backed options
+     * disable. And nothing is ever called "imagery": the photographic mode is
+     * named Aerial, plainly, for what it shows. */
+    const trigger = page.getByRole('button', { name: /^map view/i });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toBeEnabled();
+    await expect(trigger).toHaveAccessibleName(
+      /map view: (analysis|streets|aerial|off)/i,
     );
     await expect(page.getByRole('button', { name: /imagery/i })).toHaveCount(0);
   });
