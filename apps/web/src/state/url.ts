@@ -166,8 +166,31 @@ export function buildSearch(s: ExploreUrlState): string {
   return `?${p.toString()}`;
 }
 
+/**
+ * The keys this writer owns. It rewrites these and never anything else.
+ *
+ * It used to rebuild the whole query string from its own state, which was
+ * correct while it was the only writer. The two-point outage editor added a
+ * second one, keeping its own `span`/`s*` keys - and this writer, running on
+ * every mount, silently deleted them. A shared span URL opened, lost its span
+ * before the restore effect could read it, and came up as an empty editor
+ * with nothing anywhere saying why.
+ *
+ * Preserving unknown keys is the general contract, not a span-specific patch:
+ * any future feature that keeps state in the URL has the same need, and a
+ * writer that discards what it does not recognise makes every such feature
+ * a timing accident.
+ */
+const OWN_KEYS = new Set([
+  'link', 'metric', 'vehicle', 'scope', 'focus', 'compare', 'snapshot', 'v',
+]);
+
 export function writeUrl(s: ExploreUrlState, mode: 'push' | 'replace') {
-  const next = buildSearch(s);
+  const p = new URLSearchParams(buildSearch(s));
+  for (const [key, value] of new URLSearchParams(window.location.search)) {
+    if (!OWN_KEYS.has(key)) p.append(key, value);
+  }
+  const next = `?${p.toString()}`;
   if (next === window.location.search) return;
   const fn = mode === 'push' ? 'pushState' : 'replaceState';
   window.history[fn](null, '', next);

@@ -468,3 +468,40 @@ def _fake(length_m: float) -> span_corridor.SpanCandidate:
     return span_corridor.SpanCandidate(
         candidate_id=span_corridor.candidate_key([step]), steps=[step],
         length_m=length_m, origin="shortest")
+
+
+class TestNoIdentifierEverPosesAsARoadName:
+    """An AMDS GUID shown where a road name goes reads as breakage.
+
+    Found in the browser: the panel said "Along {aa20d5b8-...}#1" for a road
+    the map tooltip happily named. The corridor summary fell back to `amds_id`
+    for unnamed links; it now says "(unnamed road)", which is the convention
+    the rest of the project uses for exactly this case.
+    """
+
+    def test_an_unnamed_corridor_is_called_unnamed(self, synthetic):
+        net = synthetic(DIAMOND)
+        choice = span_corridor.select(
+            net.snapshot_id, [opt(net, "STUB_A", 0.5)], [opt(net, "STUB_B", 0.5)])
+
+        payload = span_corridor.as_dict(choice)
+        for candidate in payload["candidates"]:
+            assert "{" not in candidate["roads"]
+            assert "(unnamed road)" in candidate["roads"]
+
+    def test_the_ambiguity_reason_never_carries_a_guid(self, synthetic):
+        net = synthetic(DIAMOND)
+        choice = span_corridor.select(
+            net.snapshot_id, [opt(net, "STUB_A", 0.5)], [opt(net, "STUB_B", 0.5)])
+
+        assert choice.ambiguous
+        assert "{" not in (choice.ambiguity_reason or "")
+
+    def test_consecutive_unnamed_steps_collapse(self, synthetic):
+        """Two unnamed links in a row are one "(unnamed road)", not two."""
+        net = synthetic(DIAMOND)
+        choice = span_corridor.select(
+            net.snapshot_id, [opt(net, "STUB_A", 0.5)], [opt(net, "STUB_B", 0.5)])
+
+        roads = span_corridor.as_dict(choice)["candidates"][0]["roads"]
+        assert "(unnamed road) - (unnamed road)" not in roads

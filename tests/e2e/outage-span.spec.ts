@@ -119,6 +119,37 @@ async function pointOnRoad(
   }, offset);
 }
 
+/**
+ * Place A and B and wait for the span to resolve.
+ *
+ * The B click retries once from a fresh projection. Between the two clicks the
+ * map is still settling - tiles loading, glyphs arriving with a LINZ key - and
+ * a projection taken a moment earlier can land a pixel or two off the road at
+ * a zoom where that is further than the snap radius. A person just clicks
+ * again; so does this.
+ */
+async function placeSpan(page: import('@playwright/test').Page) {
+  const panel = page.getByRole('region', { name: /outage span/i });
+
+  const a = await pointOnRoad(page, 0.2);
+  expect(a).not.toBeNull();
+  await page.mouse.click(a!.x, a!.y);
+  await expect(panel).toContainText(/place the second handle/i, { timeout: 15_000 });
+
+  const b = await pointOnRoad(page, 0.8);
+  expect(b).not.toBeNull();
+  await page.mouse.click(b!.x, b!.y);
+  try {
+    await expect(panel).toContainText(/road closed/i, { timeout: 10_000 });
+  } catch {
+    const again = await pointOnRoad(page, 0.75);
+    expect(again).not.toBeNull();
+    await page.mouse.click(again!.x, again!.y);
+    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
+  }
+  return { panel, a: a!, b: b! };
+}
+
 async function spanLayerCount(
   page: import('@playwright/test').Page,
   layer: string,
@@ -197,14 +228,8 @@ test.describe('two-point outage editor', () => {
     await mapReady(page);
     await zoomToRoad(page);
 
-    const a = await pointOnRoad(page, 0.2);
-    await page.mouse.click(a!.x, a!.y);
-    const b = await pointOnRoad(page, 0.8);
-    expect(b).not.toBeNull();
-    await page.mouse.click(b!.x, b!.y);
+    const { panel, a } = await placeSpan(page);
 
-    const panel = page.getByRole('region', { name: /outage span/i });
-    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
 
     /* The drawn geometry and the reported closure come from one number on the
      * server - `span_geometry` cuts the preview from the same fractions the
@@ -226,14 +251,8 @@ test.describe('two-point outage editor', () => {
     await mapReady(page);
     await zoomToRoad(page);
 
-    const a = await pointOnRoad(page, 0.2);
-    await page.mouse.click(a!.x, a!.y);
-    const b = await pointOnRoad(page, 0.8);
-    expect(b).not.toBeNull();
-    await page.mouse.click(b!.x, b!.y);
+    const { panel, a } = await placeSpan(page);
 
-    const panel = page.getByRole('region', { name: /outage span/i });
-    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
 
     let analyses = 0;
     page.on('request', (r) => {
@@ -266,33 +285,169 @@ test.describe('two-point outage editor', () => {
     await mapReady(page);
     await zoomToRoad(page);
 
-    const a = await pointOnRoad(page, 0.2);
-    await page.mouse.click(a!.x, a!.y);
-    const b = await pointOnRoad(page, 0.8);
-    expect(b).not.toBeNull();
-    await page.mouse.click(b!.x, b!.y);
+    const { panel, a } = await placeSpan(page);
 
-    const panel = page.getByRole('region', { name: /outage span/i });
-    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
     await page.waitForFunction(() => window.location.search.includes('span=1'), undefined, {
       timeout: 30_000,
     });
 
     const shared = page.url();
-    const before = await panel.textContent();
+    const closedBefore = await panel.locator('.span-closed .val').textContent();
+    const corridorBefore = new URL(shared).searchParams.get('sc');
+    expect(corridorBefore).not.toBeNull();
 
     await page.goto(shared);
     await mapReady(page);
-    await zoomToRoad(page);
     await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
 
     /* The corridor is pinned in the URL, so a restored span reproduces the one
      * that was shared rather than re-ranking two equally-evidenced ways round
-     * and closing a different road under the same link. */
-    const after = await panel.textContent();
-    expect(after?.replace(/\s+/g, ' ')).toContain(
-      (before ?? '').replace(/\s+/g, ' ').slice(0, 40),
+     * and closing a different road under the same link. The CLOSED LENGTH is
+     * the comparison that means something: same corridor, same road, same
+     * number - a panel-text prefix would match trivially. */
+    await expect(panel.locator('.span-closed .val')).toHaveText(
+      closedBefore ?? '', { timeout: 30_000 },
     );
+    expect(new URL(page.url()).searchParams.get('sc')).toBe(corridorBefore);
+
+    // And the restored handles are on the map, not just the numbers in the
+    // panel - without them the span cannot be adjusted after a reload.
+    await expect
+      .poll(async () => spanLayerCount(page, 'span-handle-dot'), { timeout: 15_000 })
+      .toBe(2);
+  });
+
+  test('Back leaves the span and Forward returns to it', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    const { panel, a } = await placeSpan(page);
+
+    await page.waitForFunction(() => window.location.search.includes('span=1'), undefined, {
+      timeout: 30_000,
+    });
+
+    await page.goBack();
+    await expect(panel).toContainText(/click once to place/i, { timeout: 15_000 });
+    expect(page.url()).not.toContain('span=1');
+
+    await page.goForward();
+    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
+  });
+
+  test('no identifier ever poses as a road name', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    const { panel, a } = await placeSpan(page);
+
+
+    /* Found in the browser: the panel said "Along {aa20d5b8-...}#1" for a road
+     * the map tooltip happily named. A GUID where a road name goes reads as
+     * breakage; unnamed roads are called "(unnamed road)". */
+    const text = (await panel.textContent()) ?? '';
+    expect(text).not.toMatch(/\{[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+
+  test('with the editor on, a map click places a handle rather than selecting a link', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    const a = await pointOnRoad(page, 0.3);
+    await page.mouse.click(a!.x, a!.y);
+    await expect(
+      page.getByRole('region', { name: /outage span/i }),
+    ).toContainText(/place the second handle/i, { timeout: 15_000 });
+
+    /* The whole-link closure flow must NOT also have consumed the click. It
+     * did: placing A selected the link underneath, ran a full closure, drew a
+     * second red line and re-fitted the map mid-placement. Its result panel
+     * carries a "Closure result" heading; none may appear. */
+    await expect(page.getByText(/^closure result$/i)).toHaveCount(0);
+    expect(page.url()).not.toMatch(/[?&]link=/);
+  });
+
+  test('the basemap switch changes presentation only', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    const { panel, a } = await placeSpan(page);
+    void a;
+
+    /* Capture the baseline only once the ANALYSIS has landed, which is when
+     * the URL gains its span. "Road closed" appears at the corridor stage and
+     * the length itself resolves there too, so waiting on either still races
+     * the analysis - and a baseline taken mid-flight would assert the basemap
+     * must keep the span half-finished forever. */
+    await page.waitForFunction(
+      () => window.location.search.includes('span=1'),
+      undefined,
+      { timeout: 30_000 },
+    );
+    const closedBefore = await panel.locator('.span-closed .val').textContent();
+    const urlBefore = page.url();
+
+    let requests = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/api/v2/outage/')) requests += 1;
+    });
+
+    const basemap = page.getByRole('button', { name: /^basemap/i });
+    /* Without a LINZ key the button is disabled and says why; the mode cycle
+     * is only assertable where a basemap exists at all. */
+    if (await basemap.isEnabled()) {
+      await basemap.click(); // analysis -> topo
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: 'docs/screenshots/outage-span/topographic.png' });
+
+      const topoRoads = await page.evaluate(() => {
+        const map = (window as unknown as { __map: maplibregl.Map }).__map;
+        return map.getLayoutProperty('linz-road', 'visibility');
+      });
+      expect(topoRoads).toBe('visible');
+      /* Polled: a visibility change schedules a repaint, and querying rendered
+       * features in the same frame legitimately returns nothing for a moment.
+       * The claim is that the span STAYS drawn, not that no frame ever lacked
+       * it. */
+      await expect
+        .poll(async () => spanLayerCount(page, 'span-closure-line'), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+
+      await basemap.click(); // topo -> off
+      await basemap.click(); // off -> analysis
+    }
+
+    /* Whatever the mode did, it must not have touched the analysis: same
+     * closed length, same URL (same corridor pin), and not one span request. */
+    await expect(panel.locator('.span-closed .val')).toHaveText(closedBefore ?? '');
+    expect(page.url()).toBe(urlBefore);
+    expect(requests).toBe(0);
+
+    /* And LINZ roads are context, not targets. With a key, the layer exists
+     * and - back in analysis mode - is hidden again; without one it never
+     * existed, which is the correct keyless state, and the disabled button
+     * said so rather than pretending to work. Nothing snaps or selects
+     * against it in either case: the span handlers query AMDS only. */
+    const linz = await page.evaluate(() => {
+      const map = (window as unknown as { __map: maplibregl.Map }).__map;
+      const exists = Boolean(map.getLayer('linz-road'));
+      return {
+        exists,
+        visibility: exists
+          ? map.getLayoutProperty('linz-road', 'visibility')
+          : null,
+      };
+    });
+    if (await basemap.isEnabled()) {
+      expect(linz.exists).toBe(true);
+      expect(linz.visibility).not.toBe('visible');
+    } else {
+      expect(linz.exists).toBe(false);
+    }
   });
 });
 

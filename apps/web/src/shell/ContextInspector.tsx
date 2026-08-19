@@ -126,14 +126,37 @@ export default function ContextInspector({
  * `clipped` boolean that a previous version turned into the words "Wellington
  * extract" regardless of where the extract actually was.
  */
-export function InspectorEmpty({ coverage }: { coverage: Coverage }) {
+export function InspectorEmpty({
+  coverage,
+  spanEditor = false,
+}: {
+  coverage: Coverage;
+  /**
+   * True when the two-point outage editor owns map clicks. The instructions
+   * change with it: with the editor on, clicking a road places a handle
+   * rather than selecting a link, and copy that says "click any road" would
+   * describe a gesture that now does something else.
+   */
+  spanEditor?: boolean;
+}) {
   return (
     <div className="inspector-empty">
-      <h2>Select a road to close</h2>
+      <h2>{spanEditor ? 'Close a whole road by search' : 'Select a road to close'}</h2>
       <p>
-        Click any road on the map, or search for one above. The road you select
-        is closed — as a model, not on the ground — and the network is re-routed
-        around it.
+        {spanEditor ? (
+          <>
+            Search for a road above to close it whole. Clicking the map places
+            outage handles instead — see the panel above. Either way the closure
+            is a model, not on the ground, and the network is re-routed around
+            it.
+          </>
+        ) : (
+          <>
+            Click any road on the map, or search for one above. The road you
+            select is closed — as a model, not on the ground — and the network
+            is re-routed around it.
+          </>
+        )}
       </p>
       <p>
         The result is the shortest replacement path available in the represented
