@@ -78,6 +78,31 @@ function fullStyle(withLinz: boolean): any {
         });
       }
     }
+    /* The topographic-mode layers, exactly as buildStyle shapes them: hidden
+     * by default, which is the property the visibility test asserts. Without
+     * these the reconstruction diverges from the real style precisely on the
+     * layers the newest test is about - it passed on a developer machine
+     * whose .env holds a key and failed in CI, which has none. */
+    if (!has(LYR.linzRoad)) {
+      style.layers.push({
+        id: LYR.linzRoad,
+        type: 'line',
+        source: SRC.linz,
+        'source-layer': 'transportation',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': '#39434c' },
+      });
+    }
+    if (!has(LYR.linzRoadLabel)) {
+      style.layers.push({
+        id: LYR.linzRoadLabel,
+        type: 'symbol',
+        source: SRC.linz,
+        'source-layer': 'transportation_name',
+        layout: { visibility: 'none', 'text-field': ['get', 'name'] },
+        paint: {},
+      });
+    }
   } else {
     delete style.glyphs;
     delete style.sources[SRC.linz];
