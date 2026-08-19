@@ -309,8 +309,25 @@ export default function ExploreScreen() {
     setMigration(null);
   }, []);
 
+  /*
+   * With the editor on, a map click belongs to the span.
+   *
+   * Both flows want the same gesture, and letting both have it is not a
+   * compromise - it is two answers at once. Placing the first handle also
+   * selected the link under it, ran a whole-link closure, drew ITS red line
+   * beside the span's, and fitted the map to that result, which moved the
+   * ground before the second handle could be placed.
+   *
+   * So in a build with the editor switched on, the map draws spans. A link is
+   * still reachable by search and by permalink, which is how someone arrives
+   * at a specific road anyway; what is given up is picking one off the map,
+   * and only in a build that has opted into the editor.
+   */
   const onPickLink = useCallback(
-    (id: number) => selectLink(id, null),
+    (id: number) => {
+      if (editorEnabled()) return;
+      selectLink(id, null);
+    },
     [selectLink],
   );
 

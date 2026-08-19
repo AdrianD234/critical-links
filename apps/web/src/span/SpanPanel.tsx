@@ -77,6 +77,16 @@ export default function SpanPanel({
     return (
       <section className="span-panel" aria-label="Outage span">
         <h2 className="span-title">Two-point outage</h2>
+        {/* A click that reached no road has to say so here. Without this the
+          * only feedback was the unchanged prompt, which reads as the click
+          * having been ignored rather than as having missed - and at a low
+          * zoom, where one pixel covers more ground than the snap radius,
+          * missing is easy. */}
+        {state.error && (
+          <p className="span-note span-note--fault" role="alert">
+            {state.error} Zoom in and click closer to the road.
+          </p>
+        )}
         <p className="span-empty">
           Now place the second handle to close the road between them.
         </p>
