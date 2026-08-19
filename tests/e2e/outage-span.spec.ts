@@ -11,7 +11,7 @@
  * national snapshot without knowing which it is looking at.
  */
 
-import { expect, test, watchConsole } from './fixtures.js';
+import { expect, exploreUrl, test, watchConsole } from './fixtures.js';
 
 const SPAN_ENABLED = process.env.VITE_ENABLE_OUTAGE_SPAN_EDITOR === '1';
 
@@ -128,7 +128,16 @@ async function pointOnRoad(
  * a zoom where that is further than the snap radius. A person just clicks
  * again; so does this.
  */
+/** Switch the closure method to Draw outage. */
+async function enterSpanMode(page: import('@playwright/test').Page) {
+  const radio = page.getByRole('radio', { name: /draw outage/i });
+  if (!(await radio.isChecked())) await radio.check();
+}
+
 async function placeSpan(page: import('@playwright/test').Page) {
+  /* The editor is a MODE now, defaulting to the ordinary link workflow, so
+   * every span interaction starts by choosing it - exactly as a person does. */
+  await enterSpanMode(page);
   const panel = page.getByRole('region', { name: /outage span/i });
 
   const a = await pointOnRoad(page, 0.2);
@@ -164,26 +173,39 @@ async function spanLayerCount(
 test.describe('two-point outage editor', () => {
   test.skip(!SPAN_ENABLED, 'VITE_ENABLE_OUTAGE_SPAN_EDITOR is not set');
 
-  test('the map renders before anything is asserted about it', async ({ page }) => {
+  test('the editor registers its layers only in Draw outage mode', async ({ page }) => {
     const console_ = watchConsole(page);
     await page.goto('/');
     await mapReady(page);
 
-    const state = await page.evaluate(() => {
-      const map = (window as unknown as { __map: maplibregl.Map }).__map;
-      return {
-        styleLoaded: map.isStyleLoaded(),
-        network: Boolean(map.getLayer('network-line')),
-        spanHandles: Boolean(map.getLayer('span-handle-dot')),
-        spanClosure: Boolean(map.getLayer('span-closure-line')),
-      };
-    });
+    const layerState = () =>
+      page.evaluate(() => {
+        const map = (window as unknown as { __map: maplibregl.Map }).__map;
+        return {
+          styleLoaded: map.isStyleLoaded(),
+          network: Boolean(map.getLayer('network-line')),
+          spanHandles: Boolean(map.getLayer('span-handle-dot')),
+          spanClosure: Boolean(map.getLayer('span-closure-line')),
+        };
+      });
 
-    expect(state.styleLoaded).toBe(true);
-    expect(state.network).toBe(true);
-    // The editor's own layers register only when the flag is on.
-    expect(state.spanHandles).toBe(true);
-    expect(state.spanClosure).toBe(true);
+    /* Link mode is the default, and in it the editor's layers do not exist -
+     * not hidden, absent, so the default screen registers exactly what a
+     * build without the editor registers. */
+    const before = await layerState();
+    expect(before.styleLoaded).toBe(true);
+    expect(before.network).toBe(true);
+    expect(before.spanHandles).toBe(false);
+    expect(before.spanClosure).toBe(false);
+
+    await enterSpanMode(page);
+    await expect.poll(async () => (await layerState()).spanHandles).toBe(true);
+    expect((await layerState()).spanClosure).toBe(true);
+
+    /* And leaving the mode removes them again. */
+    await page.getByRole('radio', { name: /select road/i }).check();
+    await expect.poll(async () => (await layerState()).spanHandles).toBe(false);
+
     expect(console_.errors).toEqual([]);
   });
 
@@ -191,6 +213,7 @@ test.describe('two-point outage editor', () => {
     await page.goto('/');
     await mapReady(page);
     await zoomToRoad(page);
+    await enterSpanMode(page);
 
     const panel = page.getByRole('region', { name: /outage span/i });
     await expect(panel).toContainText(/click once to place/i);
@@ -355,6 +378,7 @@ test.describe('two-point outage editor', () => {
     await page.goto('/');
     await mapReady(page);
     await zoomToRoad(page);
+    await enterSpanMode(page);
 
     const a = await pointOnRoad(page, 0.3);
     await page.mouse.click(a!.x, a!.y);
@@ -451,6 +475,96 @@ test.describe('two-point outage editor', () => {
   });
 });
 
+test.describe('closure method switch', () => {
+  test.skip(!SPAN_ENABLED, 'VITE_ENABLE_OUTAGE_SPAN_EDITOR is not set');
+
+  test('Select road is the default, and a click selects a link', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    await expect(page.getByRole('radio', { name: /select road/i })).toBeChecked();
+
+    const a = await pointOnRoad(page, 0.3);
+    expect(a).not.toBeNull();
+    await page.mouse.click(a!.x, a!.y);
+
+    /* The ordinary workflow, exactly as it was before the editor existed:
+     * the click selects a link and the closure result panel opens. */
+    await expect(page.locator('.eyebrow', { hasText: /closure result/i }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.waitForFunction(() => /[?&]link=/.test(window.location.search), undefined, {
+      timeout: 30_000,
+    });
+    await expect(page.getByRole('region', { name: /outage span/i })).toHaveCount(0);
+  });
+
+  test('switching methods never shows two closures at once', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+
+    /* A whole-link closure first. */
+    const a = await pointOnRoad(page, 0.3);
+    await page.mouse.click(a!.x, a!.y);
+    await expect(page.locator('.eyebrow', { hasText: /closure result/i }).first()).toBeVisible({
+      timeout: 30_000,
+    });
+
+    /* Switching to Draw outage clears it - the selection, its red line and
+     * its result - before the first handle is ever placed. */
+    await enterSpanMode(page);
+    await expect(page.locator('.eyebrow', { hasText: /closure result/i })).toHaveCount(0);
+    expect(page.url()).not.toMatch(/[?&]link=/);
+    await expect(
+      page.getByRole('region', { name: /outage span/i }),
+    ).toContainText(/click once to place/i);
+
+    /* Place A, then switch back: the span goes the same way. */
+    const b = await pointOnRoad(page, 0.5);
+    await page.mouse.click(b!.x, b!.y);
+    await expect(
+      page.getByRole('region', { name: /outage span/i }),
+    ).toContainText(/place the second handle/i, { timeout: 15_000 });
+
+    await page.getByRole('radio', { name: /select road/i }).check();
+    await expect(page.getByRole('region', { name: /outage span/i })).toHaveCount(0);
+    const handles = await page.evaluate(() => {
+      const map = (window as unknown as { __map: maplibregl.Map }).__map;
+      return Boolean(map.getLayer('span-handle-dot'));
+    });
+    expect(handles).toBe(false);
+  });
+
+  test('a link permalink restores Select road mode', async ({ page, twoWayLink }) => {
+    await page.goto(exploreUrl(twoWayLink.amdsId));
+    await mapReady(page);
+
+    await expect(page.getByRole('radio', { name: /select road/i })).toBeChecked();
+    await expect(page.locator('.eyebrow', { hasText: /closure result/i }).first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByRole('region', { name: /outage span/i })).toHaveCount(0);
+  });
+
+  test('a span permalink restores Draw outage mode', async ({ page }) => {
+    await page.goto('/');
+    await mapReady(page);
+    await zoomToRoad(page);
+    const { panel } = await placeSpan(page);
+    await page.waitForFunction(() => window.location.search.includes('span=1'), undefined, {
+      timeout: 30_000,
+    });
+
+    await page.goto(page.url());
+    await mapReady(page);
+
+    await expect(page.getByRole('radio', { name: /draw outage/i })).toBeChecked();
+    await expect(panel).toContainText(/road closed/i, { timeout: 30_000 });
+  });
+});
+
 test.describe('with the editor switched off', () => {
   test.skip(SPAN_ENABLED, 'this asserts the flag-off build');
 
@@ -473,6 +587,10 @@ test.describe('with the editor switched off', () => {
     expect(state.spanHandles).toBe(false);
     expect(state.spanSource).toBe(false);
     await expect(page.getByRole('region', { name: /outage span/i })).toHaveCount(0);
+    /* The flag controls AVAILABILITY: without it there is no method to choose,
+     * so the switch itself must not render. */
+    await expect(page.getByRole('radio', { name: /draw outage/i })).toHaveCount(0);
+    await expect(page.getByText(/closure method/i)).toHaveCount(0);
     expect(console_.errors).toEqual([]);
   });
 });
