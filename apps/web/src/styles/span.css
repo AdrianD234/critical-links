@@ -1,0 +1,247 @@
+/*
+ * The two-point outage editor.
+ *
+ * Borrows the inspector's vocabulary rather than inventing one: `.lab`,
+ * `.val`, `.sub`, `.headline` and `.tnum` are the same classes the closure
+ * inspector uses, so a span reads as the same kind of answer about a
+ * different object. Only what is genuinely new to this panel is defined here.
+ *
+ * And it uses the inspector's PAPER palette (`--panel-*`), not the shell's.
+ * The inspector column is light; the first cut of this file used the dark
+ * rail's ink, which rendered the title, the closed-length value and the radio
+ * labels near-invisible on it. Caught from a screenshot, not from the code -
+ * every token here must come from the surface the panel actually sits on.
+ *
+ * Red is reserved for the closure itself - the road that is shut, and the
+ * handles that bound it. The measurement stays in the inspector's neutral ink,
+ * for the reason `HeroMetric` sets out: the number is not the alarm.
+ */
+
+.span-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-top: 1px solid var(--panel-line);
+}
+
+.span-title {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 600;
+  color: var(--panel-fg);
+}
+
+.span-empty {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+}
+
+.span-empty strong {
+  color: var(--panel-fg);
+  font-weight: 600;
+}
+
+/* --- what is closed ---------------------------------------------------- */
+
+.span-closed .val {
+  font-size: var(--text-road);
+  font-weight: 600;
+  color: var(--panel-fg);
+  line-height: var(--leading-tight);
+}
+
+.span-closed .unit {
+  font-size: var(--text-measure);
+  font-weight: 400;
+  color: var(--panel-muted);
+  margin-left: 4px;
+}
+
+/* --- notices ----------------------------------------------------------- */
+
+.span-note {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--panel-inset);
+  border-left: 3px solid var(--panel-muted);
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed);
+  color: var(--panel-muted);
+}
+
+.span-note--warn {
+  border-left-color: var(--compare);
+}
+
+.span-note--fault {
+  border-left-color: var(--closure);
+  color: var(--panel-fg);
+}
+
+/* --- corridor candidates ----------------------------------------------- */
+
+.span-candidates {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.span-candidate {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 11px;
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--panel-fg);
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.span-candidate:hover {
+  border-color: var(--panel-muted);
+}
+
+/* The chosen corridor is the one drawn in red on the map, so the control that
+ * selects it carries the same red rather than a generic selected state. */
+.span-candidate[aria-pressed='true'] {
+  border-color: var(--closure);
+  box-shadow: inset 2px 0 0 var(--closure);
+}
+
+.span-candidate:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.span-candidate-length {
+  color: var(--panel-muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
+/* --- direction --------------------------------------------------------- */
+
+.span-direction {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.span-direction legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.span-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-control);
+  color: var(--panel-fg);
+  cursor: pointer;
+}
+
+.span-direction .sub {
+  width: 100%;
+  margin: 2px 0 0;
+}
+
+/* --- per-direction table ------------------------------------------------ */
+
+.span-measures {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body);
+}
+
+.span-measures caption {
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.span-measures th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--panel-muted);
+  padding: 3px 0;
+}
+
+.span-measures td {
+  text-align: right;
+  color: var(--panel-fg);
+  padding: 3px 0;
+}
+
+/* --- method ------------------------------------------------------------- */
+
+.span-method {
+  font-size: var(--text-meta);
+  color: var(--panel-muted);
+  line-height: var(--leading-relaxed);
+}
+
+.span-method summary {
+  cursor: pointer;
+  color: var(--panel-muted);
+}
+
+.span-method summary:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.span-method p {
+  margin: 8px 0 0;
+}
+
+.span-provenance {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--panel-muted);
+  word-break: break-word;
+}
+
+/* --- actions ------------------------------------------------------------ */
+
+.span-clear {
+  align-self: flex-start;
+  padding: 6px 12px;
+  min-height: var(--control-h-sm);
+  background: transparent;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--panel-muted);
+  font-size: var(--text-control);
+  cursor: pointer;
+}
+
+.span-clear:hover {
+  color: var(--panel-fg);
+  border-color: var(--panel-muted);
+}
+
+.span-clear:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.span-headline-text {
+  font-size: var(--text-measure-em);
+  font-weight: 500;
+}

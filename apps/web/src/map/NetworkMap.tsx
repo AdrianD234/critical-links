@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type Map as MLMap, type MapGeoJSONFeature } from 'maplibre-gl';
 
 import { shortDisplayName } from '../naming.js';
+import type { MapLayerState } from '../shell/LayerRail.js';
 import {
   LABEL_LAYERS,
   LYR,
@@ -125,6 +126,7 @@ export default function NetworkMap({
   onHoverChange,
   onScaleChange,
   onReady,
+  onMapReady,
   onGeometryWarning,
   onBasemapError,
   homeExtent,
@@ -141,6 +143,19 @@ export default function NetworkMap({
   onHoverChange: (h: HoverInfo | null) => void;
   onScaleChange: (s: ScaleReading | null) => void;
   onReady: () => void;
+  /**
+   * The map itself, once its style has loaded.
+   *
+   * Exists so a feature can own its own sources, layers and interaction
+   * without this file having to know about it. The two-point outage editor is
+   * the first caller: it is behind a flag, and threading its state through
+   * here would mean a build with the flag off still carried its props, its
+   * layers and its handlers.
+   *
+   * Called once per map. The callee owns whatever it adds and is responsible
+   * for removing it.
+   */
+  onMapReady?: (map: maplibregl.Map) => void;
   onGeometryWarning: (w: GeometryWarning | null) => void;
   /** Called once if the LINZ basemap or its glyphs cannot be loaded. */
   onBasemapError: () => void;
@@ -168,7 +183,7 @@ export default function NetworkMap({
   inset: { right: number; bottom: number };
   /** A search candidate being previewed before selection. */
   previewLinkId: number | null;
-  layersVisible: { network: boolean; basemap: boolean; labels: boolean };
+  layersVisible: MapLayerState;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -196,6 +211,8 @@ export default function NetworkMap({
   scaleRef.current = onScaleChange;
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
+  const mapReadyRef = useRef(onMapReady);
+  mapReadyRef.current = onMapReady;
   const insetRef = useRef(inset);
   insetRef.current = inset;
   /* Whether the current result's route had gaps, read by the reveal effect. */
@@ -305,6 +322,9 @@ export default function NetworkMap({
       map.getCanvas().style.cursor = 'crosshair';
       scaleRef.current(scaleReading(map));
       readyRef.current();
+      /* After every layer this file owns, so a feature that adds its own draws
+       * above the network rather than beneath it. */
+      mapReadyRef.current?.(map);
       /* Re-runs the effects that depend on the map being usable, so a result
        * that arrived during style load is applied rather than lost. */
       setMapReady(true);
@@ -536,9 +556,17 @@ export default function NetworkMap({
       }
     };
     vis(LYR.networkLine, layersVisible.network);
+    /* Presentation mode, not a boolean. `analysis` shows the quiet context;
+     * `topo` adds LINZ streets and their names; `off` hides the lot. The
+     * analytical layers are untouched by any of it - this changes only what
+     * sits underneath them. */
+    const basemapOn = layersVisible.basemap !== 'off';
+    const topo = layersVisible.basemap === 'topo';
     for (const id of [LYR.linzWater, LYR.linzLandcover, LYR.linzBuilding]) {
-      vis(id, layersVisible.basemap);
+      vis(id, basemapOn);
     }
+    vis(LYR.linzRoad, topo);
+    vis(LYR.linzRoadLabel, topo && layersVisible.labels);
     /* The closure label is exempt: it names the thing under analysis, and
      * turning off basemap labels should not hide what the user selected. */
     for (const id of [LYR.linzPlaceLabel, LYR.networkLabel]) {

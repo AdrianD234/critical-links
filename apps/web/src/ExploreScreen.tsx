@@ -28,9 +28,16 @@ import ContextInspector, {
 } from './shell/ContextInspector.js';
 import AppShell from './shell/AppShell.js';
 import BottomSheet, { type SheetStop, sheetHeight } from './shell/BottomSheet.js';
-import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
+import LayerRail, { BASEMAP_MODES, type MapLayerState } from './shell/LayerRail.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
+import type { Map as MapLibreMap } from 'maplibre-gl';
+
+import { editorEnabled } from './api/outage.js';
+import SpanPanel from './span/SpanPanel.js';
+import { useOutageSpan } from './span/useOutageSpan.js';
+import { useSpanMap } from './span/useSpanMap.js';
+import { readSpanUrl, writeSpanUrl } from './span/spanUrl.js';
 import NetworkMap, {
   type GeometryWarning,
   type HoverInfo,
@@ -126,7 +133,7 @@ export default function ExploreScreen() {
   );
   const [layers, setLayers] = useState<MapLayerState>({
     network: true,
-    basemap: true,
+    basemap: 'analysis',
     labels: true,
   });
 
@@ -302,8 +309,25 @@ export default function ExploreScreen() {
     setMigration(null);
   }, []);
 
+  /*
+   * With the editor on, a map click belongs to the span.
+   *
+   * Both flows want the same gesture, and letting both have it is not a
+   * compromise - it is two answers at once. Placing the first handle also
+   * selected the link under it, ran a whole-link closure, drew ITS red line
+   * beside the span's, and fitted the map to that result, which moved the
+   * ground before the second handle could be placed.
+   *
+   * So in a build with the editor switched on, the map draws spans. A link is
+   * still reachable by search and by permalink, which is how someone arrives
+   * at a specific road anyway; what is given up is picking one off the map,
+   * and only in a build that has opted into the editor.
+   */
   const onPickLink = useCallback(
-    (id: number) => selectLink(id, null),
+    (id: number) => {
+      if (editorEnabled()) return;
+      selectLink(id, null);
+    },
     [selectLink],
   );
 
@@ -473,9 +497,82 @@ export default function ExploreScreen() {
     />
   );
 
+  /* ------------------------------------------------- two-point outage span
+   *
+   * Behind `VITE_ENABLE_OUTAGE_SPAN_EDITOR`. With the flag off none of this
+   * runs, the map is handed to nobody, and the panel is not rendered - so a
+   * build without it is the application as it was.
+   */
+  const spanEnabled = editorEnabled();
+  const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
+  const span = useOutageSpan(scenario.vehicle, scenario.metric);
+  useSpanMap(mapInstance, span, scenario.vehicle, spanEnabled);
+
+  const restoreSpan = span.restore;
+  const clearSpan = span.clear;
+  useEffect(() => {
+    if (!spanEnabled) return;
+    /* A shared span, and every Back or Forward step onto one. Restoration goes
+     * through `/analysis` with the pinned corridor, so it either reproduces
+     * what was shared or reports that it cannot - it never silently closes a
+     * different road. A step onto a URL with NO span clears the editor, so
+     * Back out of a span actually leaves it. */
+    const apply = () => {
+      const stored = readSpanUrl();
+      if (stored) restoreSpan(stored);
+      else clearSpan();
+    };
+    apply();
+    window.addEventListener('popstate', apply);
+    return () => window.removeEventListener('popstate', apply);
+  }, [spanEnabled, restoreSpan, clearSpan]);
+
+  const spanAnalysis = span.state.analysis;
+  useEffect(() => {
+    if (!spanEnabled || !spanAnalysis) return;
+    /* Written only when there is a result to record. This effect NEVER strips
+     * the span from the URL: on first mount the analysis is still null while a
+     * shared span is being restored, and writing null here erased the very
+     * parameters restoration was reading - under StrictMode's double mount,
+     * reliably, which is how a shared link came to open as an empty editor.
+     * Stripping happens in the explicit clear path only.
+     *
+     * `push` for the first span - something to go Back from - and `replace`
+     * for every refinement of it, so dragging does not fill the history stack. */
+    const mode = readSpanUrl() ? 'replace' : 'push';
+    writeSpanUrl(
+      {
+        aLinkId: spanAnalysis.permalink.aLinkId,
+        aFraction: spanAnalysis.permalink.aFraction,
+        bLinkId: spanAnalysis.permalink.bLinkId,
+        bFraction: spanAnalysis.permalink.bFraction,
+        corridorId: spanAnalysis.permalink.corridorId,
+        direction: spanAnalysis.permalink.directionMode,
+        vehicle: spanAnalysis.permalink.profile,
+        metric: spanAnalysis.permalink.metric,
+      },
+      mode,
+    );
+  }, [spanEnabled, spanAnalysis]);
+
+  const onClearSpan = useCallback(() => {
+    clearSpan();
+    /* The one place the span is stripped from the URL. */
+    writeSpanUrl(null, 'replace');
+  }, [clearSpan]);
+
+  const spanPanel = spanEnabled ? (
+    <SpanPanel
+      state={span.state}
+      onDirection={span.setDirection}
+      onChooseCorridor={span.chooseCorridor}
+      onClear={onClearSpan}
+    />
+  ) : null;
+
   const body =
     link === null ? (
-      <InspectorEmpty coverage={coverage} />
+      <InspectorEmpty coverage={coverage} spanEditor={spanEnabled} />
     ) : (
       <ClosureResultView
         analysis={analysis}
@@ -555,6 +652,19 @@ export default function ExploreScreen() {
         <LayerRail
           layers={layers}
           onToggle={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
+          onBasemapMode={() =>
+            setLayers((l) => ({
+              ...l,
+              /* analysis -> topo -> off -> analysis. A cycle rather than a
+               * menu: three states do not earn a popover, and the title
+               * always says which state is next. */
+              basemap:
+                BASEMAP_MODES[
+                  (BASEMAP_MODES.indexOf(l.basemap) + 1) % BASEMAP_MODES.length
+                ],
+            }))
+          }
+          basemapAvailable={hasLinzKey()}
           onAbout={() => setAboutOpen(true)}
           onHome={() => {
             /* Clearing the selection as well, so Home means "show me
@@ -586,6 +696,7 @@ export default function ExploreScreen() {
             onHoverChange={setHover}
             onScaleChange={setScale}
             onReady={() => undefined}
+            onMapReady={spanEnabled ? setMapInstance : undefined}
             onGeometryWarning={setGeometryWarning}
             onBasemapError={() => setBasemapFailed(true)}
             homeExtent={coverage.extent}
@@ -649,6 +760,7 @@ export default function ExploreScreen() {
             resizable={!laptop}
             footer={link !== null ? actions : undefined}
           >
+            {spanPanel}
             {body}
           </ContextInspector>
         )

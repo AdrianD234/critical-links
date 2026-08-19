@@ -22,6 +22,10 @@ import './styles/base.css';
 import './styles/shell.css';
 import './styles/inspector.css';
 import './styles/map.css';
+/* The editor is behind a flag, but its stylesheet is not: a few hundred bytes
+ * of unused CSS costs less than a conditional import that could load after the
+ * panel it styles. */
+import './styles/span.css';
 /* Last, so its breakpoint overrides win without needing specificity tricks. */
 import './styles/responsive.css';
 

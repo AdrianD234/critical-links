@@ -651,10 +651,19 @@ def _ambiguity(ranked: Sequence[SpanCandidate]) -> tuple[bool, str | None]:
 
 
 def _describe(c: SpanCandidate) -> str:
-    """The roads a corridor runs along, in order, without repeats."""
+    """The roads a corridor runs along, in order, without repeats.
+
+    An unnamed link is called "(unnamed road)", never given its AMDS id. The id
+    is a data-maintenance GUID; shown where a road name goes it tells a reader
+    nothing and implies the interface is broken. "(unnamed road)" is honest -
+    about a third of AMDS vehicle links carry no resolved name - and it is the
+    convention the rest of this project already uses for exactly this case.
+    Consecutive unnamed steps collapse into one entry, the same way consecutive
+    steps of one named road do.
+    """
     names: list[str] = []
     for s in c.steps:
-        label = s.road_name or s.route_designation or s.amds_id
+        label = s.road_name or s.route_designation or "(unnamed road)"
         if not names or names[-1] != label:
             names.append(label)
     return " - ".join(names)

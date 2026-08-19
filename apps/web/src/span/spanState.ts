@@ -261,8 +261,23 @@ export function spanReducer(state: SpanState, action: SpanAction): SpanState {
 
     case 'analysis-received': {
       if (action.seq !== state.pendingSeq) return state; // stale
+      /* A restored span arrives as an analysis with no handles placed - the
+       * URL stores positions, and /analysis returns them resolved in full.
+       * Adopting them here is what puts the A and B markers on the map after
+       * a reload; without it the numbers appear and the handles do not, and
+       * the span cannot be adjusted. Never overwrites a handle the user
+       * placed: equivalent hosts and ambiguity live only on those. */
+      const adopt = (h: SnapHandle): PlacedHandle => ({
+        handle: h,
+        equivalentHosts: [],
+        alternatives: [],
+        ambiguous: false,
+        ambiguityReason: null,
+      });
       return {
         ...state,
+        a: state.a ?? adopt(action.result.handleA),
+        b: state.b ?? adopt(action.result.handleB),
         analysis: action.result,
         appliedSeq: action.seq,
         previewStale: false,

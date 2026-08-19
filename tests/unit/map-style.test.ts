@@ -78,6 +78,31 @@ function fullStyle(withLinz: boolean): any {
         });
       }
     }
+    /* The topographic-mode layers, exactly as buildStyle shapes them: hidden
+     * by default, which is the property the visibility test asserts. Without
+     * these the reconstruction diverges from the real style precisely on the
+     * layers the newest test is about - it passed on a developer machine
+     * whose .env holds a key and failed in CI, which has none. */
+    if (!has(LYR.linzRoad)) {
+      style.layers.push({
+        id: LYR.linzRoad,
+        type: 'line',
+        source: SRC.linz,
+        'source-layer': 'transportation',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': '#39434c' },
+      });
+    }
+    if (!has(LYR.linzRoadLabel)) {
+      style.layers.push({
+        id: LYR.linzRoadLabel,
+        type: 'symbol',
+        source: SRC.linz,
+        'source-layer': 'transportation_name',
+        layout: { visibility: 'none', 'text-field': ['get', 'name'] },
+        paint: {},
+      });
+    }
   } else {
     delete style.glyphs;
     delete style.sources[SRC.linz];
@@ -197,14 +222,40 @@ describe('MapLibre style specification', () => {
     expect(label.layout['symbol-placement']).toBeUndefined();
   });
 
-  it('never draws the basemap road network under the analysed one', () => {
-    /* Two road networks stacked would be visual noise and a misrepresentation
-     * of what was measured. Only the AMDS network is drawn. */
+  it('hides the basemap road network by default, and keeps it beneath the analysed one', () => {
+    /* This test used to assert the transportation layer was never drawn at
+     * all. That was the right rule while the basemap had one mode: two road
+     * networks stacked read as noise, and a LINZ street under an AMDS link
+     * invites misreading context as something that was measured.
+     *
+     * The basemap is now a presentation mode, and topographic mode shows LINZ
+     * streets deliberately - for orientation, labelled as context. What the
+     * old rule protected is preserved by two weaker invariants that this test
+     * now states exactly:
+     *
+     *   1. the default presentation draws no basemap road - `visibility:
+     *      none` until the user asks for topographic;
+     *   2. every basemap road layer is in the BASE style, which MapLibre
+     *      draws entirely beneath the analytical layers added after load, so
+     *      no mode can put a LINZ street above an AMDS link, the closure or
+     *      the route.
+     */
     const style = fullStyle(true);
-    const fromBasemap = style.layers.filter((l: any) => l.source === SRC.linz);
-    expect(
-      fromBasemap.map((l: any) => l['source-layer']),
-    ).not.toContain('transportation');
+    const roads = style.layers.filter(
+      (l: any) => l.source === SRC.linz && l['source-layer'] === 'transportation',
+    );
+    expect(roads.length).toBeGreaterThan(0);
+    for (const l of roads as any[]) {
+      expect(l.layout?.visibility, `${l.id} must default to hidden`).toBe('none');
+    }
+    /* The name layer follows the same rule. */
+    const names = style.layers.filter(
+      (l: any) =>
+        l.source === SRC.linz && l['source-layer'] === 'transportation_name',
+    );
+    for (const l of names as any[]) {
+      expect(l.layout?.visibility, `${l.id} must default to hidden`).toBe('none');
+    }
   });
 
   it('animates only a layer whose source has lineMetrics', () => {

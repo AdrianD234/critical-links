@@ -503,6 +503,36 @@ describe('restoring a shared span', () => {
     expect(s.status).toBe('analysis-pending');
   });
 
+  it('adopts the handles a restored analysis carries', () => {
+    // A restored span arrives as an analysis with no handles placed: the URL
+    // stores positions and /analysis returns them resolved. Without adopting
+    // them the numbers appear and the A/B markers do not, and the span cannot
+    // be adjusted after a reload.
+    let s = spanReducer(EMPTY_SPAN, { type: 'request-issued', seq: 1 });
+    expect(s.a).toBeNull();
+
+    s = spanReducer(s, { type: 'analysis-received', seq: 1, result: analysisResult('c1') });
+
+    expect(s.a!.handle.linkId).toBe(1);
+    expect(s.b!.handle.linkId).toBe(2);
+    expect(s.status).toBe('ready');
+  });
+
+  it('never overwrites a handle the user placed', () => {
+    // User-placed handles carry equivalent hosts and ambiguity; the analysis
+    // echo does not, and must not replace them.
+    let s = spanReducer(EMPTY_SPAN, {
+      type: 'place',
+      which: 'a',
+      snap: snapped(handle(1, 0.25), { equivalent: [handle(9, 0.25)] }),
+    });
+    s = spanReducer(s, { type: 'place', which: 'b', snap: snapped(handle(2, 0.75)) });
+    s = spanReducer(s, { type: 'request-issued', seq: 1 });
+    s = spanReducer(s, { type: 'analysis-received', seq: 1, result: analysisResult('c1') });
+
+    expect(s.a!.equivalentHosts).toHaveLength(1);
+  });
+
   it('clears everything, keeping the reader’s scenario', () => {
     let s = withPreview();
     s = spanReducer(s, { type: 'set-scenario', vehicle: 'heavy', metric: 'time' });
