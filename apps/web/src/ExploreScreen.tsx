@@ -68,7 +68,7 @@ import {
   useV2Capabilities,
   v2ResultVersion,
 } from './state/queries.js';
-import { permalinkFor, readUrl, writeUrl } from './state/url.js';
+import { permalinkFor, readUrl, writeUrl, type ClosureTool } from './state/url.js';
 import { palette } from './styles/palette.js';
 import { inlineMetres } from './lib/format.js';
 import { useIsLaptop, useIsMobile } from './lib/useMediaQuery.js';
@@ -136,6 +136,22 @@ export default function ExploreScreen() {
     basemap: 'analysis',
     labels: true,
   });
+  /*
+   * Which closure method owns map clicks. A RUNTIME choice: the feature flag
+   * decides whether Draw outage is AVAILABLE, never which method is active.
+   * Restored from the URL - a link permalink reopens in link mode, a span
+   * permalink in span mode - and defaults to `link`, so the established
+   * workflow is what a fresh session gets.
+   *
+   * Declared with the rest of the primary state because the URL memo and the
+   * click handlers read it; the span machinery that acts on it lives further
+   * down with the editor wiring.
+   */
+  const spanEnabled = editorEnabled();
+  const [tool, setTool] = useState<ClosureTool>(
+    spanEnabled ? initial.tool : 'link',
+  );
+  const spanActive = spanEnabled && tool === 'span';
 
   /* ------------------------------------------------------------- data */
 
@@ -238,8 +254,9 @@ export default function ExploreScreen() {
        * does not fail to parse. */
       compare: false,
       snapshot: analysis?.snapshotId ?? meta?.snapshotId ?? null,
+      tool,
     }),
-    [urlLink, scenario, focus, analysis, meta],
+    [urlLink, scenario, focus, analysis, meta, tool],
   );
 
   /*
@@ -325,17 +342,28 @@ export default function ExploreScreen() {
    */
   const onPickLink = useCallback(
     (id: number) => {
-      if (editorEnabled()) return;
+      /* In span mode the click belongs to the A/B editor - both flows
+       * consuming one gesture was two answers at once, and the map fit that
+       * followed the link result moved the ground mid-placement. A runtime
+       * mode, not the build flag: Select road works normally in a flag-on
+       * build. */
+      if (spanActive) return;
       selectLink(id, null);
     },
-    [selectLink],
+    [selectLink, spanActive],
   );
 
   const onSelectSearchResult = useCallback(
     (l: LinkSummary) => {
-      /* The label, not the raw name: it is what the row the user just clicked
-       * said, and the panel must not change wording on the way in. */
-      selectLink(l.amdsId, l.displayLabel ?? l.roadName);
+      /* In span mode, search NAVIGATES and nothing more: the map moves to the
+       * road so handles can be placed on it, but no link is selected, because
+       * a whole-link closure appearing beside an A/B span would be two answers
+       * at once. Closing a searched road whole is one switch away. */
+      if (!spanActive) {
+        /* The label, not the raw name: it is what the row the user just
+         * clicked said, and the panel must not change wording on the way in. */
+        selectLink(l.amdsId, l.displayLabel ?? l.roadName);
+      }
       setQuery('');
       setDebounced('');
       /* Move the map now, not when the result lands. On a national snapshot
@@ -351,7 +379,7 @@ export default function ExploreScreen() {
         }));
       }
     },
-    [selectLink],
+    [selectLink, spanActive],
   );
 
   const clear = useCallback(() => {
@@ -503,10 +531,12 @@ export default function ExploreScreen() {
    * runs, the map is handed to nobody, and the panel is not rendered - so a
    * build without it is the application as it was.
    */
-  const spanEnabled = editorEnabled();
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const span = useOutageSpan(scenario.vehicle, scenario.metric);
-  useSpanMap(mapInstance, span, scenario.vehicle, spanEnabled);
+  /* In link mode the span's map handlers are not merely inert - they are
+   * removed, along with its layers and sources, so link mode registers
+   * exactly what a build without the editor registers. */
+  useSpanMap(mapInstance, span, scenario.vehicle, spanActive);
 
   const restoreSpan = span.restore;
   const clearSpan = span.clear;
@@ -519,8 +549,16 @@ export default function ExploreScreen() {
      * Back out of a span actually leaves it. */
     const apply = () => {
       const stored = readSpanUrl();
-      if (stored) restoreSpan(stored);
-      else clearSpan();
+      if (stored) {
+        /* A span in the URL implies span mode, whatever the tool field says -
+         * restoring the geometry into a screen whose clicks belong to the
+         * other workflow would show a span nobody can adjust. */
+        setTool('span');
+        restoreSpan(stored);
+      } else {
+        setTool(readUrl().tool);
+        clearSpan();
+      }
     };
     apply();
     window.addEventListener('popstate', apply);
@@ -561,7 +599,50 @@ export default function ExploreScreen() {
     writeSpanUrl(null, 'replace');
   }, [clearSpan]);
 
-  const spanPanel = spanEnabled ? (
+  /*
+   * Switching closure method. Leaving a mode cancels its work and clears its
+   * drawing, so a whole-link closure and an A/B span are never on screen
+   * together - two red closures at once is two answers at once. The scenario
+   * (vehicle, metric) survives the switch: it describes the question being
+   * asked, not the tool asking it.
+   */
+  const onSwitchTool = useCallback(
+    (next: ClosureTool) => {
+      if (next === tool) return;
+      if (next === 'span') {
+        clear();
+      } else {
+        onClearSpan();
+      }
+      setTool(next);
+    },
+    [tool, clear, onClearSpan],
+  );
+
+  const toolSwitch = spanEnabled ? (
+    <fieldset className="tool-switch">
+      <legend className="lab">Closure method</legend>
+      {(
+        [
+          ['link', 'Select road', 'Click a road to close one whole link.'],
+          ['span', 'Draw outage', 'Click twice to close the stretch between two points.'],
+        ] as const
+      ).map(([id, label, hint]) => (
+        <label key={id} className="tool-switch-option" title={hint}>
+          <input
+            type="radio"
+            name="closure-method"
+            value={id}
+            checked={tool === id}
+            onChange={() => onSwitchTool(id)}
+          />
+          <span>{label}</span>
+        </label>
+      ))}
+    </fieldset>
+  ) : null;
+
+  const spanPanel = spanActive ? (
     <SpanPanel
       state={span.state}
       onDirection={span.setDirection}
@@ -572,7 +653,7 @@ export default function ExploreScreen() {
 
   const body =
     link === null ? (
-      <InspectorEmpty coverage={coverage} spanEditor={spanEnabled} />
+      <InspectorEmpty coverage={coverage} spanEditor={spanActive} />
     ) : (
       <ClosureResultView
         analysis={analysis}
@@ -760,6 +841,7 @@ export default function ExploreScreen() {
             resizable={!laptop}
             footer={link !== null ? actions : undefined}
           >
+            {toolSwitch}
             {spanPanel}
             {body}
           </ContextInspector>

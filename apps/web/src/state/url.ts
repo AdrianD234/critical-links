@@ -54,6 +54,19 @@ import {
   type Vehicle,
 } from '../api/scenario.js';
 
+/**
+ * Which closure method the map's clicks belong to.
+ *
+ *   link  the ordinary workflow: a click selects one graph link.
+ *   span  the two-point outage editor: clicks place and drag A and B.
+ *
+ * A runtime choice, not a build one. The feature flag decides whether `span`
+ * is AVAILABLE; this field records which method is ACTIVE, so a link permalink
+ * reopens in link mode and a span permalink in span mode rather than the
+ * build's flag deciding retroactively what a shared URL meant.
+ */
+export type ClosureTool = 'link' | 'span';
+
 export interface ExploreUrlState {
   link: string | null;
   scenario: Scenario;
@@ -63,6 +76,8 @@ export interface ExploreUrlState {
   compare: boolean;
   /** The snapshot the permalink was created against, if it recorded one. */
   snapshot: string | null;
+  /** The active closure method. Absent in the URL means `link`. */
+  tool: ClosureTool;
 }
 
 /**
@@ -128,6 +143,16 @@ export function readUrl(search = window.location.search): RestoredUrlState {
       ? { requestedScope, appliedScope: closureScope }
       : null;
 
+  /*
+   * The active closure method. `tool=span` says it explicitly; a URL carrying
+   * span state (`span=1`) but predating the tool field is read as span mode
+   * too, so links shared from the first editor build keep restoring the
+   * editor rather than silently reopening as the other workflow. Absent both,
+   * `link` - every URL that existed before the editor did means link mode.
+   */
+  const tool: ClosureTool =
+    p.get('tool') === 'span' || p.get('span') === '1' ? 'span' : 'link';
+
   return {
     link,
     scenario: {
@@ -146,6 +171,7 @@ export function readUrl(search = window.location.search): RestoredUrlState {
     focus: oneOf<DirectionKey>(p.get('focus'), ['forward', 'reverse'], 'reverse'),
     compare: p.get('compare') === '1',
     snapshot: p.get('snapshot'),
+    tool,
     migration,
   };
 }
@@ -159,6 +185,10 @@ export function buildSearch(s: ExploreUrlState): string {
   p.set('focus', s.focus);
   if (s.compare) p.set('compare', '1');
   if (s.snapshot) p.set('snapshot', s.snapshot);
+  /* Written only when it departs from the default, so every pre-editor URL in
+   * circulation stays byte-identical to what this build would produce for the
+   * same state. */
+  if (s.tool === 'span') p.set('tool', 'span');
   /* Last, so it reads as a property of the whole state rather than of the
    * setting next to it. Written unconditionally: a URL that omits it is, by
    * this build's own rule, a pre-promotion URL. */
@@ -183,6 +213,7 @@ export function buildSearch(s: ExploreUrlState): string {
  */
 const OWN_KEYS = new Set([
   'link', 'metric', 'vehicle', 'scope', 'focus', 'compare', 'snapshot', 'v',
+  'tool',
 ]);
 
 export function writeUrl(s: ExploreUrlState, mode: 'push' | 'replace') {

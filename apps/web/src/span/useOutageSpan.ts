@@ -175,7 +175,15 @@ export function useOutageSpan(
       (candidateId) => dispatch({ type: 'choose-corridor', candidateId }),
       [],
     ),
-    clear: useCallback(() => dispatch({ type: 'clear' }), []),
+    clear: useCallback(() => {
+      /* Clearing cancels, not merely forgets. The sequence check would discard
+       * a late answer anyway, but the request itself keeps a national search
+       * running on the server for a span nobody is looking at - and clearing
+       * is how the closure-method switch leaves span mode, where "cancel the
+       * old mode's requests" is part of the contract. */
+      inFlight.current?.abort();
+      dispatch({ type: 'clear' });
+    }, []),
     restore: useCallback((span) => {
       /* Restoration goes through `/analysis`, which takes exactly what the URL
        * stores and returns both handles in full - so nothing has to be
