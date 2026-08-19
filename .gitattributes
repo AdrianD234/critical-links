@@ -1,0 +1,19 @@
+# Shell scripts must check out with LF, whatever the platform.
+#
+# This repository's shell scripts are run through WSL, and several of them are
+# executed directly rather than passed to an interpreter. On Windows with
+# `core.autocrlf=true` - the default that Git for Windows offers, and what is
+# set on the development machine this was found on - checkout rewrites them
+# with CRLF. The kernel then reads the shebang as `/usr/bin/env bash\r`, treats
+# the carriage return as part of the interpreter name, and reports:
+#
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# Which is an accurate message about a file nobody edited. The failure appears
+# only after a checkout that rewrites the file, so a script can work for weeks
+# and then stop at a `git reset --hard` with no change to its contents - which
+# is how it was found.
+#
+# `eol=lf` overrides autocrlf for these paths on every platform, so the working
+# copy matches what the interpreter needs rather than what the OS prefers.
+*.sh text eol=lf
