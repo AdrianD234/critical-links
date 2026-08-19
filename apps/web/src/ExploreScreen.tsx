@@ -31,6 +31,13 @@ import BottomSheet, { type SheetStop, sheetHeight } from './shell/BottomSheet.js
 import LayerRail, { type MapLayerState } from './shell/LayerRail.js';
 import MapWorkspace from './shell/MapWorkspace.js';
 import TopBar from './shell/TopBar.js';
+import type { Map as MapLibreMap } from 'maplibre-gl';
+
+import { editorEnabled } from './api/outage.js';
+import SpanPanel from './span/SpanPanel.js';
+import { useOutageSpan } from './span/useOutageSpan.js';
+import { useSpanMap } from './span/useSpanMap.js';
+import { readSpanUrl, writeSpanUrl } from './span/spanUrl.js';
 import NetworkMap, {
   type GeometryWarning,
   type HoverInfo,
@@ -473,6 +480,64 @@ export default function ExploreScreen() {
     />
   );
 
+  /* ------------------------------------------------- two-point outage span
+   *
+   * Behind `VITE_ENABLE_OUTAGE_SPAN_EDITOR`. With the flag off none of this
+   * runs, the map is handed to nobody, and the panel is not rendered - so a
+   * build without it is the application as it was.
+   */
+  const spanEnabled = editorEnabled();
+  const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
+  const span = useOutageSpan(scenario.vehicle, scenario.metric);
+  useSpanMap(mapInstance, span, scenario.vehicle, spanEnabled);
+
+  const restoreSpan = span.restore;
+  useEffect(() => {
+    if (!spanEnabled) return;
+    /* A shared span, and every Back or Forward step onto one. Restoration goes
+     * through `/analysis` with the pinned corridor, so it either reproduces
+     * what was shared or reports that it cannot - it never silently closes a
+     * different road. */
+    const apply = () => {
+      const stored = readSpanUrl();
+      if (stored) restoreSpan(stored);
+    };
+    apply();
+    window.addEventListener('popstate', apply);
+    return () => window.removeEventListener('popstate', apply);
+  }, [spanEnabled, restoreSpan]);
+
+  const spanAnalysis = span.state.analysis;
+  useEffect(() => {
+    if (!spanEnabled) return;
+    /* `replace`, not `push`: a span is refined by dragging, and a history entry
+     * per adjustment would bury whatever the reader was looking at before. */
+    writeSpanUrl(
+      spanAnalysis
+        ? {
+            aLinkId: spanAnalysis.permalink.aLinkId,
+            aFraction: spanAnalysis.permalink.aFraction,
+            bLinkId: spanAnalysis.permalink.bLinkId,
+            bFraction: spanAnalysis.permalink.bFraction,
+            corridorId: spanAnalysis.permalink.corridorId,
+            direction: spanAnalysis.permalink.directionMode,
+            vehicle: spanAnalysis.permalink.profile,
+            metric: spanAnalysis.permalink.metric,
+          }
+        : null,
+      'replace',
+    );
+  }, [spanEnabled, spanAnalysis]);
+
+  const spanPanel = spanEnabled ? (
+    <SpanPanel
+      state={span.state}
+      onDirection={span.setDirection}
+      onChooseCorridor={span.chooseCorridor}
+      onClear={span.clear}
+    />
+  ) : null;
+
   const body =
     link === null ? (
       <InspectorEmpty coverage={coverage} />
@@ -586,6 +651,7 @@ export default function ExploreScreen() {
             onHoverChange={setHover}
             onScaleChange={setScale}
             onReady={() => undefined}
+            onMapReady={spanEnabled ? setMapInstance : undefined}
             onGeometryWarning={setGeometryWarning}
             onBasemapError={() => setBasemapFailed(true)}
             homeExtent={coverage.extent}
@@ -649,6 +715,7 @@ export default function ExploreScreen() {
             resizable={!laptop}
             footer={link !== null ? actions : undefined}
           >
+            {spanPanel}
             {body}
           </ContextInspector>
         )
