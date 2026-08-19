@@ -1,10 +1,16 @@
 /*
  * The two-point outage editor.
  *
- * Borrows the inspector's vocabulary rather than inventing one: `.lab`, `.val`,
- * `.sub`, `.headline` and `.tnum` are the same classes the closure inspector
- * uses, so a span reads as the same kind of answer about a different object.
- * Only what is genuinely new to this panel is defined here.
+ * Borrows the inspector's vocabulary rather than inventing one: `.lab`,
+ * `.val`, `.sub`, `.headline` and `.tnum` are the same classes the closure
+ * inspector uses, so a span reads as the same kind of answer about a
+ * different object. Only what is genuinely new to this panel is defined here.
+ *
+ * And it uses the inspector's PAPER palette (`--panel-*`), not the shell's.
+ * The inspector column is light; the first cut of this file used the dark
+ * rail's ink, which rendered the title, the closed-length value and the radio
+ * labels near-invisible on it. Caught from a screenshot, not from the code -
+ * every token here must come from the surface the panel actually sits on.
  *
  * Red is reserved for the closure itself - the road that is shut, and the
  * handles that bound it. The measurement stays in the inspector's neutral ink,
@@ -16,25 +22,25 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border-top: 1px solid var(--shell-line);
+  border-top: 1px solid var(--panel-line);
 }
 
 .span-title {
   margin: 0;
   font-size: var(--text-section);
   font-weight: 600;
-  color: var(--shell-fg);
+  color: var(--panel-fg);
 }
 
 .span-empty {
   margin: 0;
   font-size: var(--text-body);
   line-height: var(--leading-relaxed);
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
 }
 
 .span-empty strong {
-  color: var(--shell-fg);
+  color: var(--panel-fg);
   font-weight: 600;
 }
 
@@ -43,14 +49,14 @@
 .span-closed .val {
   font-size: var(--text-road);
   font-weight: 600;
-  color: var(--shell-fg);
+  color: var(--panel-fg);
   line-height: var(--leading-tight);
 }
 
 .span-closed .unit {
   font-size: var(--text-measure);
   font-weight: 400;
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
   margin-left: 4px;
 }
 
@@ -60,11 +66,11 @@
   margin: 0;
   padding: 9px 11px;
   border-radius: var(--radius-sm, 4px);
-  background: var(--shell-raised);
-  border-left: 3px solid var(--shell-fg-faint);
+  background: var(--panel-inset);
+  border-left: 3px solid var(--panel-muted);
   font-size: var(--text-body);
   line-height: var(--leading-relaxed);
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
 }
 
 .span-note--warn {
@@ -73,7 +79,7 @@
 
 .span-note--fault {
   border-left-color: var(--closure);
-  color: var(--shell-fg);
+  color: var(--panel-fg);
 }
 
 /* --- corridor candidates ----------------------------------------------- */
@@ -94,17 +100,17 @@
   align-items: baseline;
   gap: 12px;
   padding: 9px 11px;
-  background: var(--shell-raised);
-  border: 1px solid var(--shell-line);
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-line);
   border-radius: var(--radius-sm, 4px);
-  color: var(--shell-fg);
+  color: var(--panel-fg);
   font-size: var(--text-body);
   text-align: left;
   cursor: pointer;
 }
 
 .span-candidate:hover {
-  border-color: var(--shell-fg-faint);
+  border-color: var(--panel-muted);
 }
 
 /* The chosen corridor is the one drawn in red on the map, so the control that
@@ -120,7 +126,7 @@
 }
 
 .span-candidate-length {
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
   font-size: var(--text-meta);
   white-space: nowrap;
 }
@@ -147,7 +153,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--text-control);
-  color: var(--shell-fg);
+  color: var(--panel-fg);
   cursor: pointer;
 }
 
@@ -172,13 +178,13 @@
 .span-measures th {
   text-align: left;
   font-weight: 400;
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
   padding: 3px 0;
 }
 
 .span-measures td {
   text-align: right;
-  color: var(--shell-fg);
+  color: var(--panel-fg);
   padding: 3px 0;
 }
 
@@ -186,13 +192,13 @@
 
 .span-method {
   font-size: var(--text-meta);
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
   line-height: var(--leading-relaxed);
 }
 
 .span-method summary {
   cursor: pointer;
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
 }
 
 .span-method summary:focus-visible {
@@ -207,7 +213,7 @@
 .span-provenance {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--shell-fg-faint);
+  color: var(--panel-muted);
   word-break: break-word;
 }
 
@@ -218,16 +224,16 @@
   padding: 6px 12px;
   min-height: var(--control-h-sm);
   background: transparent;
-  border: 1px solid var(--shell-line);
+  border: 1px solid var(--panel-line);
   border-radius: var(--radius-sm, 4px);
-  color: var(--shell-fg-muted);
+  color: var(--panel-muted);
   font-size: var(--text-control);
   cursor: pointer;
 }
 
 .span-clear:hover {
-  color: var(--shell-fg);
-  border-color: var(--shell-fg-faint);
+  color: var(--panel-fg);
+  border-color: var(--panel-muted);
 }
 
 .span-clear:focus-visible {

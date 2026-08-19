@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type Map as MLMap, type MapGeoJSONFeature } from 'maplibre-gl';
 
 import { shortDisplayName } from '../naming.js';
+import type { MapLayerState } from '../shell/LayerRail.js';
 import {
   LABEL_LAYERS,
   LYR,
@@ -182,7 +183,7 @@ export default function NetworkMap({
   inset: { right: number; bottom: number };
   /** A search candidate being previewed before selection. */
   previewLinkId: number | null;
-  layersVisible: { network: boolean; basemap: boolean; labels: boolean };
+  layersVisible: MapLayerState;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -555,9 +556,17 @@ export default function NetworkMap({
       }
     };
     vis(LYR.networkLine, layersVisible.network);
+    /* Presentation mode, not a boolean. `analysis` shows the quiet context;
+     * `topo` adds LINZ streets and their names; `off` hides the lot. The
+     * analytical layers are untouched by any of it - this changes only what
+     * sits underneath them. */
+    const basemapOn = layersVisible.basemap !== 'off';
+    const topo = layersVisible.basemap === 'topo';
     for (const id of [LYR.linzWater, LYR.linzLandcover, LYR.linzBuilding]) {
-      vis(id, layersVisible.basemap);
+      vis(id, basemapOn);
     }
+    vis(LYR.linzRoad, topo);
+    vis(LYR.linzRoadLabel, topo && layersVisible.labels);
     /* The closure label is exempt: it names the thing under analysis, and
      * turning off basemap labels should not hide what the user selected. */
     for (const id of [LYR.linzPlaceLabel, LYR.networkLabel]) {

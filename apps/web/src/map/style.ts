@@ -68,6 +68,8 @@ export const LYR = {
   linzLandcover: 'linz-landcover',
   linzBuilding: 'linz-building',
   linzPlaceLabel: 'linz-place-label',
+  linzRoad: 'linz-road',
+  linzRoadLabel: 'linz-road-label',
   networkLine: 'network-line',
   networkLabel: 'network-label',
   closureLabel: 'closure-label',
@@ -198,6 +200,67 @@ export function baseStyle(tiles: string): StyleSpecification {
         'source-layer': 'building',
         minzoom: 14,
         paint: { 'fill-color': '#252e36', 'fill-opacity': 0.85 },
+      },
+      /*
+       * The TOPOGRAPHIC presentation: LINZ's own road network and its names.
+       *
+       * Hidden by default and shown only in topographic basemap mode. The
+       * quiet Analysis view deliberately omits these so the AMDS analytical
+       * network is the only thing that reads as a road - a LINZ street under
+       * an AMDS link is context for "where am I", never a claim about
+       * routability, and nothing here is clickable or snappable.
+       *
+       * Every colour stays greyer and darker than the network draws with, so
+       * even in topographic mode the analytical layers dominate. In the base
+       * style rather than added later, so they sit UNDER the network, the
+       * closure, the route and the handles by construction.
+       */
+      {
+        id: LYR.linzRoad,
+        type: 'line',
+        source: SRC.linz,
+        'source-layer': 'transportation',
+        layout: {
+          visibility: 'none',
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        filter: ['!', ['in', ['get', 'class'], ['literal', ['path', 'track']]]],
+        paint: {
+          'line-color': [
+            'case',
+            ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]],
+            '#46535f',
+            '#39434c',
+          ],
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            6, ['case', ['in', ['get', 'class'], ['literal', ['motorway', 'trunk']]], 1, 0.4],
+            12, ['case', ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]], 2.4, 1.1],
+            16, ['case', ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary']]], 5, 2.8],
+          ],
+        },
+      },
+      {
+        id: LYR.linzRoadLabel,
+        type: 'symbol',
+        source: SRC.linz,
+        'source-layer': 'transportation_name',
+        minzoom: 12,
+        layout: {
+          visibility: 'none',
+          'symbol-placement': 'line',
+          'text-field': ['get', 'name'],
+          'text-font': LABEL_FONT,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 12],
+        },
+        paint: {
+          /* The basemap's road names, in the basemap's muted ink - visibly a
+           * different kind of label from the closure name in closure red. */
+          'text-color': palette.mapLabel,
+          'text-halo-color': '#12171c',
+          'text-halo-width': 1.4,
+        },
       },
     );
   }
